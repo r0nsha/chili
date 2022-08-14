@@ -3093,27 +3093,9 @@ impl Check for ast::Block {
 
             env.pop_scope();
 
-            let last_statement = statements.last().unwrap();
-
-            let yield_type = if self.yields {
-                last_statement.ty()
-            } else if last_statement.ty().normalize(&sess.tcx).is_never() {
-                sess.tcx.common_types.never
-            } else {
-                unit_type
-            };
-
-            if !self.yields {
-                statements.push(hir::Node::Const(hir::Const {
-                    value: ConstValue::Unit(()),
-                    ty: yield_type,
-                    span: last_statement.span(),
-                }));
-            }
-
             Ok(hir::Node::Sequence(hir::Sequence {
                 statements,
-                ty: yield_type,
+                ty: statements.last().unwrap().ty(),
                 span: self.span,
                 is_scope: true,
             }))

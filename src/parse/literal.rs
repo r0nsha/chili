@@ -129,7 +129,6 @@ impl Parser {
         if eat!(self, CloseCurly) {
             Ok(Ast::Block(ast::Block {
                 statements: vec![],
-                yields: true,
                 span: start_span.to(self.previous_span()),
             }))
         } else if eat!(self, Ident(_)) {

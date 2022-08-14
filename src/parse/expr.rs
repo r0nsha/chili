@@ -172,7 +172,6 @@ impl Parser {
             if eat!(self, CloseCurly) {
                 return Ok(ast::Block {
                     statements,
-                    yields: true,
                     span: start_span.to(self.previous_span()),
                 });
             } else if eat!(self, Semicolon | Newline) {
@@ -201,7 +200,6 @@ impl Parser {
 
         Ok(ast::Block {
             statements,
-            yields: true,
             span: start_span.to(self.previous_span()),
         })
     }
