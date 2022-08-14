@@ -3093,9 +3093,11 @@ impl Check for ast::Block {
 
             env.pop_scope();
 
+            let ty = statements.last().unwrap().ty();
+
             Ok(hir::Node::Sequence(hir::Sequence {
                 statements,
-                ty: statements.last().unwrap().ty(),
+                ty,
                 span: self.span,
                 is_scope: true,
             }))
