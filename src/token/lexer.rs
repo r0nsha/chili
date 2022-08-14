@@ -61,21 +61,24 @@ impl<'lx> Lexer<'lx> {
         } else {
             match ch {
                 '#' => {
-                    if self.eat('!') {
-                        if self.cursor.end_index() == 2 {
-                            // Explicit support for #!
-                            self.eat_line();
-                            self.eat_token()?
-                        } else {
-                            return Err(Diagnostic::error()
-                                .with_message("shebang is only supported on the first line of the file")
-                                .with_label(Label::primary(self.cursor.span(), "invalid shebang")));
-                        }
-                    } else {
-                        return Err(Diagnostic::error()
-                            .with_message(format!("unknown character `{}`", ch))
-                            .with_label(Label::primary(self.cursor.span(), "unknown character")));
-                    }
+                    // This is a comment, eat the rest of the line and then eat the next token.
+                    self.eat_line();
+                    self.eat_token()?
+                    // if self.eat('!') {
+                    //     if self.cursor.end_index() == 2 {
+                    //         // Explicit support for #!
+                    //         self.eat_line();
+                    //         self.eat_token()?
+                    //     } else {
+                    //         return Err(Diagnostic::error()
+                    //             .with_message("shebang is only supported on the first line of the file")
+                    //             .with_label(Label::primary(self.cursor.span(), "invalid shebang")));
+                    //     }
+                    // } else {
+                    //     return Err(Diagnostic::error()
+                    //         .with_message(format!("unknown character `{}`", ch))
+                    //         .with_label(Label::primary(self.cursor.span(), "unknown character")));
+                    // }
                 }
                 '@' => At,
                 ';' => Semicolon,
@@ -111,10 +114,12 @@ impl<'lx> Lexer<'lx> {
                 }
                 '?' => QuestionMark,
                 '/' => {
-                    if self.eat('/') {
-                        self.eat_line();
-                        self.eat_token()?
-                    } else if self.eat('=') {
+                    // if self.eat('/') {
+                    //     // This is a comment, eat the rest of the line and then eat the next token.
+                    //     self.eat_line();
+                    //     self.eat_token()?
+                    // } else
+                    if self.eat('=') {
                         FwSlashEq
                     } else {
                         FwSlash
