@@ -1,9 +1,9 @@
 {
   "name": "chili",
-  "displayName": "chili language support",
-  "publisher": "r0nsha",
+  "displayName": "Chili language support",
+  "publisher": "chili-lang",
   "repository": {
-    "url": "https://github.com/r0nsha/chili-vscode"
+    "url": "https://github.com/r0nsha/chili/tree/main/editors/vscode"
   },
   "description": "",
   "version": "0.0.1",

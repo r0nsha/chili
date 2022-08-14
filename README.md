@@ -1,36 +1,17 @@
-# 🌶 Chili
+# 🌶 The Chili Programming Language
 
-General-purpose programming language focused on productivity, expressiveness and joy of programming™.
+Chili is a general-purpose, compiled programming language, focused on productivity, expressiveness and joy of programming™.
 
-> **🌶 The language is still going through its early iterations.**  
-> Nothing is final, and everything is subject to potential changes.
+Chili brings a robust type system, brings the joy of programming in a modern language, with the performance characteristics of lower-level languages.
 
-## What? Another programming language?
-
-There's still a pretty large gap between high-level and low-level languages.
-
-We either choose complexity and gain performance (i.e manual memory management), or we choose simplicity and lose performance (i.e reference counting or garbage collection).
-
-There are languages such as `Rust` which succeed in making this gap smaller, but the friction is sometimes too high (i.e fighting the borrow checker).
-
-**🌶 Chili** tries to tackle these issues by:
-
-1. Keeping the syntax **orthogonal** and **simple**.
-2. Providing a **robust type system**.
-3. Being **fully open source** and **community-based**, with the goal of **serving the users**.
-
-> **📝 Note:** There are some thought experiments about including
-> ownership, move semantics, or any other strong safety guarantees.
-> As discussed in this section, this brings a big learning-curve and lots of complexities with it,
-> which is why it was not implemented yet.
-
-## Hello World
+## Hello, World
 
 ```rust
-fn main = println("Hello World");
+fn main() =
+  println("Hello, World!")
 ```
 
-For more information about syntax and features, check out the [demo file](https://github.com/r0nsha/chili/blob/main/docs/demo.chl).
+For more information about up-to-date syntax and language features, check out the [demo file](https://github.com/r0nsha/chili/blob/main/docs/demo.chl).
 
 ## Installation
 
@@ -40,15 +21,24 @@ For more information about syntax and features, check out the [demo file](https:
 > - [Set up](https://github.com/llvm/llvm-project/releases/tag/llvmorg-12.0.1) LLVM 12 on your machine (I'm working on including LLVM as part of the project).
 > - [Install](https://www.rust-lang.org/learn/get-started) the rust compiler
 
-As there's no freestanding binary yet, we still need to build the compiler from source:
+As there's no freestanding binary yet, we still need to build the compiler from source. To build the compiler, run:
 
 ```
 cargo build
 ```
 
-### Running the compiler from cargo:
+**Note:** Although the compiler itself supports both Windows and Linux, the standard library is very young, and doesn't support Windows yet. This will be implemented in the near future. Have a look at the [Tasks](#Tasks) section.
 
-The compiler is ran in interpreter mode by default, which means that your code won't run, unless specified with a top level `static` block. Look at the [demo file](https://github.com/r0nsha/chili/blob/main/docs/demo.chl) for more information about compile-time evaluation.
+## Running the example:
+
+1. Clone the repository, and go through the (Installation)[#Installation] section.
+2. Open your favorite terminal
+3. Change directory to the repository's root
+4. Run: `cargo run -- ./docs/hello_world.chl --run`
+
+## Running the compiler from cargo:
+
+The compiler targets the interpreter by default, which means that your `main` function won't run, unless specified with a top level `static` block. Look at the [demo file](https://github.com/r0nsha/chili/blob/main/docs/demo.chl) for more information about compile-time evaluation.
 
 To run the compiler (in interpreter mode):
 
@@ -57,7 +47,7 @@ cargo run -- %source_file_path%
 example: cargo run -- ./build.chl
 ```
 
-As a convinience, you can compile and run a file directly, by specifying the `--run` flag:
+As a convinience, you can compile and run a file directly by adding `--run` or `-r`:
 
 ```
 cargo run -- %source_file_path% --run
@@ -70,7 +60,7 @@ example: cargo run -- ./src/main.chl --run
 
 ## Contributing
 
-As the language is in its very early stages, every contribution will help in shaping Chili into what it will become. The best way to contribute right now, is opening issues/bugs and suggesting features/changes.
+As the language is in its very early stages, every contribution will help in shaping Chili into what it will become. The best way to contribute right now, is opening issues/bugs and suggesting features/changes. This project is open source, and always will be.
 
 [Our Discord Server](https://discord.gg/Tu4s49Pdre)
 
@@ -97,15 +87,14 @@ As the language is in its very early stages, every contribution will help in sha
 - [ ] Runtime type introspection
 - [ ] Printing and formatting
 - [ ] Parametric polymorphism - supporting both types and constant values
-- [ ] Tagged unions
-  - [ ] Pattern matching
-  - [ ] First-class `Option` & `Result` types
+- [ ] Standard library support for Windows
+- [ ] Associated functions / Methods
 - [ ] Memory management model - undecided, but here are some options, from most likely to least likely:
   - [ ] Ownership + ARC
   - [ ] Regions
   - [ ] Ownership
   - [ ] Garbage collection
-- [ ] Associated functions / Methods
+- [ ] Enums & Pattern matching
 - [ ] Traits / Typeclasses
 - [ ] Closures
 - [ ] Named function arguments
