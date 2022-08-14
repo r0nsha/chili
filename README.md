@@ -11,7 +11,7 @@ fn main() =
   println("Hello, World!")
 ```
 
-For more information about up-to-date syntax and language features, check out the [demo file](https://github.com/r0nsha/chili/blob/main/docs/demo.chl).
+For more information about up-to-date syntax and language features, check out the [demo file](https://github.com/r0nsha/chili/blob/main/examples/demo/demo.chl).
 
 ## Installation
 
@@ -34,11 +34,11 @@ cargo build
 1. Clone the repository, and go through the (Installation)[#Installation] section.
 2. Open your favorite terminal
 3. Change directory to the repository's root
-4. Run: `cargo run -- ./docs/hello_world.chl --run`
+4. Run: `cargo run -- ./examples/hello_world.chl --run`
 
 ## Running the compiler from cargo:
 
-The compiler targets the interpreter by default, which means that your `main` function won't run, unless specified with a top level `static` block. Look at the [demo file](https://github.com/r0nsha/chili/blob/main/docs/demo.chl) for more information about compile-time evaluation.
+The compiler targets the interpreter by default, which means that your `main` function won't run, unless specified with a top level `static` block. Look at the [demo file](https://github.com/r0nsha/chili/blob/main/examples/demo/demo.chl) for more information about compile-time evaluation.
 
 To run the compiler (in interpreter mode):
 
