@@ -7,8 +7,7 @@ Chili brings a robust type system, brings the joy of programming in a modern lan
 ## Hello, World
 
 ```rust
-fn main() =
-  println("Hello, World!")
+fn main() = println("Hello, World!")
 ```
 
 For more information about up-to-date syntax and language features, check out the [demo file](https://github.com/r0nsha/chili/blob/main/examples/demo/demo.chl).
@@ -18,8 +17,8 @@ For more information about up-to-date syntax and language features, check out th
 > **🌶 The language is still going through its early iterations.**  
 > To build the compiler from source, you will need to:
 >
-> - [Set up](https://github.com/llvm/llvm-project/releases/tag/llvmorg-12.0.1) LLVM 12 on your machine (I'm working on including LLVM as part of the project).
-> - [Install](https://www.rust-lang.org/learn/get-started) the rust compiler
+> - [Set up](https://github.com/llvm/llvm-project/releases/tag/llvmorg-12.0.1) LLVM 12 on your machine.You should build from source under windows.
+> - [Install](https://www.rust-lang.org/tools/install) the rust compiler
 
 As there's no freestanding binary yet, we still need to build the compiler from source. To build the compiler, run:
 
@@ -27,7 +26,7 @@ As there's no freestanding binary yet, we still need to build the compiler from 
 cargo build
 ```
 
-**Note:** Although the compiler itself supports both Windows and Linux, the standard library is very young, and doesn't support Windows yet. This will be implemented in the near future. Have a look at the [Tasks](#Tasks) section.
+**Note:** Although the compiler itself supports both Windows and Linux(Mac OS support is on the way), the standard library is very young, and doesn't support Windows yet. This will be implemented in the near future. Have a look at the [Tasks](#Tasks) section.
 
 ## Running the example:
 
@@ -56,13 +55,7 @@ example: cargo run -- ./src/main.chl --run
 
 ## Tooling
 
-- VSCode plugin is available [here](https://github.com/r0nsha/chili/tree/main/editors/vscode) (currently includes syntax highlighting)
-
-## Contributing
-
-As the language is in its very early stages, every contribution will help in shaping Chili into what it will become. The best way to contribute right now, is opening issues/bugs and suggesting features/changes. This project is open source, and always will be.
-
-[Our Discord Server](https://discord.gg/Tu4s49Pdre)
+- VSCode plugin is available [here](https://marketplace.visualstudio.com/items?itemName=chili-lang.chili) (currently includes syntax highlighting)
 
 ## Tasks
 
@@ -84,6 +77,7 @@ As the language is in its very early stages, every contribution will help in sha
 - [x] Default function arguments
 - [x] Panic function
 - [x] Varargs
+- [x] Standard library support for Linux
 - [ ] Runtime type introspection
 - [ ] Printing and formatting
 - [ ] Parametric polymorphism - supporting both types and constant values
@@ -98,3 +92,9 @@ As the language is in its very early stages, every contribution will help in sha
 - [ ] Traits / Typeclasses
 - [ ] Closures
 - [ ] Named function arguments
+
+## Contributing
+
+As the language is in its very early stages, every contribution will help in shaping Chili into what it will become. The best way to contribute right now, is opening issues/bugs and suggesting features/changes. This project is open source, and always will be.
+
+[Our Discord Server](https://discord.gg/Tu4s49Pdre)
