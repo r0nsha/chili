@@ -26,7 +26,7 @@ As there's no freestanding binary yet, we still need to build the compiler from 
 cargo build
 ```
 
-**Note:** Although the compiler itself supports both Windows and Linux(Mac OS support is on the way), the standard library is very young, and doesn't support Windows yet. This will be implemented in the near future. Have a look at the [Tasks](#Tasks) section.
+**Note:** Although the compiler itself supports both Windows and Linux (Mac OS support is also planned), the standard library is very young, and doesn't support Windows yet. This will be implemented in the near future. Have a look at the [Tasks](#Tasks) section.
 
 ## Running the example:
 
@@ -41,24 +41,26 @@ The compiler targets the interpreter by default, which means that your `main` fu
 
 To run the compiler (in interpreter mode):
 
-```
-cargo run -- %source_file_path%
-example: cargo run -- ./build.chl
-```
+
+`cargo run -- %source_file_path%` 
+
+example: `cargo run -- ./build.chl`
+
 
 As a convinience, you can compile and run a file directly by adding `--run` or `-r`:
 
-```
-cargo run -- %source_file_path% --run
-example: cargo run -- ./src/main.chl --run
-```
+
+`cargo run -- %source_file_path% --run` 
+
+example: `cargo run -- ./src/main.chl --run`
+
 
 ## Tooling
 
 - VSCode plugin is available [here](https://marketplace.visualstudio.com/items?itemName=chili-lang.chili) (currently includes syntax highlighting)
 
 ## Tasks
-
+### Compiler
 - [x] Functions
 - [x] Variables
 - [x] Static Typing
@@ -77,21 +79,38 @@ example: cargo run -- ./src/main.chl --run
 - [x] Default function arguments
 - [x] Panic function
 - [x] Varargs
-- [x] Standard library support for Linux
 - [ ] Runtime type introspection
 - [ ] Printing and formatting
 - [ ] Parametric polymorphism - supporting both types and constant values
-- [ ] Standard library support for Windows
 - [ ] Associated functions / Methods
 - [ ] Memory management model - undecided, but here are some options, from most likely to least likely:
-  - [ ] Ownership + ARC
   - [ ] Regions
+  - [ ] Ownership + ARC
   - [ ] Ownership
   - [ ] Garbage collection
 - [ ] Enums & Pattern matching
 - [ ] Traits / Typeclasses
 - [ ] Closures
 - [ ] Named function arguments
+- [ ] Code testing
+- [ ] Error handling
+
+### Standard library
+- [ ] OS Abstractions for Windows
+  - [ ] Filesystem API
+  - [ ] Networking and HTTP
+  - [ ] Date/Time
+- [ ] OS Abstractions for Linux
+  - [ ] Filesystem API
+  - [ ] Networking and HTTP
+  - [ ] Date/Time
+- [ ] OS Abstractions for MacOS
+  - [ ] Filesystem API
+  - [ ] Networking and HTTP
+  - [ ] Date/Time
+- [ ] Formatting/Printing
+- [ ] Basic data structure and algorithm
+
 
 ## Contributing
 
