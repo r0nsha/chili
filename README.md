@@ -30,30 +30,9 @@ cargo build
 
 ## Running the example:
 
-1. Clone the repository, and go through the (Installation)[#Installation] section.
-2. Open your favorite terminal
-3. Change directory to the repository's root
-4. Run: `cargo run -- ./examples/hello_world.chl --run`
-
-## Running the compiler from cargo:
-
-The compiler targets the interpreter by default, which means that your `main` function won't run, unless specified with a top level `static` block. Look at the [demo file](https://github.com/r0nsha/chili/blob/main/examples/demo/demo.chl) for more information about compile-time evaluation.
-
-To run the compiler (in interpreter mode):
-
-
-`cargo run -- %source_file_path%` 
-
-example: `cargo run -- ./build.chl`
-
-
-As a convinience, you can compile and run a file directly by adding `--run` or `-r`:
-
-
-`cargo run -- %source_file_path% --run` 
-
-example: `cargo run -- ./src/main.chl --run`
-
+1. Open your favorite terminal
+2. Change directory to Chili's repository's root
+3. Run: `cargo run -- ./examples/hello_world.chl --run`
 
 ## Tooling
 
