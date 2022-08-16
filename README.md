@@ -94,6 +94,7 @@ example: `cargo run -- ./src/main.chl --run`
 - [ ] Named function arguments
 - [ ] Code testing
 - [ ] Error handling
+- [ ] Multithreading
 
 ### Standard library
 - [ ] OS Abstractions for Windows
