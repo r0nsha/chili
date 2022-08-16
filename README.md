@@ -2,7 +2,7 @@
 
 Chili is a general-purpose, compiled programming language, focused on productivity, expressiveness and joy of programming™.
 
-At this stage, Chili brings a robust type system, bringing the syntax and fun of a modern high-level programming language, with the performance characteristics of a low-level language.
+At this stage, Chili brings a robust type system, bringing the syntax and fun of modern high-level programming language, with the performance characteristics of low-level language.
 
 ## Hello, World
 
