@@ -13,7 +13,6 @@ impl Parser {
             if let Err(diag) = self.parse_top_level(&mut module) {
                 self.cache.lock().diagnostics.push(diag);
                 self.skip_until_recovery_point();
-                // return ParserResult::ParserFailed;
             }
         }
 
