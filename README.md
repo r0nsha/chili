@@ -62,7 +62,7 @@ cargo build
 - [ ] Printing and formatting
 - [ ] Parametric polymorphism - supporting both types and constant values
 - [ ] Associated functions / Methods
-- [ ] Memory management model(The design is still in progress)
+- [ ] Memory management model (The design is still in progress)
   - [ ] Ownership (Move & Copy semantics)
   - [ ] Safe references ("Borrowing")
 - [ ] Enums & Pattern matching
@@ -89,7 +89,7 @@ cargo build
 - [ ] Formatting/Printing
 - [ ] Basic data structures
   - [ ] Box
-  - [ ] List/Vec/Seq (names are hard...)
+  - [ ] List/Vec/Seq (It's hard to list them all)
   - [ ] String
   - [ ] HashMap
   - [ ] HashSet
