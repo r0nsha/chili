@@ -45,7 +45,8 @@ pub fn run_output_file(output_file: *str) = {
     } else if os == Os_windows {
         panic("windows")
     } else {
-        printf("os = %d, linux = %d, windows = %d\n".data, os, Os_linux, Os_windows)
+        # TODO: when panic formatting is implemented, use it here
+        printf("os = %d\n".data, os)
         panic("unsupported OS")
     }
 

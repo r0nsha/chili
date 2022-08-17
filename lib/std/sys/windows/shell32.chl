@@ -1,0 +1,11 @@
+let * = import types
+
+@lib("shell32")
+pub extern fn ShellExecuteA(
+    hwnd: HWND,
+    lpOperation: LPCSTR,
+    lpFile: LPCSTR,
+    lpParameters: LPCSTR,
+    lpDirectory: LPCSTR,
+    nShowCmd: HINSTANCE,
+) -> HINSTANCE

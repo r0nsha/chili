@@ -1,0 +1,51 @@
+pub type HANDLE = uint
+pub type HWND = HANDLE
+pub type HINSTANCE = HANDLE
+
+pub type LPSTR = *u8
+pub type LPCSTR = *u8
+pub type LPBYTE = *u8
+
+pub type LPVOID = *()
+
+pub type LPSECURITY_ATTRIBUTES = *SECURITY_ATTRIBUTES
+pub type LPSTARTUPINFOA = *STARTUPINFOA
+pub type LPPROCESS_INFORMATION = *PROCESS_INFORMATION
+
+pub type WORD = u32
+pub type DWORD = u64
+pub type BOOL = u32
+
+pub type SECURITY_ATTRIBUTES = struct {
+    nLength: DWORD
+    lpSecurityDescriptor: LPVOID
+    bInheritHandle: BOOL
+}
+
+pub type STARTUPINFOA = struct {
+    cb: DWORD
+    lpReserved: LPSTR
+    lpDesktop: LPSTR
+    lpTitle: LPSTR
+    dwX: DWORD
+    dwY: DWORD
+    dwXSize: DWORD
+    dwYSize: DWORD
+    dwXCountChars: DWORD
+    dwYCountChars: DWORD
+    dwFillAttribute: DWORD
+    dwFlags: DWORD
+    wShowWindow: WORD
+    cbReserved2: WORD
+    lpReserved2: LPBYTE
+    hStdInput: HANDLE
+    hStdOutput: HANDLE
+    hStdError: HANDLE
+}
+
+pub type PROCESS_INFORMATION = struct {
+    hProcess: HANDLE
+    hThread: HANDLE
+    dwProcessId: DWORD
+    dwThreadId: DWORD
+}
