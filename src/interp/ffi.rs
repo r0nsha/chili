@@ -2,7 +2,7 @@ use super::{
     interp::Interp,
     vm::{
         bytecode::Op,
-        value::{ExternFunction, Function, FunctionValue, Value},
+        value::{ExternFunction, Function, FunctionValue, Pointer, Value},
         VM,
     },
     IS_64BIT,
@@ -160,8 +160,13 @@ impl FfiFunction {
                 Value::Bool(v) => raw_ptr!(v),
                 Value::F32(v) => raw_ptr!(v),
                 Value::F64(v) => raw_ptr!(v),
-                Value::Buffer(v) => raw_ptr!(&mut v.bytes.as_mut_ptr()),
-                Value::Pointer(ptr) => raw_ptr!(ptr.as_raw()),
+                Value::Buffer(buf) => raw_ptr!(&mut buf.bytes.as_mut_ptr()),
+                Value::Pointer(ptr) => match ptr {
+                    Pointer::Buffer(buf) => {
+                        raw_ptr!(&mut (**buf).bytes.as_mut_ptr())
+                    }
+                    _ => raw_ptr!(ptr.as_raw()),
+                },
                 Value::Function(addr) => match (*vm).interp.get_function(addr.id).unwrap() {
                     FunctionValue::Orphan(function) => {
                         let ffi_function = FfiFunction::new(

@@ -14,45 +14,67 @@ fn build = {
 	# }
 
 	# let (output_file, ok) = start_workspace(workspace)
+	let output_file = "D:\\Projects\\chili-lang\\examples\\playground\\out\\main.exe\0"
+	if true {
+		let w = std.sys.windows
 
-	# if ok {
-	# 	std.c.printf("%s\n".data, output_file.data)
+		std.c.printf("%s\n".data, output_file.data)
 
-		let si = std.sys.windows.types.STARTUPINFO {
-			# cb: size_of!(std.sys.windows.types.STARTUPINFO),
-			# lpReserved: 0 as uint as _,
-			# lpDesktop: 0 as uint as _,
-			# lpTitle: 0 as uint as _,
-			# dwX: 0,
-			# dwY: 0,
-			# dwXSize: 0,
-			# dwYSize: 0,
-			# dwXCountChars: 0,
-			# dwYCountChars: 0,
-			# dwFillAttribute: 0,
-			# dwFlags: 0,
-			# wShowWindow: 0,
-			# cbReserved2: 0,
-			# lpReserved2: 0 as uint as _,
-			# hStdInput: 0,
-			# hStdOutput: 0,
-			# hStdError: 0,
+		let si = w.types.STARTUPINFO {
+			cb: size_of!(w.types.STARTUPINFO),
+			lpReserved: 0 as uint as _,
+			lpDesktop: 0 as uint as _,
+			lpTitle: 0 as uint as _,
+			dwX: 0,
+			dwY: 0,
+			dwXSize: 0,
+			dwYSize: 0,
+			dwXCountChars: 0,
+			dwYCountChars: 0,
+			dwFillAttribute: 0,
+			dwFlags: 0,
+			wShowWindow: 0,
+			cbReserved2: 0,
+			lpReserved2: 0 as uint as _,
+			hStdInput: 0,
+			hStdOutput: 0,
+			hStdError: 0,
 		}
 
-	# 	std.sys.windows.kernel32.CreateProcessA(
-	# 		0 as uint as _,
-	# 		output_file.data,
-	# 		0 as uint as _,
-	# 		0 as uint as _,
-	# 		0,
-	# 		0,
-	# 		0 as uint as _,
-	# 		0 as uint as _,
-	# 		0 as uint as _,
-	# 		0 as uint as _,
-	# 	)
-	# 	# run_output_file(output_file)
-	# }
+		let mut pi = w.types.PROCESS_INFORMATION {
+			hProcess: 0,
+			hThread: 0,
+			dwProcessId: 0,
+			dwThreadId: 0,
+		}
+
+		println("AAA")
+		let result = w.kernel32.CreateProcessA(
+			output_file.data,
+			0 as uint as _,
+			0 as uint as _,
+			0 as uint as _,
+			0,
+			0,
+			0 as uint as _,
+			0 as uint as _,
+			&si,
+			&mut pi,
+		)
+		println("BBB")
+
+		if result != 0 {
+			std.c.printf("hProcess = %d\n".data, pi.hProcess)
+			w.kernel32.WaitForSingleObject(pi.hProcess, w.types.INFINITE)
+			w.kernel32.CloseHandle(pi.hProcess)
+			()
+		} else {
+			std.c.printf("error = %d\n".data, w.kernel32.GetLastError())
+			()
+		}
+
+		# run_output_file(output_file)
+	}
 }
 
 static { build() }

@@ -1,6 +1,8 @@
 let * = import types
 
-@lib("kernel32")
+let kernel32 = "kernel32"
+
+@lib(kernel32)
 pub extern fn CreateProcessA(
     lpApplicationName: LPCSTR,
     lpCommandLine: LPSTR,
@@ -13,3 +15,12 @@ pub extern fn CreateProcessA(
     lpStartupInfo: LPSTARTUPINFO,
     lpProcessInformation: *mut PROCESS_INFORMATION,
 ) -> BOOL
+
+@lib(kernel32)
+pub extern fn WaitForSingleObject(hHandle: HANDLE, dwMilliseconds: DWORD) -> DWORD
+
+@lib(kernel32)
+pub extern fn CloseHandle(hObject: HANDLE) -> BOOL
+
+@lib(kernel32)
+pub extern fn GetLastError() -> DWORD

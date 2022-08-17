@@ -20,6 +20,7 @@ use crate::{
     types::{FunctionType, FunctionTypeKind, Type},
     workspace::{BindingId, ModuleId, Workspace},
 };
+use bumpalo::Bump;
 use std::collections::{HashMap, HashSet};
 use ustr::{ustr, Ustr};
 
@@ -72,6 +73,7 @@ impl Interp {
             loop_env_stack: vec![],
             statically_initialized_globals: vec![],
             lowered_functions: HashSet::new(),
+            bump: Bump::new(),
         }
     }
 
@@ -98,6 +100,8 @@ pub struct InterpSess<'i> {
 
     // Functions currently lowered, cached to prevent infinite recursion in recursive functions
     pub lowered_functions: HashSet<hir::FunctionId>,
+
+    pub bump: Bump,
 }
 
 pub struct LoopEnv {
@@ -194,7 +198,7 @@ impl<'i> InterpSess<'i> {
     }
 
     pub fn create_vm(&'i mut self) -> VM<'i> {
-        VM::new(self.interp)
+        VM::new(self.interp, &mut self.bump)
     }
 
     pub fn push_const(&mut self, code: &mut Bytecode, value: Value) -> usize {

@@ -49,3 +49,6 @@ pub type PROCESS_INFORMATION = struct {
     dwProcessId: DWORD
     dwThreadId: DWORD
 }
+
+# TODO: Move to a more suitable place
+pub let INFINITE = 0xFFFFFFFF

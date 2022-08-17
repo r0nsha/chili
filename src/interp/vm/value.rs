@@ -287,9 +287,19 @@ impl Buffer {
     }
 
     pub fn as_str(&self) -> &str {
-        std::str::from_utf8(self.as_slice::<u8>()).unwrap()
+        let slice = self.as_slice::<u8>();
+
+        // TODO: remove this nul terminator handle hack
+        let slice_without_nul = if slice.last().map_or(false, |c| *c == b'\0') {
+            &slice[..slice.len() - 1]
+        } else {
+            slice
+        };
+
+        std::str::from_utf8(slice_without_nul).unwrap()
     }
 
+    #[allow(unused)]
     pub fn from_ustr(s: Ustr) -> Self {
         let ty = Type::str_pointer();
         let size = ty.size_of(WORD_SIZE);
@@ -299,6 +309,40 @@ impl Buffer {
         bytes
             .offset_mut(0)
             .put_value(&Value::Pointer(Pointer::U8(s.as_char_ptr() as *mut u8)));
+
+        bytes
+            .offset_mut(ty.offset_of(1, WORD_SIZE))
+            .put_value(&Value::Uint(s.len()));
+
+        Buffer { bytes, ty }
+    }
+
+    pub fn from_str(s: &mut str) -> Self {
+        let ty = Type::str_pointer();
+        let size = ty.size_of(WORD_SIZE);
+
+        let mut bytes = ByteSeq::new(size);
+
+        bytes
+            .offset_mut(0)
+            .put_value(&Value::Pointer(Pointer::U8(s.as_mut_ptr())));
+
+        bytes
+            .offset_mut(ty.offset_of(1, WORD_SIZE))
+            .put_value(&Value::Uint(s.len()));
+
+        Buffer { bytes, ty }
+    }
+
+    pub fn from_str_bytes(s: &mut [u8]) -> Self {
+        let ty = Type::str_pointer();
+        let size = ty.size_of(WORD_SIZE);
+
+        let mut bytes = ByteSeq::new(size);
+
+        bytes
+            .offset_mut(0)
+            .put_value(&Value::Pointer(Pointer::U8(s.as_mut_ptr())));
 
         bytes
             .offset_mut(ty.offset_of(1, WORD_SIZE))
