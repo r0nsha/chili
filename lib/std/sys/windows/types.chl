@@ -9,7 +9,7 @@ pub type LPBYTE = *u8
 pub type LPVOID = *()
 
 pub type LPSECURITY_ATTRIBUTES = *SECURITY_ATTRIBUTES
-pub type LPSTARTUPINFOA = *STARTUPINFOA
+pub type LPSTARTUPINFO = *STARTUPINFO
 pub type LPPROCESS_INFORMATION = *PROCESS_INFORMATION
 
 pub type WORD = u32
@@ -22,7 +22,7 @@ pub type SECURITY_ATTRIBUTES = struct {
     bInheritHandle: BOOL
 }
 
-pub type STARTUPINFOA = struct {
+pub type STARTUPINFO = struct {
     cb: DWORD
     lpReserved: LPSTR
     lpDesktop: LPSTR

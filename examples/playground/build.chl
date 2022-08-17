@@ -1,23 +1,58 @@
 let * = import std/build
 
 fn build = {
-	let build_options = BuildOptions {
-        input_file: "src/main.chl",
-        output_file: "out/main",
-        target: BuildTarget_auto,
-        optimization_level: OptimizationLevel_debug,
-	}
+	# let build_options = BuildOptions {
+    #     input_file: "src/main.chl",
+    #     output_file: "out/main",
+    #     target: BuildTarget_auto,
+    #     optimization_level: OptimizationLevel_debug,
+	# }
 
-	let workspace = Workspace {
-		name: "hello",
-		build_options
-	}
+	# let workspace = Workspace {
+	# 	name: "hello",
+	# 	build_options
+	# }
 
-	let (output_file, ok) = start_workspace(workspace)
+	# let (output_file, ok) = start_workspace(workspace)
 
-	if ok {
-		run_output_file(output_file)
-	}
+	# if ok {
+	# 	std.c.printf("%s\n".data, output_file.data)
+
+		let si = std.sys.windows.types.STARTUPINFO {
+			# cb: size_of!(std.sys.windows.types.STARTUPINFO),
+			# lpReserved: 0 as uint as _,
+			# lpDesktop: 0 as uint as _,
+			# lpTitle: 0 as uint as _,
+			# dwX: 0,
+			# dwY: 0,
+			# dwXSize: 0,
+			# dwYSize: 0,
+			# dwXCountChars: 0,
+			# dwYCountChars: 0,
+			# dwFillAttribute: 0,
+			# dwFlags: 0,
+			# wShowWindow: 0,
+			# cbReserved2: 0,
+			# lpReserved2: 0 as uint as _,
+			# hStdInput: 0,
+			# hStdOutput: 0,
+			# hStdError: 0,
+		}
+
+	# 	std.sys.windows.kernel32.CreateProcessA(
+	# 		0 as uint as _,
+	# 		output_file.data,
+	# 		0 as uint as _,
+	# 		0 as uint as _,
+	# 		0,
+	# 		0,
+	# 		0 as uint as _,
+	# 		0 as uint as _,
+	# 		0 as uint as _,
+	# 		0 as uint as _,
+	# 	)
+	# 	# run_output_file(output_file)
+	# }
 }
 
 static { build() }

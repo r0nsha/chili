@@ -162,40 +162,67 @@ impl Parser {
     }
 
     pub fn parse_block(&mut self) -> DiagnosticResult<ast::Block> {
-        require!(self, OpenCurly, "{")?;
+        let start_span = require!(self, OpenCurly, "{")?.span;
 
-        let start_span = self.previous_span();
+        self.skip_newlines();
 
         let mut statements = vec![];
 
-        while !self.eof() {
-            if eat!(self, CloseCurly) {
-                return Ok(ast::Block {
-                    statements,
-                    yields: true,
-                    span: start_span.to(self.previous_span()),
-                });
-            } else if eat!(self, Semicolon | Newline) {
+        while !eat!(self, CloseCurly) && !self.eof() {
+            self.skip_newlines();
+
+            let statement = self.parse_statement().unwrap_or_else(|diag| {
+                let span = self.previous_span();
+
+                self.cache.lock().diagnostics.push(diag);
+                self.skip_until_recovery_point();
+
+                ast::Ast::Error(ast::Empty { span })
+            });
+
+            statements.push(statement);
+
+            if eat!(self, Semicolon | Newline) {
                 continue;
+            } else if eat!(self, CloseCurly) {
+                break;
             } else {
-                let statement = self.parse_statement().unwrap_or_else(|diag| {
-                    let span = self.previous_span();
-
-                    self.cache.lock().diagnostics.push(diag);
-                    self.skip_until_recovery_point();
-
-                    ast::Ast::Error(ast::Empty { span })
-                });
-
-                statements.push(statement);
-                // statements.push(self.parse_statement()?);
+                let span = Parser::get_missing_delimiter_span(self.previous_span());
+                return Err(SyntaxError::expected(
+                    span,
+                    &format!("{}, got {}", "new line, ; or }", self.peek().kind.lexeme()),
+                ));
             }
         }
 
-        self.cache
-            .lock()
-            .diagnostics
-            .push(SyntaxError::expected(self.span(), "}"));
+        // while !self.eof() {
+        //     if eat!(self, CloseCurly) {
+        //         return Ok(ast::Block {
+        //             statements,
+        //             yields: true,
+        //             span: start_span.to(self.previous_span()),
+        //         });
+        //     } else if eat!(self, Semicolon | Newline) {
+        //         continue;
+        //     } else {
+        //         let statement = self.parse_statement().unwrap_or_else(|diag| {
+        //             let span = self.previous_span();
+
+        //             self.cache.lock().diagnostics.push(diag);
+        //             self.skip_until_recovery_point();
+
+        //             ast::Ast::Error(ast::Empty { span })
+        //         });
+
+        //         statements.push(statement);
+        //         // statements.push(self.parse_statement()?);
+        //     }
+        // }
+
+        // self.cache
+        //     .lock()
+        //     .diagnostics
+        //     .push(SyntaxError::expected(self.span(), "}"));
 
         self.skip_until_recovery_point();
 

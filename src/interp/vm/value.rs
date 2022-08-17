@@ -775,13 +775,19 @@ impl Pointer {
             Type::Array(inner, size) => {
                 let bytes = ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE));
 
-                let array = Box::new(Buffer { bytes, ty: ty.clone() });
+                let buf = Box::new(Buffer { bytes, ty: ty.clone() });
 
                 // Note (Ron): Leak
-                Self::Buffer(Box::leak(array) as *mut Buffer)
+                Self::Buffer(Box::leak(buf) as *mut Buffer)
             }
-            Type::Tuple(_) => todo!(),
-            Type::Struct(_) => todo!(),
+            Type::Tuple(_) | Type::Struct(_) => {
+                let bytes = ByteSeq::copy_from_raw_parts(ptr as _, ty.size_of(WORD_SIZE));
+
+                let buf = Box::new(Buffer { bytes, ty: ty.clone() });
+
+                // Note (Ron): Leak
+                Self::Buffer(Box::leak(buf) as *mut Buffer)
+            }
             Type::Infer(_, InferType::AnyInt) => Self::Int(ptr as _),
             Type::Infer(_, InferType::AnyFloat) => {
                 if IS_64BIT {

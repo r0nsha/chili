@@ -27,8 +27,12 @@ impl ByteSeq {
     }
 
     pub fn copy_from_raw_parts(data: *const u8, len: usize) -> Self {
-        let slice = unsafe { slice::from_raw_parts(data, len) };
-        Self::copy_from_slice(slice)
+        if data.is_null() {
+            Self::new(len)
+        } else {
+            let slice = unsafe { slice::from_raw_parts(data, len) };
+            Self::copy_from_slice(slice)
+        }
     }
 
     pub fn copy_from_slice(slice: &[u8]) -> Self {

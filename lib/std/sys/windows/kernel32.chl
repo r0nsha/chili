@@ -10,6 +10,6 @@ pub extern fn CreateProcessA(
     dwCreationFlags: DWORD,
     lpEnvironment: LPVOID,
     lpCurrentDirectory: LPCSTR,
-    lpStartupInfo: LPSTARTUPINFOA,
+    lpStartupInfo: LPSTARTUPINFO,
     lpProcessInformation: *mut PROCESS_INFORMATION,
 ) -> BOOL
