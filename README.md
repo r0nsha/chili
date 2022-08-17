@@ -2,7 +2,7 @@
 
 Chili is a general-purpose, compiled programming language, focused on productivity, expressiveness and joy of programming™.
 
-At this stage, Chili brings a robust type system, bringing the syntax and fun of modern high-level programming language, with the performance characteristics of low-level language.
+At this stage, Chili brings the syntax and fun of a modern, high-level programming language, a robust type system and the performance characteristics of a low-level language.
 
 ## Hello, World
 
@@ -62,18 +62,16 @@ cargo build
 - [ ] Printing and formatting
 - [ ] Parametric polymorphism - supporting both types and constant values
 - [ ] Associated functions / Methods
-- [ ] Memory management model - undecided, but here are some options, from most likely to least likely:
-  - [ ] Regions
-  - [ ] Ownership + ARC
-  - [ ] Ownership
-  - [ ] Garbage collection
+- [ ] Memory management model(The design is still in progress)
+  - [ ] Ownership (Move & Copy semantics)
+  - [ ] Safe references ("Borrowing")
 - [ ] Enums & Pattern matching
+  - [ ] Option & Result types
+  - [ ] Try ? operator
 - [ ] Traits / Typeclasses
 - [ ] Closures
 - [ ] Named function arguments
-- [ ] Code testing
-- [ ] Error handling
-- [ ] Multithreading
+- [ ] Built-in code testing
 
 ### Standard library
 - [ ] OS Abstractions for Windows
@@ -89,8 +87,12 @@ cargo build
   - [ ] Networking and HTTP
   - [ ] Date/Time
 - [ ] Formatting/Printing
-- [ ] Basic data structure and algorithm
-
+- [ ] Basic data structures
+  - [ ] Box
+  - [ ] List/Vec/Seq (names are hard...)
+  - [ ] String
+  - [ ] HashMap
+  - [ ] HashSet
 
 ## Contributing
 
