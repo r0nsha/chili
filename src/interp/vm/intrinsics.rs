@@ -11,10 +11,7 @@ use crate::{
     types::Type,
 };
 use path_absolutize::Absolutize;
-use std::{
-    ffi::{CStr, CString},
-    path::PathBuf,
-};
+use std::path::PathBuf;
 
 impl<'vm> VM<'vm> {
     pub fn dispatch_intrinsic(&mut self, intrinsic: IntrinsicFunction) {
@@ -58,33 +55,16 @@ impl<'vm> VM<'vm> {
 
                 let result = crate::driver::start_workspace(workspace_value.name.to_string(), build_options);
 
-                let (output_file_bytes, ok) = if let Some(output_file) = &result.output_file {
-                    // TODO: Remove null terminator after implementing printing/formatting:
-                    // CString::new(output_file.to_str().unwrap())
-                    //     .unwrap()
-                    //     .into_bytes_with_nul();
-                    // let output_file_with_nul = output_file.to_str().unwrap().to_string();
-                    // output_file_with_nul.push('\0');
-                    // output_file_with_nul.push('\0');
-                    (
-                        self.bump.alloc_slice_copy(
-                            &CString::new(output_file.to_str().unwrap())
-                                .unwrap()
-                                .into_bytes_with_nul(),
-                        ),
-                        true,
-                    )
+                let (output_file, ok) = if let Some(output_file) = &result.output_file {
+                    (self.bump.alloc_str(output_file.to_str().unwrap()), true)
                 } else {
-                    (self.bump.alloc_slice_copy(b"\0"), false)
+                    (self.bump.alloc_str(""), false)
                 };
 
                 let result_type = Type::Tuple(vec![Type::str_pointer(), Type::Bool]);
 
                 let result_value = Value::Buffer(Buffer::from_values(
-                    [
-                        Value::Buffer(Buffer::from_str_bytes(output_file_bytes)),
-                        Value::Bool(ok),
-                    ],
+                    [Value::Buffer(Buffer::from_str(output_file)), Value::Bool(ok)],
                     result_type,
                 ));
 
