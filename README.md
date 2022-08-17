@@ -65,6 +65,7 @@ cargo build
 - [ ] Memory management model (The design is still in progress)
   - [ ] Ownership (Move & Copy semantics)
   - [ ] Safe references ("Borrowing")
+  - [ ] Regions
 - [ ] Enums & Pattern matching
   - [ ] Option & Result types
   - [ ] Try ? operator
