@@ -2,13 +2,12 @@
 
 Chili is a general-purpose, compiled programming language, focused on productivity, expressiveness and joy of programming™.
 
-Chili brings a robust type system, brings the joy of programming in a modern language, with the performance characteristics of lower-level languages.
+At this stage, Chili brings the syntax and fun of a modern, high-level programming language, a robust type system and the performance characteristics of a low-level language.
 
 ## Hello, World
 
 ```rust
-fn main() =
-  println("Hello, World!")
+fn main() = println("Hello, World!")
 ```
 
 For more information about up-to-date syntax and language features, check out the [demo file](https://github.com/r0nsha/chili/blob/main/examples/demo/demo.chl).
@@ -18,8 +17,8 @@ For more information about up-to-date syntax and language features, check out th
 > **🌶 The language is still going through its early iterations.**  
 > To build the compiler from source, you will need to:
 >
-> - [Set up](https://github.com/llvm/llvm-project/releases/tag/llvmorg-12.0.1) LLVM 12 on your machine (I'm working on including LLVM as part of the project).
-> - [Install](https://www.rust-lang.org/learn/get-started) the rust compiler
+> - [Set up](https://github.com/llvm/llvm-project/releases/tag/llvmorg-12.0.1) LLVM 12 on your machine. Windows users need to build from source.
+> - [Install](https://www.rust-lang.org/tools/install) the rust compiler
 
 As there's no freestanding binary yet, we still need to build the compiler from source. To build the compiler, run:
 
@@ -27,45 +26,20 @@ As there's no freestanding binary yet, we still need to build the compiler from 
 cargo build
 ```
 
-**Note:** Although the compiler itself supports both Windows and Linux, the standard library is very young, and doesn't support Windows yet. This will be implemented in the near future. Have a look at the [Tasks](#Tasks) section.
+**Note:** Although the compiler itself supports both Windows and Linux (Mac OS support is also planned), the standard library is very young, and doesn't support Windows yet. This will be implemented in the near future. Have a look at the [Tasks](#Tasks) section.
 
 ## Running the example:
 
-1. Clone the repository, and go through the (Installation)[#Installation] section.
-2. Open your favorite terminal
-3. Change directory to the repository's root
-4. Run: `cargo run -- ./examples/hello_world.chl --run`
-
-## Running the compiler from cargo:
-
-The compiler targets the interpreter by default, which means that your `main` function won't run, unless specified with a top level `static` block. Look at the [demo file](https://github.com/r0nsha/chili/blob/main/examples/demo/demo.chl) for more information about compile-time evaluation.
-
-To run the compiler (in interpreter mode):
-
-```
-cargo run -- %source_file_path%
-example: cargo run -- ./build.chl
-```
-
-As a convinience, you can compile and run a file directly by adding `--run` or `-r`:
-
-```
-cargo run -- %source_file_path% --run
-example: cargo run -- ./src/main.chl --run
-```
+1. Open your favorite terminal
+2. Change directory to Chili's repository's root
+3. Run: `cargo run -- ./examples/hello_world.chl --run`
 
 ## Tooling
 
-- VSCode plugin is available [here](https://github.com/r0nsha/chili/tree/main/editors/vscode) (currently includes syntax highlighting)
-
-## Contributing
-
-As the language is in its very early stages, every contribution will help in shaping Chili into what it will become. The best way to contribute right now, is opening issues/bugs and suggesting features/changes. This project is open source, and always will be.
-
-[Our Discord Server](https://discord.gg/Tu4s49Pdre)
+- VSCode plugin is available [here](https://marketplace.visualstudio.com/items?itemName=chili-lang.chili) (currently includes syntax highlighting)
 
 ## Tasks
-
+### Compiler
 - [x] Functions
 - [x] Variables
 - [x] Static Typing
@@ -87,14 +61,42 @@ As the language is in its very early stages, every contribution will help in sha
 - [ ] Runtime type introspection
 - [ ] Printing and formatting
 - [ ] Parametric polymorphism - supporting both types and constant values
-- [ ] Standard library support for Windows
 - [ ] Associated functions / Methods
-- [ ] Memory management model - undecided, but here are some options, from most likely to least likely:
-  - [ ] Ownership + ARC
+- [ ] Memory management model (The design is still in progress)
+  - [ ] Ownership (Move & Copy semantics)
+  - [ ] Safe references ("Borrowing")
   - [ ] Regions
-  - [ ] Ownership
-  - [ ] Garbage collection
 - [ ] Enums & Pattern matching
+  - [ ] Option & Result types
+  - [ ] Try ? operator
 - [ ] Traits / Typeclasses
 - [ ] Closures
 - [ ] Named function arguments
+- [ ] Built-in code testing
+
+### Standard library
+- [ ] OS Abstractions for Windows
+  - [ ] Filesystem API
+  - [ ] Networking and HTTP
+  - [ ] Date/Time
+- [ ] OS Abstractions for Linux
+  - [ ] Filesystem API
+  - [ ] Networking and HTTP
+  - [ ] Date/Time
+- [ ] OS Abstractions for MacOS
+  - [ ] Filesystem API
+  - [ ] Networking and HTTP
+  - [ ] Date/Time
+- [ ] Formatting/Printing
+- [ ] Basic data structures
+  - [ ] Box
+  - [ ] List/Vec/Seq (Haven't settled on a name yet)
+  - [ ] String
+  - [ ] HashMap
+  - [ ] HashSet
+
+## Contributing
+
+As the language is in its very early stages, every contribution will help in shaping Chili into what it will become. The best way to contribute right now, is opening issues/bugs and suggesting features/changes. This project is open source, and always will be.
+
+[Our Discord Server](https://discord.gg/Tu4s49Pdre)
