@@ -664,11 +664,20 @@ impl Check for ast::Binding {
                                     .with_label(Label::primary(span, "cannot define a library")));
                             }
 
-                            (
-                                get_qualified_name(env.scope_name(), name),
-                                hir::FunctionKind::Intrinsic(intrinsic),
-                                BindingInfoKind::Intrinsic,
-                            )
+                            match intrinsic {
+                                hir::Intrinsic::StartWorkspace
+                                | hir::Intrinsic::Location
+                                | hir::Intrinsic::CallerLocation => (
+                                    get_qualified_name(env.scope_name(), name),
+                                    hir::FunctionKind::Intrinsic(intrinsic),
+                                    BindingInfoKind::Intrinsic(intrinsic),
+                                ),
+                                hir::Intrinsic::Os => {
+                                    return Err(Diagnostic::error()
+                                        .with_message(format!("intrinsic name `{}` is reserved for a variable", name))
+                                        .with_label(Label::primary(span, "intrinsic is a variable")))
+                                }
+                            }
                         }
                         Err(_) => {
                             return Err(Diagnostic::error()
@@ -737,16 +746,64 @@ impl Check for ast::Binding {
                     name
                 };
 
-                let value = hir::Node::Const(hir::Const {
-                    value: ConstValue::ExternVariable(ConstExternVariable {
-                        name: link_name,
-                        lib: lib.clone(),
-                        dylib: dylib.or(lib),
-                        ty,
-                    }),
-                    ty,
-                    span,
-                });
+                let (value, binding_kind) = if attrs.has(AttrKind::Intrinsic) {
+                    match hir::Intrinsic::try_from(name.as_str()) {
+                        Ok(intrinsic) => {
+                            if lib.is_some() || dylib.is_some() || attrs.has(AttrKind::LinkName) {
+                                return Err(Diagnostic::error()
+                                    .with_message("intrinsic variable cannot have a library defined")
+                                    .with_label(Label::primary(span, "cannot define a library")));
+                            }
+
+                            let (value, value_ty) = match intrinsic {
+                                hir::Intrinsic::Os => {
+                                    (ConstValue::from_os(sess.target_metrics.os), sess.tcx.common_types.uint)
+                                }
+                                _ => {
+                                    return Err(Diagnostic::error()
+                                        .with_message(format!("intrinsic name `{}` is reserved for a function", name))
+                                        .with_label(Label::primary(span, "intrinsic is a function")));
+                                }
+                            };
+
+                            ty.unify(&value_ty, &mut sess.tcx).or_report_err(
+                                &sess.tcx,
+                                &value_ty,
+                                Some(span),
+                                &ty,
+                                type_expr.span(),
+                            )?;
+
+                            (
+                                hir::Node::Const(hir::Const {
+                                    value,
+                                    ty: value_ty,
+                                    span,
+                                }),
+                                BindingInfoKind::Intrinsic(intrinsic),
+                            )
+                        }
+                        Err(_) => {
+                            return Err(Diagnostic::error()
+                                .with_message(format!("unknown intrinsic variable `{}`", name))
+                                .with_label(Label::primary(span, "unknown intrinsic function")))
+                        }
+                    }
+                } else {
+                    (
+                        hir::Node::Const(hir::Const {
+                            value: ConstValue::ExternVariable(ConstExternVariable {
+                                name: link_name,
+                                lib: lib.clone(),
+                                dylib: dylib.or(lib),
+                                ty,
+                            }),
+                            ty,
+                            span,
+                        }),
+                        BindingInfoKind::ExternVariable,
+                    )
+                };
 
                 sess.bind_name(
                     env,
@@ -755,7 +812,7 @@ impl Check for ast::Binding {
                     ty,
                     Some(value),
                     *is_mutable,
-                    BindingInfoKind::ExternVariable,
+                    binding_kind,
                     span,
                     BindingInfoFlags::IS_USER_DEFINED,
                 )
@@ -2349,6 +2406,14 @@ impl Check for ast::Binary {
             (Some(lhs), Some(rhs)) if const_fold::is_valid_binary_op(self.op) => {
                 let const_value = const_fold::binary(lhs, rhs, self.op, self.span, &sess.tcx)?;
 
+                // println!(
+                //     "{} {} {} => {}",
+                //     lhs.display(&sess.tcx),
+                //     self.op,
+                //     rhs.display(&sess.tcx),
+                //     const_value.display(&sess.tcx)
+                // );
+
                 Ok(hir::Node::Const(hir::Const {
                     value: const_value,
                     ty: result_type,
@@ -2603,7 +2668,7 @@ impl Check for ast::Call {
                 match &function.kind {
                     hir::FunctionKind::Intrinsic(intrinsic) => match intrinsic {
                         hir::Intrinsic::Location | hir::Intrinsic::CallerLocation => Some(*intrinsic),
-                        hir::Intrinsic::StartWorkspace => None,
+                        hir::Intrinsic::StartWorkspace | hir::Intrinsic::Os => None,
                     },
                     _ => None,
                 }
@@ -2953,7 +3018,7 @@ impl Check for ast::Call {
                                 })
                             })
                         }
-                        hir::Intrinsic::StartWorkspace => unreachable!(),
+                        hir::Intrinsic::StartWorkspace | hir::Intrinsic::Os => unreachable!(),
                     }
                 } else {
                     Ok(hir::Node::Call(hir::Call {

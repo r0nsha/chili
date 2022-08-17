@@ -7,7 +7,7 @@ use crate::{
     },
     define_id_type,
     error::{emit_diagnostics, emitter::ColorMode, Diagnostics},
-    hir::const_value::ConstValue,
+    hir::{self, const_value::ConstValue},
     span::{FileId, Span},
     types::TypeId,
 };
@@ -78,7 +78,7 @@ pub enum BindingInfoKind {
     Function,
     ExternFunction,
     ExternVariable,
-    Intrinsic,
+    Intrinsic(hir::Intrinsic),
     Type,
 }
 

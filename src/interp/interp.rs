@@ -9,7 +9,11 @@ use super::{
     },
 };
 use crate::{
-    common::{build_options::BuildOptions, scopes::Scopes},
+    common::{
+        build_options::BuildOptions,
+        scopes::Scopes,
+        target::{TargetMetrics, TargetPlatform},
+    },
     error::diagnostic::Diagnostic,
     hir,
     infer::type_ctx::TypeCtx,
@@ -22,6 +26,8 @@ use ustr::{ustr, Ustr};
 pub type InterpResult = Result<Value, Vec<Diagnostic>>;
 
 pub struct Interp {
+    pub target_metrics: TargetMetrics,
+
     pub globals: Globals,
     pub constants: Constants,
 
@@ -37,6 +43,9 @@ pub struct Interp {
 impl Interp {
     pub fn new(build_options: BuildOptions) -> Self {
         Self {
+            target_metrics: TargetPlatform::current()
+                .unwrap_or_else(|name| panic!("target platform `{}` is not supported yet", name))
+                .metrics(),
             globals: vec![],
             constants: vec![Value::unit()],
             functions: HashMap::new(),
