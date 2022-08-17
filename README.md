@@ -17,7 +17,7 @@ For more information about up-to-date syntax and language features, check out th
 > **🌶 The language is still going through its early iterations.**  
 > To build the compiler from source, you will need to:
 >
-> - [Set up](https://github.com/llvm/llvm-project/releases/tag/llvmorg-12.0.1) LLVM 12 on your machine.You should build from source under windows.
+> - [Set up](https://github.com/llvm/llvm-project/releases/tag/llvmorg-12.0.1) LLVM 12 on your machine. Windows users need to build from source.
 > - [Install](https://www.rust-lang.org/tools/install) the rust compiler
 
 As there's no freestanding binary yet, we still need to build the compiler from source. To build the compiler, run:
@@ -90,7 +90,7 @@ cargo build
 - [ ] Formatting/Printing
 - [ ] Basic data structures
   - [ ] Box
-  - [ ] List/Vec/Seq (It's hard to list them all)
+  - [ ] List/Vec/Seq (Haven't settled on a name yet)
   - [ ] String
   - [ ] HashMap
   - [ ] HashSet
