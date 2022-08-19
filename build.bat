@@ -17,6 +17,6 @@ if %mode% == "release" (
 
 rd /s /q %dir%
 mkdir %dir%
-cd %dir%
-xcopy /E /I /S /F ..\..\target\%mode%\chili.exe chili.exe
-@REM copy -r ..\..\lib lib
+copy LLVM-C.dll %dir%\LLVM-C.dll >NUL
+copy target\%mode%\chili.exe %dir%\chili.exe >NUL
+xcopy lib %dir%\lib /E /I >NUL
