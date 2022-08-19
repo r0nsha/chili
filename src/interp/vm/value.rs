@@ -816,6 +816,36 @@ impl Pointer {
             },
             Type::Pointer(inner, _) => match inner.as_ref() {
                 Type::Slice(_) | Type::Str(_) => {
+                    if ptr.is_null() {
+                        Self::Buffer(std::ptr::null_mut())
+                    } else {
+                        let bytes = ByteSeq::copy_from_raw_parts(ptr as _, ty.size_of(WORD_SIZE));
+
+                        let buf = Box::new(Buffer { bytes, ty: ty.clone() });
+
+                        // Note (Ron): Leak
+                        Self::Buffer(Box::leak(buf) as *mut Buffer)
+                    }
+                }
+                _ => Self::from_type_and_ptr(inner, ptr),
+            },
+            Type::Function(_) => todo!(),
+            Type::Array(inner, size) => {
+                if ptr.is_null() {
+                    Self::Buffer(std::ptr::null_mut())
+                } else {
+                    let bytes = ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE));
+
+                    let buf = Box::new(Buffer { bytes, ty: ty.clone() });
+
+                    // Note (Ron): Leak
+                    Self::Buffer(Box::leak(buf) as *mut Buffer)
+                }
+            }
+            Type::Tuple(_) | Type::Struct(_) => {
+                if ptr.is_null() {
+                    Self::Buffer(std::ptr::null_mut())
+                } else {
                     let bytes = ByteSeq::copy_from_raw_parts(ptr as _, ty.size_of(WORD_SIZE));
 
                     let buf = Box::new(Buffer { bytes, ty: ty.clone() });
@@ -823,24 +853,6 @@ impl Pointer {
                     // Note (Ron): Leak
                     Self::Buffer(Box::leak(buf) as *mut Buffer)
                 }
-                _ => Self::from_type_and_ptr(inner, ptr),
-            },
-            Type::Function(_) => todo!(),
-            Type::Array(inner, size) => {
-                let bytes = ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE));
-
-                let buf = Box::new(Buffer { bytes, ty: ty.clone() });
-
-                // Note (Ron): Leak
-                Self::Buffer(Box::leak(buf) as *mut Buffer)
-            }
-            Type::Tuple(_) | Type::Struct(_) => {
-                let bytes = ByteSeq::copy_from_raw_parts(ptr as _, ty.size_of(WORD_SIZE));
-
-                let buf = Box::new(Buffer { bytes, ty: ty.clone() });
-
-                // Note (Ron): Leak
-                Self::Buffer(Box::leak(buf) as *mut Buffer)
             }
             Type::Infer(_, InferType::AnyInt) => Self::Int(ptr as _),
             Type::Infer(_, InferType::AnyFloat) => {

@@ -18,8 +18,6 @@ fn build = {
 	if ok {
 		let w = std.sys.windows
 
-		std.c.printf("%s\n".data, output_file.data)
-
 		let si = w.types.STARTUPINFO {
 			cb: size_of!(w.types.STARTUPINFO) as _,
 			lpReserved: 0 as uint as _,
@@ -48,7 +46,7 @@ fn build = {
 			dwThreadId: 0,
 		}
 
-		println("AAA")
+		"AAAAAAA"
 		let result = w.kernel32.CreateProcessA(
 			output_file.data,
 			0 as uint as _, # null
@@ -61,18 +59,16 @@ fn build = {
 			&si,
 			&mut pi,
 		)
-		std.c.printf("error = %d\n".data, w.kernel32.GetLastError())
-		# println("BBB")
 
-		# if result != 0 {
-		# 	std.c.printf("hProcess = %d\n".data, pi.hProcess)
-		# 	# w.kernel32.WaitForSingleObject(pi.hProcess, w.types.INFINITE)
-		# 	# w.kernel32.CloseHandle(pi.hProcess)
-		# 	()
-		# } else {
-		# 	std.c.printf("error = %d\n".data, w.kernel32.GetLastError())
-		# 	()
-		# }
+		if result != 0 {
+			std.c.printf("hProcess = %d\n".data, pi.hProcess)
+			# w.kernel32.WaitForSingleObject(pi.hProcess, w.types.INFINITE)
+			# w.kernel32.CloseHandle(pi.hProcess)
+			()
+		} else {
+			std.c.printf("error = %d\n".data, w.kernel32.GetLastError())
+			()
+		}
 
 		# run_output_file(output_file)
 	}

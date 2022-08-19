@@ -143,7 +143,7 @@ impl FfiFunction {
         let code_ptr = CodePtr::from_ptr(fun);
 
         let mut args: Vec<RawPointer> = Vec::with_capacity(arg_values.len());
-        let bump = Bump::with_capacity(arg_values.len() * 2);
+        let bump = Bump::new();
 
         for arg in arg_values.iter_mut() {
             let arg_ptr = match arg {
@@ -164,11 +164,9 @@ impl FfiFunction {
                 Value::Pointer(ptr) => match ptr {
                     Pointer::Buffer(buf) => {
                         if buf.is_null() {
-                            raw_ptr!(&mut std::ptr::null_mut::<u8>())
+                            raw_ptr!(buf)
                         } else {
-                            let alloc_arg = bump.alloc_slice_copy(&(**buf).bytes.inner);
-                            // raw_ptr!(&mut (**buf).bytes.as_mut_ptr())
-                            raw_ptr!(alloc_arg.as_mut_ptr())
+                            raw_ptr!(bump.alloc((&mut **buf).bytes.as_mut_ptr()))
                         }
                     }
                     _ => raw_ptr!(ptr.as_raw()),
