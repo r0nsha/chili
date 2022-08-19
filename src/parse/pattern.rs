@@ -112,6 +112,7 @@ impl Parser {
                 self.skip_newlines();
 
                 if eat!(self, Comma) {
+                    self.skip_newlines();
                     continue;
                 } else if eat!(self, CloseCurly) {
                     break;

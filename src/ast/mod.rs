@@ -38,6 +38,31 @@ impl Module {
             consts: vec![],
         }
     }
+
+    pub fn find_binding(&self, name: Ustr) -> Option<(usize, &Binding)> {
+        self.bindings
+            .iter()
+            .enumerate()
+            .find(|(_, binding)| match &binding.kind {
+                BindingKind::Orphan { pattern, .. } => pattern.iter().any(|pattern| pattern.name == name),
+                BindingKind::Function {
+                    name: NameAndSpan { name: binding_name, .. },
+                    ..
+                }
+                | BindingKind::ExternFunction {
+                    name: NameAndSpan { name: binding_name, .. },
+                    ..
+                }
+                | BindingKind::ExternVariable {
+                    name: NameAndSpan { name: binding_name, .. },
+                    ..
+                }
+                | BindingKind::Type {
+                    name: NameAndSpan { name: binding_name, .. },
+                    ..
+                } => *binding_name == name,
+            })
+    }
 }
 
 define_id_type!(FunctionId);
@@ -322,7 +347,7 @@ pub struct Literal {
 pub enum LiteralKind {
     Nil,
     Bool(bool),
-    Int(i64),
+    Int(u64),
     Float(f64),
     Str(Ustr),
     Char(char),

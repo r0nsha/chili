@@ -287,9 +287,19 @@ impl Buffer {
     }
 
     pub fn as_str(&self) -> &str {
-        std::str::from_utf8(self.as_slice::<u8>()).unwrap()
+        let slice = self.as_slice::<u8>();
+
+        // TODO: remove this nul terminator handle hack
+        let slice_without_nul = if slice.last().map_or(false, |c| *c == b'\0') {
+            &slice[..slice.len() - 1]
+        } else {
+            slice
+        };
+
+        std::str::from_utf8(slice_without_nul).unwrap()
     }
 
+    #[allow(unused)]
     pub fn from_ustr(s: Ustr) -> Self {
         let ty = Type::str_pointer();
         let size = ty.size_of(WORD_SIZE);
@@ -299,6 +309,40 @@ impl Buffer {
         bytes
             .offset_mut(0)
             .put_value(&Value::Pointer(Pointer::U8(s.as_char_ptr() as *mut u8)));
+
+        bytes
+            .offset_mut(ty.offset_of(1, WORD_SIZE))
+            .put_value(&Value::Uint(s.len()));
+
+        Buffer { bytes, ty }
+    }
+
+    pub fn from_str(s: &mut str) -> Self {
+        let ty = Type::str_pointer();
+        let size = ty.size_of(WORD_SIZE);
+
+        let mut bytes = ByteSeq::new(size);
+
+        bytes
+            .offset_mut(0)
+            .put_value(&Value::Pointer(Pointer::U8(s.as_mut_ptr())));
+
+        bytes
+            .offset_mut(ty.offset_of(1, WORD_SIZE))
+            .put_value(&Value::Uint(s.len()));
+
+        Buffer { bytes, ty }
+    }
+
+    pub fn from_str_bytes(s: &mut [u8]) -> Self {
+        let ty = Type::str_pointer();
+        let size = ty.size_of(WORD_SIZE);
+
+        let mut bytes = ByteSeq::new(size);
+
+        bytes
+            .offset_mut(0)
+            .put_value(&Value::Pointer(Pointer::U8(s.as_mut_ptr())));
 
         bytes
             .offset_mut(ty.offset_of(1, WORD_SIZE))
@@ -431,6 +475,7 @@ impl From<hir::Intrinsic> for IntrinsicFunction {
                 "intrinsic function '{}' should have been evaluated at compile-time",
                 intrinsic
             ),
+            hir::Intrinsic::Os | hir::Intrinsic::Arch => panic!("unexpected intrinsic variable '{}'", intrinsic),
         }
     }
 }
@@ -769,18 +814,46 @@ impl Pointer {
                     }
                 }
             },
-            Type::Pointer(ty, _) => Self::from_type_and_ptr(ty, ptr),
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(_) | Type::Str(_) => {
+                    if ptr.is_null() {
+                        Self::Buffer(std::ptr::null_mut())
+                    } else {
+                        let bytes = ByteSeq::copy_from_raw_parts(ptr as _, ty.size_of(WORD_SIZE));
+
+                        let buf = Box::new(Buffer { bytes, ty: ty.clone() });
+
+                        // Note (Ron): Leak
+                        Self::Buffer(Box::leak(buf) as *mut Buffer)
+                    }
+                }
+                _ => Self::from_type_and_ptr(inner, ptr),
+            },
             Type::Function(_) => todo!(),
             Type::Array(inner, size) => {
-                let bytes = ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE));
+                if ptr.is_null() {
+                    Self::Buffer(std::ptr::null_mut())
+                } else {
+                    let bytes = ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE));
 
-                let array = Box::new(Buffer { bytes, ty: ty.clone() });
+                    let buf = Box::new(Buffer { bytes, ty: ty.clone() });
 
-                // Note (Ron): Leak
-                Self::Buffer(Box::leak(array) as *mut Buffer)
+                    // Note (Ron): Leak
+                    Self::Buffer(Box::leak(buf) as *mut Buffer)
+                }
             }
-            Type::Tuple(_) => todo!(),
-            Type::Struct(_) => todo!(),
+            Type::Tuple(_) | Type::Struct(_) => {
+                if ptr.is_null() {
+                    Self::Buffer(std::ptr::null_mut())
+                } else {
+                    let bytes = ByteSeq::copy_from_raw_parts(ptr as _, ty.size_of(WORD_SIZE));
+
+                    let buf = Box::new(Buffer { bytes, ty: ty.clone() });
+
+                    // Note (Ron): Leak
+                    Self::Buffer(Box::leak(buf) as *mut Buffer)
+                }
+            }
             Type::Infer(_, InferType::AnyInt) => Self::Int(ptr as _),
             Type::Infer(_, InferType::AnyFloat) => {
                 if IS_64BIT {

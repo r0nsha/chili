@@ -9,19 +9,26 @@ use super::{
     },
 };
 use crate::{
-    common::{build_options::BuildOptions, scopes::Scopes},
+    common::{
+        build_options::BuildOptions,
+        scopes::Scopes,
+        target::{TargetMetrics, TargetPlatform},
+    },
     error::diagnostic::Diagnostic,
     hir,
     infer::type_ctx::TypeCtx,
     types::{FunctionType, FunctionTypeKind, Type},
     workspace::{BindingId, ModuleId, Workspace},
 };
+use bumpalo::Bump;
 use std::collections::{HashMap, HashSet};
 use ustr::{ustr, Ustr};
 
 pub type InterpResult = Result<Value, Vec<Diagnostic>>;
 
 pub struct Interp {
+    pub target_metrics: TargetMetrics,
+
     pub globals: Globals,
     pub constants: Constants,
 
@@ -37,6 +44,9 @@ pub struct Interp {
 impl Interp {
     pub fn new(build_options: BuildOptions) -> Self {
         Self {
+            target_metrics: TargetPlatform::current()
+                .unwrap_or_else(|name| panic!("target platform `{}` is not supported yet", name))
+                .metrics(),
             globals: vec![],
             constants: vec![Value::unit()],
             functions: HashMap::new(),
@@ -63,6 +73,7 @@ impl Interp {
             loop_env_stack: vec![],
             statically_initialized_globals: vec![],
             lowered_functions: HashSet::new(),
+            bump: Bump::new(),
         }
     }
 
@@ -89,6 +100,8 @@ pub struct InterpSess<'i> {
 
     // Functions currently lowered, cached to prevent infinite recursion in recursive functions
     pub lowered_functions: HashSet<hir::FunctionId>,
+
+    pub bump: Bump,
 }
 
 pub struct LoopEnv {
@@ -185,7 +198,7 @@ impl<'i> InterpSess<'i> {
     }
 
     pub fn create_vm(&'i mut self) -> VM<'i> {
-        VM::new(self.interp)
+        VM::new(self.interp, &mut self.bump)
     }
 
     pub fn push_const(&mut self, code: &mut Bytecode, value: Value) -> usize {

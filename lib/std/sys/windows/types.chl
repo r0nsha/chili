@@ -1,0 +1,92 @@
+# TODO (ICE): this stack overflows
+# let c = import std/c
+
+# TODO: Switch these to use types from std/c
+pub type BYTE = u8
+pub type CHAR = u8
+pub type WCHAR = u16
+pub type DWORD = u64
+pub type QWORD = u64
+pub type BOOL = u32
+pub type INT = i32
+pub type UINT = u32
+pub type WORD = u16
+
+pub type UINT8 =  u8
+pub type UINT16 = u16
+pub type UINT32 = u32
+pub type UINT64 = u64
+
+pub type INT8 =  i8
+pub type INT16 = i16
+pub type INT32 = i32
+pub type INT64 = i64
+
+pub type ULONG64 = u64
+pub type LONG64 = i64
+
+pub type HANDLE = uint
+pub type HWND = HANDLE
+pub type HINSTANCE = HANDLE
+
+pub type LPVOID = *()
+pub type LPBYTE = *BYTE
+pub type LPBOOL = *BOOL
+pub type LPSTR = *CHAR
+pub type LPWSTR = *WCHAR
+pub type LPCSTR = *CHAR
+pub type LPCWSTR = *WCHAR
+pub type LPDWORD = *DWORD
+pub type LPHANDLE = *HANDLE
+pub type LPSECURITY_ATTRIBUTES = *SECURITY_ATTRIBUTES
+pub type LPSTARTUPINFO = *STARTUPINFO
+pub type LPPROCESS_INFORMATION = *PROCESS_INFORMATION
+
+pub type SECURITY_ATTRIBUTES = struct {
+    nLength: DWORD
+    lpSecurityDescriptor: LPVOID
+    bInheritHandle: BOOL
+}
+
+pub type STARTUPINFO = struct {
+    cb: DWORD
+    lpReserved: LPSTR
+    lpDesktop: LPSTR
+    lpTitle: LPSTR
+    dwX: DWORD
+    dwY: DWORD
+    dwXSize: DWORD
+    dwYSize: DWORD
+    dwXCountChars: DWORD
+    dwYCountChars: DWORD
+    dwFillAttribute: DWORD
+    dwFlags: DWORD
+    wShowWindow: WORD
+    cbReserved2: WORD
+    lpReserved2: LPBYTE
+    hStdInput: HANDLE
+    hStdOutput: HANDLE
+    hStdError: HANDLE
+}
+
+pub type PROCESS_INFORMATION = struct {
+    hProcess: HANDLE
+    hThread: HANDLE
+    dwProcessId: DWORD
+    dwThreadId: DWORD
+}
+
+pub let TRUE: BOOL = 1
+pub let FALSE: BOOL = 0
+pub let INFINITE = 0xFFFFFFFF
+
+pub let CP_ACP = 0          # default to ANSI code page
+pub let CP_OEMCP = 1        # default to OEM code page
+pub let CP_MACCP = 2        # default to MAC code page
+pub let CP_THREAD_ACP = 3   # current thread's ANSI code page
+pub let CP_SYMBOL = 42      # SYMBOL translations
+pub let CP_UTF7 = 65000     # UTF-7 translation
+pub let CP_UTF8 = 65001     # UTF-8 translation
+
+pub let MB_ERR_INVALID_CHARS = 8
+pub let WC_ERR_INVALID_CHARS = 128

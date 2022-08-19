@@ -82,16 +82,14 @@ impl Parser {
         let open_curly_span = require!(self, OpenCurly, "{")?.span;
         let start_span = type_expr.as_ref().map(|e| e.span()).unwrap_or(open_curly_span);
 
+        self.skip_newlines();
+
         let fields = parse_delimited_list!(
             self,
             CloseCurly,
             Comma,
             {
-                let id_token = if eat!(self, Ident(_)) {
-                    *self.previous()
-                } else {
-                    break;
-                };
+                let id_token = require!(self, Ident(_), "an identifier")?;
 
                 self.skip_newlines();
 
@@ -104,12 +102,10 @@ impl Parser {
                     })
                 };
 
-                let span = expr.span();
-
                 StructLiteralField {
                     name: id_token.name(),
                     expr,
-                    span: id_token.span.to(span),
+                    span: id_token.span,
                 }
             },
             ", or }"

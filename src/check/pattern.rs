@@ -360,6 +360,12 @@ impl<'s> CheckSess<'s> {
 
                 self.check_module_by_id(module_id)?;
 
+                // println!(
+                //     "`{}` -> `{}`",
+                //     env.module_info().name,
+                //     self.workspace.module_infos[module_id].name,
+                // );
+
                 let module_bindings = self.global_scopes.get(&module_id).unwrap().bindings.clone();
 
                 for pattern in unpack_pattern.sub_patterns.iter() {
@@ -396,9 +402,10 @@ impl<'s> CheckSess<'s> {
 
                             let caller_info = CallerInfo {
                                 module_id: env.module_id(),
-                                span: span,
+                                span,
                             };
 
+                            // dbg!(module_bindings.keys().collect::<Vec<_>>());
                             let id = match module_bindings.get(&name) {
                                 Some(id) => *id,
                                 None => return Err(self.name_not_found_error(module_id, name, caller_info)),

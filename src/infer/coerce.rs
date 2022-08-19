@@ -73,16 +73,20 @@ impl Coerce for Type {
             (Type::Pointer(left, lmut), Type::Pointer(right, rmut)) => {
                 if can_coerce_mut(*lmut, *rmut) {
                     match (left.as_ref(), right.as_ref()) {
-                        // * array[N] of T -> slice of T
+                        // *array[N] of T -> slice of T
                         (Type::Array(left, _), Type::Slice(right)) => left
                             .as_ref()
                             .unify(right.as_ref(), tcx)
                             .map_or(NoCoercion, |_| CoerceToRight),
-                        // * array[N] of T -> pointer of T
+                        // *array[N] of T -> pointer of T
                         (Type::Array(left, _), right) => {
                             left.as_ref().unify(right, tcx).map_or(NoCoercion, |_| CoerceToRight)
                         }
-                        _ => NoCoercion,
+                        // *T -> *U
+                        _ => left
+                            .as_ref()
+                            .unify(right.as_ref(), tcx)
+                            .map_or(NoCoercion, |_| CoerceToRight),
                     }
                 } else {
                     NoCoercion

@@ -12,6 +12,7 @@ use super::{
         value::{Buffer, Function, Value},
     },
 };
+use bumpalo::Bump;
 use colored::Colorize;
 use std::{fmt::Display, ptr};
 use ustr::ustr;
@@ -117,15 +118,17 @@ macro_rules! logic_op {
 
 pub struct VM<'vm> {
     pub interp: &'vm mut Interp,
+    pub bump: &'vm mut Bump,
     pub stack: Stack<Value, STACK_MAX>,
     pub frames: Stack<StackFrame<'vm>, FRAMES_MAX>,
     pub frame: *mut StackFrame<'vm>,
 }
 
 impl<'vm> VM<'vm> {
-    pub fn new(interp: &'vm mut Interp) -> Self {
+    pub fn new(interp: &'vm mut Interp, bump: &'vm mut Bump) -> Self {
         Self {
             interp,
+            bump,
             stack: Stack::new(),
             frames: Stack::new(),
             frame: ptr::null_mut(),

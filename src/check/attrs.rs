@@ -97,7 +97,7 @@ impl<'s> CheckSess<'s> {
         for (_, attr) in attrs.iter() {
             match attr.kind {
                 AttrKind::Intrinsic => match &binding.kind {
-                    ast::BindingKind::ExternFunction { .. } => (),
+                    ast::BindingKind::ExternFunction { .. } | ast::BindingKind::ExternVariable { .. } => (),
                     _ => return Err(invalid_attr_use(attr, "can only be used on extern functions")),
                 },
                 AttrKind::Lib | AttrKind::Dylib | AttrKind::LinkName => match &binding.kind {

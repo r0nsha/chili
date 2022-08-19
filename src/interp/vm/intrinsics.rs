@@ -12,7 +12,6 @@ use crate::{
 };
 use path_absolutize::Absolutize;
 use std::path::PathBuf;
-use ustr::ustr;
 
 impl<'vm> VM<'vm> {
     pub fn dispatch_intrinsic(&mut self, intrinsic: IntrinsicFunction) {
@@ -56,16 +55,21 @@ impl<'vm> VM<'vm> {
 
                 let result = crate::driver::start_workspace(workspace_value.name.to_string(), build_options);
 
-                let (output_file_str, ok) = if let Some(output_file) = &result.output_file {
-                    (ustr(output_file.to_str().unwrap()), true)
+                let (output_file, ok) = if let Some(output_file) = &result.output_file {
+                    // TODO: Remove null terminator after implementing printing/formatting
+                    (
+                        self.bump
+                            .alloc_slice_copy(format!("{}\0", output_file.to_str().unwrap()).as_bytes()),
+                        true,
+                    )
                 } else {
-                    (ustr(""), false)
+                    (self.bump.alloc_slice_copy(b""), false)
                 };
 
                 let result_type = Type::Tuple(vec![Type::str_pointer(), Type::Bool]);
 
                 let result_value = Value::Buffer(Buffer::from_values(
-                    [Value::Buffer(Buffer::from_ustr(output_file_str)), Value::Bool(ok)],
+                    [Value::Buffer(Buffer::from_str_bytes(output_file)), Value::Bool(ok)],
                     result_type,
                 ));
 

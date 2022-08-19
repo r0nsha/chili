@@ -123,11 +123,15 @@ pub enum Intrinsic {
     StartWorkspace,
     Location,
     CallerLocation,
+    Os,
+    Arch,
 }
 
 pub const INTRINSIC_NAME_START_WORKSPACE: &str = "start_workspace";
 pub const INTRINSIC_NAME_LOCATION: &str = "location";
 pub const INTRINSIC_NAME_CALLER_LOCATION: &str = "caller_location";
+pub const INTRINSIC_NAME_OS: &str = "os";
+pub const INTRINSIC_NAME_ARCH: &str = "arch";
 
 impl TryFrom<&str> for Intrinsic {
     type Error = ();
@@ -137,6 +141,8 @@ impl TryFrom<&str> for Intrinsic {
             INTRINSIC_NAME_START_WORKSPACE => Ok(Intrinsic::StartWorkspace),
             INTRINSIC_NAME_LOCATION => Ok(Intrinsic::Location),
             INTRINSIC_NAME_CALLER_LOCATION => Ok(Intrinsic::CallerLocation),
+            INTRINSIC_NAME_OS => Ok(Intrinsic::Os),
+            INTRINSIC_NAME_ARCH => Ok(Intrinsic::Arch),
             _ => Err(()),
         }
     }
@@ -151,6 +157,8 @@ impl Display for Intrinsic {
                 Intrinsic::StartWorkspace => INTRINSIC_NAME_START_WORKSPACE,
                 Intrinsic::Location => INTRINSIC_NAME_LOCATION,
                 Intrinsic::CallerLocation => INTRINSIC_NAME_CALLER_LOCATION,
+                Intrinsic::Os => INTRINSIC_NAME_OS,
+                Intrinsic::Arch => INTRINSIC_NAME_ARCH,
             }
         )
     }
