@@ -1,7 +1,7 @@
 let { 
     panic, 
     intrinsics: { os, Os_linux, Os_windows },
-    c: { printf }
+    c: { printf },
 } = import lib
 
 pub fn start(output_file: *str) = {
