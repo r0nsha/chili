@@ -50,14 +50,14 @@ fn build = {
 
 		println("AAA")
 		let result = w.kernel32.CreateProcessA(
-			0 as uint as _,
 			output_file.data,
-			0 as uint as _,
-			0 as uint as _,
+			0 as uint as _, # null
+			0 as uint as _, # null
+			0 as uint as _, # null
 			0,
 			0,
-			0 as uint as _,
-			0 as uint as _,
+			0 as uint as _, # null
+			0 as uint as _, # null
 			&si,
 			&mut pi,
 		)

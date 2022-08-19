@@ -76,6 +76,8 @@ pub type PROCESS_INFORMATION = struct {
     dwThreadId: DWORD
 }
 
+pub let TRUE: BOOL = 1
+pub let FALSE: BOOL = 0
 pub let INFINITE = 0xFFFFFFFF
 
 pub let CP_ACP = 0          # default to ANSI code page

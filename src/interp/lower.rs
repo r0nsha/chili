@@ -864,13 +864,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
             }
             _ => panic!("invalid ty {:?}", ty),
         },
-        ConstValue::Str(str) => {
-            // TODO: Remove null terminator after implementing printing/formatting
-            // Value::Buffer(Buffer::from_str(sess.bump.alloc_str(str.as_str())))
-            Value::Buffer(Buffer::from_str_bytes(
-                sess.bump.alloc_slice_copy(format!("{}\0", str).as_bytes()),
-            ))
-        }
+        ConstValue::Str(str) => Value::Buffer(Buffer::from_ustr(*str)),
         ConstValue::Tuple(elems) => Value::Buffer(Buffer::from_values(
             elems
                 .iter()
