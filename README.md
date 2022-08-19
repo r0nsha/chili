@@ -14,7 +14,7 @@ For more information about up-to-date syntax and language features, check out th
 
 ## Installation
 
-> **🌶 The language is still going through its early iterations.**  
+> **🌶 The language is still going through its early iterations.**
 > To build the compiler from source, you will need to:
 >
 > - [Set up](https://github.com/llvm/llvm-project/releases/tag/llvmorg-12.0.1) LLVM 12 on your machine. Windows users need to build from source.
@@ -39,7 +39,9 @@ cargo build
 - VSCode plugin is available [here](https://marketplace.visualstudio.com/items?itemName=chili-lang.chili) (currently includes syntax highlighting)
 
 ## Tasks
+
 ### Compiler
+
 - [x] Functions
 - [x] Variables
 - [x] Static Typing
@@ -75,6 +77,7 @@ cargo build
 - [ ] Built-in code testing
 
 ### Standard library
+
 - [ ] OS Abstractions for Windows
   - [ ] Filesystem API
   - [ ] Networking and HTTP
