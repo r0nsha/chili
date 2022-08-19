@@ -27,3 +27,9 @@ pub let Os_windows: Os = 1
 
 @intrinsic
 pub extern let os: Os
+
+pub type Arch = uint
+pub let Arch_amd64: Os = 0
+
+@intrinsic
+pub extern let arch: Arch

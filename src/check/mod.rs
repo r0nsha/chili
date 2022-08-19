@@ -672,7 +672,7 @@ impl Check for ast::Binding {
                                     hir::FunctionKind::Intrinsic(intrinsic),
                                     BindingInfoKind::Intrinsic(intrinsic),
                                 ),
-                                hir::Intrinsic::Os => {
+                                hir::Intrinsic::Os | hir::Intrinsic::Arch => {
                                     return Err(Diagnostic::error()
                                         .with_message(format!("intrinsic name `{}` is reserved for a variable", name))
                                         .with_label(Label::primary(span, "intrinsic is a variable")))
@@ -759,7 +759,13 @@ impl Check for ast::Binding {
                                 hir::Intrinsic::Os => {
                                     (ConstValue::from_os(sess.target_metrics.os), sess.tcx.common_types.uint)
                                 }
-                                _ => {
+                                hir::Intrinsic::Arch => (
+                                    ConstValue::from_arch(sess.target_metrics.arch),
+                                    sess.tcx.common_types.uint,
+                                ),
+                                hir::Intrinsic::StartWorkspace
+                                | hir::Intrinsic::Location
+                                | hir::Intrinsic::CallerLocation => {
                                     return Err(Diagnostic::error()
                                         .with_message(format!("intrinsic name `{}` is reserved for a function", name))
                                         .with_label(Label::primary(span, "intrinsic is a function")));
@@ -2668,7 +2674,7 @@ impl Check for ast::Call {
                 match &function.kind {
                     hir::FunctionKind::Intrinsic(intrinsic) => match intrinsic {
                         hir::Intrinsic::Location | hir::Intrinsic::CallerLocation => Some(*intrinsic),
-                        hir::Intrinsic::StartWorkspace | hir::Intrinsic::Os => None,
+                        hir::Intrinsic::StartWorkspace | hir::Intrinsic::Os | hir::Intrinsic::Arch => None,
                     },
                     _ => None,
                 }
@@ -3018,7 +3024,7 @@ impl Check for ast::Call {
                                 })
                             })
                         }
-                        hir::Intrinsic::StartWorkspace | hir::Intrinsic::Os => unreachable!(),
+                        hir::Intrinsic::StartWorkspace | hir::Intrinsic::Os | hir::Intrinsic::Arch => unreachable!(),
                     }
                 } else {
                     Ok(hir::Node::Call(hir::Call {

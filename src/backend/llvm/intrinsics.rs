@@ -39,7 +39,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 "intrinsic function '{}' should have been evaluated at compile-time",
                 intrinsic
             ),
-            hir::Intrinsic::Os => panic!("unexpected intrinsic variable '{}'", intrinsic),
+            hir::Intrinsic::Os | hir::Intrinsic::Arch => panic!("unexpected intrinsic variable '{}'", intrinsic),
         }
     }
 
