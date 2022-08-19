@@ -191,53 +191,53 @@ impl<'s> CheckSess<'s> {
                     );
 
                     // Auto import std
-                    // TODO: Because of circular import conflicts, we *don't* import the prelude
-                    //       automatically for std files. We should fix this...
-                    if !module
-                        .info
-                        .file_path
-                        .starts_with(self.workspace.std_library().root_dir().to_str().unwrap())
-                    {
-                        self.with_env(module.id, |sess, mut env| {
-                            let auto_import_std_pattern = Pattern::Hybrid(HybridPattern {
-                                name_pattern: NamePattern {
-                                    id: BindingId::unknown(),
-                                    name: ustr(LIB_NAME_STD),
-                                    span,
-                                    is_mutable: false,
-                                    ignore: false,
-                                },
-                                unpack_pattern: UnpackPatternKind::Struct(StructUnpackPattern {
-                                    sub_patterns: vec![],
-                                    span,
-                                    wildcard: Some(Wildcard { span }),
-                                }),
-                                span,
-                            });
+                    // TODO: Because of circular import conflicts, we *don't* import the
+                    // TODO: prelude automatically for std files. We should fix this...
+                    // if !module
+                    //     .info
+                    //     .file_path
+                    //     .starts_with(self.workspace.std_library().root_dir().to_str().unwrap())
+                    // {
+                    //     self.with_env(module.id, |sess, mut env| {
+                    //         let auto_import_std_pattern = Pattern::Hybrid(HybridPattern {
+                    //             name_pattern: NamePattern {
+                    //                 id: BindingId::unknown(),
+                    //                 name: ustr(LIB_NAME_STD),
+                    //                 span,
+                    //                 is_mutable: false,
+                    //                 ignore: false,
+                    //             },
+                    //             unpack_pattern: UnpackPatternKind::Struct(StructUnpackPattern {
+                    //                 sub_patterns: vec![],
+                    //                 span,
+                    //                 wildcard: Some(Wildcard { span }),
+                    //             }),
+                    //             span,
+                    //         });
 
-                            let std_root_module_name = sess.workspace.std_library().root_module_name();
-                            let std_module_id = sess
-                                .workspace
-                                .module_infos
-                                .iter()
-                                .position(|(_, module)| module.name == std_root_module_name)
-                                .map(ModuleId::from)
-                                .unwrap();
+                    //         let std_root_module_name = sess.workspace.std_library().root_module_name();
+                    //         let std_module_id = sess
+                    //             .workspace
+                    //             .module_infos
+                    //             .iter()
+                    //             .position(|(_, module)| module.name == std_root_module_name)
+                    //             .map(ModuleId::from)
+                    //             .unwrap();
 
-                            let std_module_type = sess.check_module_by_id(std_module_id)?;
+                    //         let std_module_type = sess.check_module_by_id(std_module_id)?;
 
-                            sess.bind_pattern(
-                                &mut env,
-                                &auto_import_std_pattern,
-                                ast::Visibility::Private,
-                                std_module_type,
-                                None,
-                                BindingInfoKind::Orphan,
-                                span,
-                                BindingInfoFlags::SHADOWABLE,
-                            )
-                        })?;
-                    }
+                    //         sess.bind_pattern(
+                    //             &mut env,
+                    //             &auto_import_std_pattern,
+                    //             ast::Visibility::Private,
+                    //             std_module_type,
+                    //             None,
+                    //             BindingInfoKind::Orphan,
+                    //             span,
+                    //             BindingInfoFlags::SHADOWABLE,
+                    //         )
+                    //     })?;
+                    // }
 
                     module_type
                 }

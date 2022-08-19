@@ -360,6 +360,11 @@ impl<'s> CheckSess<'s> {
 
                 self.check_module_by_id(module_id)?;
 
+                println!(
+                    "get `{}` in `{}`",
+                    self.workspace.module_infos[module_id].name,
+                    env.module_info().name
+                );
                 let module_bindings = self.global_scopes.get(&module_id).unwrap().bindings.clone();
 
                 for pattern in unpack_pattern.sub_patterns.iter() {
