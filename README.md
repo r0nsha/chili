@@ -14,19 +14,57 @@ For more information about up-to-date syntax and language features, check out th
 
 ## Installation
 
-> **🌶 The language is still going through its early iterations.**
-> To build the compiler from source, you will need to:
->
-> - [Set up](https://github.com/llvm/llvm-project/releases/tag/llvmorg-12.0.1) LLVM 12 on your machine. Windows users need to build from source.
-> - [Install](https://www.rust-lang.org/tools/install) the rust compiler
+### Windows
 
-As there's no freestanding binary yet, we still need to build the compiler from source. To build the compiler, run:
+1. [Install](https://www.rust-lang.org/tools/install) the rust toolchain
 
-```
-cargo build
-```
+2. [Install](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) Visual Studio Build Tools
 
-**Note:** Although the compiler itself supports both Windows and Linux (Mac OS support is also planned), the standard library is very young, and doesn't support Windows yet. This will be implemented in the near future. Have a look at the [Tasks](#Tasks) section.
+   ```
+   sudo apt-get update
+   sudo apt-get -y install llvm-12 clang
+   ```
+
+3. Clone the repository
+
+4. Run the build script
+
+   ```
+   ./build.bat
+   ```
+
+5. You should see a `dist` folder with the compiled binaries. Add `dist` to your PATH environment variable.
+
+6. Restart your shell and try out the compiler:
+   ```
+   chili examples/playground/build.chl
+   ```
+
+### Ubuntu
+
+1. [Install](https://www.rust-lang.org/tools/install) the rust toolchain
+
+2. Install LLVM and Clang binaries
+
+   ```
+   sudo apt-get update
+   sudo apt-get -y install llvm-12 clang
+   ```
+
+3. Clone the repository
+
+4. Run the build script
+
+   ```
+   sh build.sh release
+   ```
+
+5. You should see a `dist` folder with the compiled binaries. Add `dist` to your PATH environment variable.
+
+6. Restart your shell and try out the compiler:
+   ```
+   chili examples/playground/build.chl
+   ```
 
 ## Running the example:
 
