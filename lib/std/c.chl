@@ -1,3 +1,5 @@
+let { os, Os_windows } = import intrinsics
+
 # Types
 type char = u8
 

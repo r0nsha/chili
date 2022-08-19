@@ -56,7 +56,7 @@ impl<'vm> VM<'vm> {
                 let result = crate::driver::start_workspace(workspace_value.name.to_string(), build_options);
 
                 let (output_file, ok) = if let Some(output_file) = &result.output_file {
-                    dbg!(format!("{}\0", output_file.to_str().unwrap()).as_bytes());
+                    // TODO: Remove null terminator after implementing printing/formatting
                     (
                         self.bump
                             .alloc_slice_copy(format!("{}\0", output_file.to_str().unwrap()).as_bytes()),

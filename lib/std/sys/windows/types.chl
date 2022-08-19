@@ -1,3 +1,5 @@
+let c = import ../../c
+
 pub type HANDLE = uint
 pub type HWND = HANDLE
 pub type HINSTANCE = HANDLE

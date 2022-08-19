@@ -3127,8 +3127,8 @@ impl Check for ast::Block {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
         let unit_type = sess.tcx.common_types.unit;
 
-        if self.statements.is_empty() {
-            Ok(hir::Node::Sequence(hir::Sequence {
+        match self.statements.len() {
+            0 => Ok(hir::Node::Sequence(hir::Sequence {
                 statements: vec![hir::Node::Const(hir::Const {
                     value: ConstValue::Unit(()),
                     ty: unit_type,
@@ -3137,51 +3137,53 @@ impl Check for ast::Block {
                 ty: unit_type,
                 span: self.span,
                 is_scope: true,
-            }))
-        } else {
-            let mut statements: Vec<hir::Node> = vec![];
+            })),
+            1 => self.statements[0].check(sess, env, expected_type),
+            _ => {
+                let mut statements: Vec<hir::Node> = vec![];
 
-            env.push_scope(ScopeKind::Block);
+                env.push_scope(ScopeKind::Block);
 
-            let last_index = self.statements.len() - 1;
-            for (i, expr) in self.statements.iter().enumerate() {
-                let expected_type = if i == last_index {
-                    expected_type
+                let last_index = self.statements.len() - 1;
+                for (i, expr) in self.statements.iter().enumerate() {
+                    let expected_type = if i == last_index {
+                        expected_type
+                    } else {
+                        Some(unit_type)
+                    };
+
+                    let node = expr.check(sess, env, expected_type)?;
+
+                    statements.push(node);
+                }
+
+                env.pop_scope();
+
+                let last_statement = statements.last().unwrap();
+
+                let yield_type = if self.yields {
+                    last_statement.ty()
+                } else if last_statement.ty().normalize(&sess.tcx).is_never() {
+                    sess.tcx.common_types.never
                 } else {
-                    Some(unit_type)
+                    unit_type
                 };
 
-                let node = expr.check(sess, env, expected_type)?;
+                if !self.yields {
+                    statements.push(hir::Node::Const(hir::Const {
+                        value: ConstValue::Unit(()),
+                        ty: yield_type,
+                        span: last_statement.span(),
+                    }));
+                }
 
-                statements.push(node);
-            }
-
-            env.pop_scope();
-
-            let last_statement = statements.last().unwrap();
-
-            let yield_type = if self.yields {
-                last_statement.ty()
-            } else if last_statement.ty().normalize(&sess.tcx).is_never() {
-                sess.tcx.common_types.never
-            } else {
-                unit_type
-            };
-
-            if !self.yields {
-                statements.push(hir::Node::Const(hir::Const {
-                    value: ConstValue::Unit(()),
+                Ok(hir::Node::Sequence(hir::Sequence {
+                    statements,
                     ty: yield_type,
-                    span: last_statement.span(),
-                }));
+                    span: self.span,
+                    is_scope: true,
+                }))
             }
-
-            Ok(hir::Node::Sequence(hir::Sequence {
-                statements,
-                ty: yield_type,
-                span: self.span,
-                is_scope: true,
-            }))
         }
     }
 }
