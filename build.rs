@@ -9,7 +9,6 @@ fn main() {
 
     #[cfg(not(windows))]
     {
-        println!("cargo:rustc-link-search=/lib/llvm-12");
         println!("cargo:rustc-link-lib=dylib=LLVM-12");
     }
 
