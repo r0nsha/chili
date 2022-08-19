@@ -1,6 +1,6 @@
 let { panic } = import lib
-pub let { os, Os_linux, Os_windows } = import intrinsics
-let { printf, waitpid, fork, execl } = import c
+let { os, Os_linux, Os_windows } = import intrinsics
+let { printf } = import c
 
 @intrinsic
 pub extern fn start_workspace(workspace: Workspace) -> (*str, bool)
@@ -30,6 +30,8 @@ pub let OptimizationLevel_release: OptimizationLevel = 1
 
 pub fn run_output_file(output_file: *str) = {
     if os == Os_linux {
+        let { waitpid, fork, execl } = import c
+
         let pid = fork()
 
         if pid == 0 {
@@ -43,7 +45,7 @@ pub fn run_output_file(output_file: *str) = {
             panic("fork failed")
         }
     } else if os == Os_windows {
-        	let w = std.sys.windows
+        let { windows: w } = import sys
 
 		let si = w.types.STARTUPINFO {
 			cb: size_of!(w.types.STARTUPINFO) as _,
@@ -89,7 +91,7 @@ pub fn run_output_file(output_file: *str) = {
 			w.kernel32.CloseHandle(pi.hProcess)
 			()
 		} else {
-			std.c.printf("error = %d\n".data, w.kernel32.GetLastError())
+			printf("error = %d\n".data, w.kernel32.GetLastError())
 			panic("CreateProcessA failed")
 		}
     } else {
