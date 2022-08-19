@@ -1,5 +1,7 @@
-let c = import ../../c
+# TODO (ICE): this stack overflows
+# let c = import std/c
 
+# TODO: Switch these to use types from std/c
 pub type HANDLE = uint
 pub type HWND = HANDLE
 pub type HINSTANCE = HANDLE
@@ -14,7 +16,7 @@ pub type LPSECURITY_ATTRIBUTES = *SECURITY_ATTRIBUTES
 pub type LPSTARTUPINFO = *STARTUPINFO
 pub type LPPROCESS_INFORMATION = *mut PROCESS_INFORMATION
 
-pub type DWORD = u32
+pub type DWORD = u32 # u32
 pub type QWORD = u64
 pub type BOOL = u32
 pub type WORD = u16

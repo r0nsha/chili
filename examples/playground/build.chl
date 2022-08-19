@@ -15,7 +15,7 @@ fn build = {
 
 	let (output_file, ok) = start_workspace(workspace)
 
-	if true {
+	if ok {
 		let w = std.sys.windows
 
 		std.c.printf("%s\n".data, output_file.data)
@@ -51,8 +51,8 @@ fn build = {
 
 		println("AAA")
 		let result = w.kernel32.CreateProcessW(
-			0 as uint as _,
 			output_file.data,
+			0 as uint as _,
 			0 as uint as _,
 			0 as uint as _,
 			0,
