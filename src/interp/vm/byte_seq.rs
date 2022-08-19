@@ -71,7 +71,7 @@ impl ByteSeq {
     }
 
     pub fn as_mut_ptr(&mut self) -> *mut u8 {
-        Box::as_mut(&mut self.inner).as_mut_ptr()
+        self.inner.as_mut_ptr()
     }
 }
 

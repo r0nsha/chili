@@ -160,10 +160,16 @@ impl FfiFunction {
                 Value::Bool(v) => raw_ptr!(v),
                 Value::F32(v) => raw_ptr!(v),
                 Value::F64(v) => raw_ptr!(v),
-                Value::Buffer(buf) => raw_ptr!(&mut buf.bytes.as_mut_ptr()),
+                Value::Buffer(buf) => raw_ptr!(buf.bytes.as_mut_ptr()),
                 Value::Pointer(ptr) => match ptr {
                     Pointer::Buffer(buf) => {
-                        raw_ptr!(&mut (**buf).bytes.as_mut_ptr())
+                        if buf.is_null() {
+                            raw_ptr!(&mut std::ptr::null_mut::<u8>())
+                        } else {
+                            let alloc_arg = bump.alloc_slice_copy(&(**buf).bytes.inner);
+                            // raw_ptr!(&mut (**buf).bytes.as_mut_ptr())
+                            raw_ptr!(alloc_arg.as_mut_ptr())
+                        }
                     }
                     _ => raw_ptr!(ptr.as_raw()),
                 },
