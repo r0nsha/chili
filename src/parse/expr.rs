@@ -178,31 +178,37 @@ impl Parser {
             } else if eat!(self, Semicolon | Newline) {
                 continue;
             } else {
-                let statement = self.parse_statement().unwrap_or_else(|diag| {
-                    let span = self.previous_span();
+                statements.push(self.parse_statement()?);
 
-                    self.cache.lock().diagnostics.push(diag);
-                    self.skip_until_recovery_point();
+                // TODO: Recovery
+                // let statement = self.parse_statement().unwrap_or_else(|diag| {
+                //     let span = self.previous_span();
 
-                    ast::Ast::Error(ast::Empty { span })
-                });
+                //     self.cache.lock().diagnostics.push(diag);
+                //     self.skip_until_recovery_point();
 
-                statements.push(statement);
+                //     ast::Ast::Error(ast::Empty { span })
+                // });
+
+                // statements.push(statement);
             }
         }
 
-        self.cache
-            .lock()
-            .diagnostics
-            .push(SyntaxError::expected(self.span(), "}"));
+        Err(SyntaxError::expected(self.span(), "}"))
 
-        self.skip_until_recovery_point();
+        // TODO: Recovery
+        // self.cache
+        //     .lock()
+        //     .diagnostics
+        //     .push(SyntaxError::expected(self.span(), "}"));
 
-        Ok(ast::Block {
-            statements,
-            yields: true,
-            span: start_span.to(self.previous_span()),
-        })
+        // self.skip_until_recovery_point();
+
+        // Ok(ast::Block {
+        //     statements,
+        //     yields: true,
+        //     span: start_span.to(self.previous_span()),
+        // })
     }
 
     pub fn parse_block_expr(&mut self) -> DiagnosticResult<Ast> {

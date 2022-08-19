@@ -248,7 +248,7 @@ impl Lower for hir::Cast {
                     code.write_inst(Inst::Mul);
                     code.write_inst(Inst::Offset);
 
-                    let value_type = self.value.ty().normalize(sess.tcx).maybe_deref_once();
+                    let value_type = self.value.ty().normalize(sess.tcx);
 
                     code.write_inst(Inst::BufferPut(0));
 
@@ -257,6 +257,15 @@ impl Lower for hir::Cast {
                         Type::Array(_, size) => {
                             sess.push_const(code, Value::Uint(*size));
                         }
+                        Type::Pointer(inner, _) => match inner.as_ref() {
+                            Type::Array(_, size) => {
+                                sess.push_const(code, Value::Uint(*size));
+                            }
+                            Type::Slice(_) | Type::Str(_) => {
+                                code.write_inst(Inst::ConstIndex(1));
+                            }
+                            _ => unreachable!("unexpected type `{:?}`", value_type),
+                        },
                         ty => unreachable!("unexpected type `{:?}`", ty),
                     }
 

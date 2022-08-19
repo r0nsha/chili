@@ -814,7 +814,17 @@ impl Pointer {
                     }
                 }
             },
-            Type::Pointer(ty, _) => Self::from_type_and_ptr(ty, ptr),
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(_) | Type::Str(_) => {
+                    let bytes = ByteSeq::copy_from_raw_parts(ptr as _, ty.size_of(WORD_SIZE));
+
+                    let buf = Box::new(Buffer { bytes, ty: ty.clone() });
+
+                    // Note (Ron): Leak
+                    Self::Buffer(Box::leak(buf) as *mut Buffer)
+                }
+                _ => Self::from_type_and_ptr(inner, ptr),
+            },
             Type::Function(_) => todo!(),
             Type::Array(inner, size) => {
                 let bytes = ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE));

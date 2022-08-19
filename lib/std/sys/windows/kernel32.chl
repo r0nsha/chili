@@ -3,8 +3,18 @@ let * = import types
 let kernel32 = "kernel32"
 
 @lib(kernel32)
+pub extern fn MultiByteToWideChar(
+    CodePage: UINT,
+    dwFlags: DWORD,
+    lpMultiByteStr: LPSTR,
+    cbMultiByte: i32, # c_int
+    lpWideCharStr: LPWSTR,
+    cchWideChar: i32, # c_int
+) -> i32 # c_int
+
+@lib(kernel32)
 pub extern fn CreateProcessW(
-    lpApplicationName: LPCSTR,
+    lpApplicationName: LPCWSTR,
     lpCommandLine: LPSTR,
     lpProcessAttributes: LPSECURITY_ATTRIBUTES,
     lpThreadAttributes: LPSECURITY_ATTRIBUTES,
