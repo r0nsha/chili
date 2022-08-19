@@ -142,7 +142,7 @@ impl<'vm> VM<'vm> {
 
     fn run_inner(&mut self) -> Value {
         loop {
-            self.trace(TraceLevel::Full);
+            // self.trace(TraceLevel::Full);
 
             let reader = &mut self.frame_mut().reader;
 
