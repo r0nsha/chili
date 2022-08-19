@@ -84,13 +84,13 @@ pub extern fn sprintf_s(buffer: *u8, sizeOfBuffer: uint, format: *u8, args...) -
 pub extern fn strcpy(dest: *u8, src: *u8) -> *u8
 
 @lib(LIB)
-pub extern fn malloc(size: uint) -> *i8
+pub extern fn malloc(size: uint) -> *mut i8
 
 @lib(LIB)
-pub extern fn calloc(nitems: uint, size: uint) -> *i8
+pub extern fn calloc(nitems: uint, size: uint) -> *mut i8
 
 @lib(LIB)
-pub extern fn realloc(ptr: *i8, size: uint) -> *i8
+pub extern fn realloc(ptr: *i8, size: uint) -> *mut i8
 
 @lib(LIB)
 pub extern fn free(memblock: *i8)

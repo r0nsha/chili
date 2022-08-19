@@ -13,32 +13,25 @@ pub fn utf8_to_utf16(s: *str) -> *[]u16 = {
 		panic()
 	}
     
-	let mut text = malloc((n + 1) as uint) as LPWSTR
+    # TODO: the caller should free `text`
+	let mut text = malloc((n + 1) as uint) as *mut u16
 
-	let n1 = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s.data, s.len as _, text, n)
+	let n1 = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s.data, s.len as _, text as _, n)
     
 	if n1 == 0 {
 		# free(text)
 		panic()
 	}
 
-    # TODO: the caller should free `text`
     text[n] = 0
 
     printf("n = %d\n".data, n)
-    
+
 	while n >= 1 && text[n - 1] == 0 {
 		n -= 1
 	}
 
     printf("n = %d\n".data, n)
 
-	return text[..n]
+	&text[:n]
 }
-
-# utf8_to_wstring :: proc(s: string, allocator := context.temp_allocator) -> wstring {
-# 	if res := utf8_to_utf16(s, allocator); res != nil {
-# 		return &res[0]
-# 	}
-# 	return nil
-# }
