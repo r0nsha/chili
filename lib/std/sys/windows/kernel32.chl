@@ -13,8 +13,8 @@ pub extern fn MultiByteToWideChar(
 ) -> i32 # c_int
 
 @lib(kernel32)
-pub extern fn CreateProcessW(
-    lpApplicationName: LPCWSTR,
+pub extern fn CreateProcessA(
+    lpApplicationName: LPCSTR,
     lpCommandLine: LPSTR,
     lpProcessAttributes: LPSECURITY_ATTRIBUTES,
     lpThreadAttributes: LPSECURITY_ATTRIBUTES,
@@ -22,6 +22,20 @@ pub extern fn CreateProcessW(
     dwCreationFlags: DWORD,
     lpEnvironment: LPVOID,
     lpCurrentDirectory: LPCSTR,
+    lpStartupInfo: LPSTARTUPINFO,
+    lpProcessInformation: LPPROCESS_INFORMATION,
+) -> BOOL
+
+@lib(kernel32)
+pub extern fn CreateProcessW(
+    lpApplicationName: LPCWSTR,
+    lpCommandLine: LPWSTR,
+    lpProcessAttributes: LPSECURITY_ATTRIBUTES,
+    lpThreadAttributes: LPSECURITY_ATTRIBUTES,
+    bInheritHandles: BOOL,
+    dwCreationFlags: DWORD,
+    lpEnvironment: LPVOID,
+    lpCurrentDirectory: LPCWSTR,
     lpStartupInfo: LPSTARTUPINFO,
     lpProcessInformation: LPPROCESS_INFORMATION,
 ) -> BOOL
