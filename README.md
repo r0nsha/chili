@@ -20,11 +20,6 @@ For more information about up-to-date syntax and language features, check out th
 
 2. [Install](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) Visual Studio Build Tools
 
-   ```
-   sudo apt-get update
-   sudo apt-get -y install llvm-12 clang
-   ```
-
 3. Clone the repository
 
 4. Run the build script
