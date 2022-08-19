@@ -80,7 +80,7 @@ impl From<&Value> for BuildOptionsValue {
 }
 
 #[derive(Debug, Clone)]
-#[repr(u8)]
+#[repr(usize)]
 pub enum BuildTargetValue {
     Auto = 0,
     Linux = 1,
@@ -89,7 +89,7 @@ pub enum BuildTargetValue {
 
 impl From<&Value> for BuildTargetValue {
     fn from(value: &Value) -> Self {
-        match value.as_u8() {
+        match value.as_uint() {
             0 => Self::Auto,
             1 => Self::Linux,
             2 => Self::Windows,
@@ -99,7 +99,7 @@ impl From<&Value> for BuildTargetValue {
 }
 
 #[derive(Debug, Clone)]
-#[repr(u8)]
+#[repr(usize)]
 pub enum OptimizationLevelValue {
     Debug = 0,
     Release = 1,
@@ -107,7 +107,7 @@ pub enum OptimizationLevelValue {
 
 impl From<&Value> for OptimizationLevelValue {
     fn from(value: &Value) -> Self {
-        match value.as_u8() {
+        match value.as_uint() {
             0 => Self::Debug,
             1 => Self::Release,
             x => panic!("{}", x),

@@ -1,6 +1,7 @@
 use super::FunctionId;
 use crate::{
     ast::{self, ExternLibrary},
+    common::target::{Arch, Os},
     infer::{display::DisplayType, type_ctx::TypeCtx},
     types::TypeId,
 };
@@ -59,7 +60,7 @@ impl From<ast::LiteralKind> for ConstValue {
         match lit {
             ast::LiteralKind::Nil => panic!("nil is deprecated"),
             ast::LiteralKind::Bool(v) => ConstValue::Bool(v),
-            ast::LiteralKind::Int(v) => ConstValue::Int(v),
+            ast::LiteralKind::Int(v) => ConstValue::Uint(v),
             ast::LiteralKind::Float(v) => ConstValue::Float(v),
             ast::LiteralKind::Str(v) => ConstValue::Str(v),
             ast::LiteralKind::Char(v) => ConstValue::Uint(v as u64),
@@ -69,7 +70,44 @@ impl From<ast::LiteralKind> for ConstValue {
 
 impl ConstValue {
     pub fn eq(&self, other: &ConstValue) -> ConstValue {
-        ConstValue::Bool(self == other)
+        ConstValue::Bool(match (self, other) {
+            (ConstValue::Unit(left), ConstValue::Unit(right)) => *left == *right,
+            (ConstValue::Type(left), ConstValue::Type(right)) => *left == *right,
+            (ConstValue::Bool(left), ConstValue::Bool(right)) => *left == *right,
+            (ConstValue::Int(left), ConstValue::Int(right)) => *left == *right,
+            (ConstValue::Int(left), ConstValue::Uint(right)) => *left == *right as i64,
+            (ConstValue::Int(left), ConstValue::Float(right)) => *left as f64 == *right,
+            (ConstValue::Uint(left), ConstValue::Int(right)) => *left as i64 == *right,
+            (ConstValue::Uint(left), ConstValue::Uint(right)) => *left == *right,
+            (ConstValue::Uint(left), ConstValue::Float(right)) => *left as f64 == *right,
+            (ConstValue::Float(left), ConstValue::Int(right)) => *left == *right as f64,
+            (ConstValue::Float(left), ConstValue::Uint(right)) => *left == *right as f64,
+            (ConstValue::Float(left), ConstValue::Float(right)) => *left == *right,
+            (ConstValue::Str(left), ConstValue::Str(right)) => *left == *right,
+            (ConstValue::Array(left), ConstValue::Array(right)) => {
+                left.values.len() == right.values.len()
+                    && left
+                        .values
+                        .iter()
+                        .zip(right.values.iter())
+                        .all(|(left, right)| *left.eq(right).as_bool().unwrap())
+            }
+            (ConstValue::Tuple(left), ConstValue::Tuple(right)) => {
+                left.len() == right.len()
+                    && left
+                        .iter()
+                        .zip(right.iter())
+                        .all(|(left, right)| *left.value.eq(&right.value).as_bool().unwrap())
+            }
+            (ConstValue::Struct(left), ConstValue::Struct(right)) => {
+                left.len() == right.len()
+                    && left.iter().zip(right.iter()).all(|((lname, left), (rname, right))| {
+                        lname == rname && *left.value.eq(&right.value).as_bool().unwrap()
+                    })
+            }
+            (ConstValue::Function(left), ConstValue::Function(right)) => left.id == right.id,
+            _ => false,
+        })
     }
 
     pub fn ne(&self, other: &ConstValue) -> ConstValue {
@@ -369,5 +407,22 @@ impl ConstValue {
             ConstValue::Function(f) => f.name.to_string(),
             ConstValue::ExternVariable(v) => v.name.to_string(),
         }
+    }
+
+    pub fn from_os(os: Os) -> Self {
+        Self::Uint(match os {
+            Os::Linux => 0,
+            Os::Windows => 1,
+            Os::Darwin | Os::Essence | Os::FreeBSD | Os::Wasi | Os::Js | Os::Freestanding => {
+                todo!("{}", os.name())
+            }
+        })
+    }
+
+    pub fn from_arch(arch: Arch) -> Self {
+        Self::Uint(match arch {
+            Arch::Amd64 => 0,
+            Arch::_386 | Arch::Arm64 | Arch::Wasm32 | Arch::Wasm64 => todo!("{}", arch.name()),
+        })
     }
 }

@@ -7,6 +7,7 @@ pub trait SizeOf {
 }
 
 impl SizeOf for Type {
+    #[track_caller]
     fn size_of(&self, word_size: usize) -> usize {
         match self {
             Type::Unit | Type::Never => 0,

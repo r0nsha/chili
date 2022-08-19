@@ -1,4 +1,5 @@
 let * = import std/build
+let { process } = import std
 
 fn build = {
 	let build_options = BuildOptions {
@@ -16,7 +17,7 @@ fn build = {
 	let (output_file, ok) = start_workspace(workspace)
 
 	if ok {
-		run_output_file(output_file)
+		process.start(output_file)
 	}
 }
 

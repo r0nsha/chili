@@ -1,3 +1,5 @@
+use std::ffi::c_void;
+
 use crate::types::{FloatType, InferType, IntType, Type, UintType};
 
 use super::{
@@ -76,7 +78,16 @@ impl<'vm> VM<'vm> {
                 let raw_ptr = match value {
                     Value::Int(value) => value as RawPointer,
                     Value::Uint(value) => value as RawPointer,
-                    Value::Pointer(ptr) => ptr.as_inner_raw(),
+                    Value::Pointer(ptr) => match ptr {
+                        Pointer::Buffer(buf) => {
+                            if buf.is_null() {
+                                std::ptr::null_mut::<c_void>()
+                            } else {
+                                unsafe { &mut *buf }.bytes.as_mut_ptr() as _
+                            }
+                        }
+                        _ => ptr.as_inner_raw(),
+                    },
                     _ => panic!("invalid value {}", value.to_string()),
                 };
 

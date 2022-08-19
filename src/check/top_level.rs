@@ -75,31 +75,7 @@ impl<'s> CheckSess<'s> {
                 .find(|m| m.id == module_id)
                 .unwrap_or_else(|| panic!("{:?}", module_id));
 
-            if let Some((index, binding)) =
-                module
-                    .bindings
-                    .iter()
-                    .enumerate()
-                    .find(|(_, binding)| match &binding.kind {
-                        ast::BindingKind::Orphan { pattern, .. } => pattern.iter().any(|pattern| pattern.name == name),
-                        ast::BindingKind::Function {
-                            name: ast::NameAndSpan { name: binding_name, .. },
-                            ..
-                        }
-                        | ast::BindingKind::ExternFunction {
-                            name: ast::NameAndSpan { name: binding_name, .. },
-                            ..
-                        }
-                        | ast::BindingKind::ExternVariable {
-                            name: ast::NameAndSpan { name: binding_name, .. },
-                            ..
-                        }
-                        | ast::BindingKind::Type {
-                            name: ast::NameAndSpan { name: binding_name, .. },
-                            ..
-                        } => *binding_name == name,
-                    })
-            {
+            if let Some((index, binding)) = module.find_binding(name) {
                 self.queued_modules
                     .get_mut(&module.id)
                     .unwrap()
@@ -161,15 +137,13 @@ impl<'s> CheckSess<'s> {
     }
 
     pub fn check_module_by_id(&mut self, id: ModuleId) -> DiagnosticResult<TypeId> {
-        self.get_completed_module_type(id).map(Ok).unwrap_or_else(|| {
-            let module = self
-                .modules
-                .iter()
-                .find(|m| m.id == id)
-                .unwrap_or_else(|| panic!("couldn't find {:?}", id));
+        let module = self
+            .modules
+            .iter()
+            .find(|m| m.id == id)
+            .unwrap_or_else(|| panic!("couldn't find {:?}", id));
 
-            self.check_module(module)
-        })
+        self.check_module(module)
     }
 
     pub fn check_module(&mut self, module: &ast::Module) -> DiagnosticResult<TypeId> {
@@ -191,8 +165,9 @@ impl<'s> CheckSess<'s> {
                     );
 
                     // Auto import std
-                    // TODO: Because of circular import conflicts, we *don't* import the prelude
-                    //       automatically for std files. We should fix this...
+                    // TODO: Because of circular import conflicts, we *don't* import the
+                    // TODO: prelude automatically for std files. This should be fixed after we create
+                    // TODO: a proper dependency graph of all entities/bindings.
                     if !module
                         .info
                         .file_path

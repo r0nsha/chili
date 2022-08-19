@@ -115,7 +115,7 @@ pub enum TokenKind {
     Nil,
     True,
     False,
-    Int(i64),
+    Int(u64),
     Float(f64),
     Str(Ustr),
     Char(char),

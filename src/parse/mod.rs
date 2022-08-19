@@ -244,6 +244,7 @@ impl Parser {
     }
 
     #[inline]
+    #[allow(unused)]
     pub fn skip_until_recovery_point(&mut self) {
         while !is!(self, Semicolon | Newline) && !self.eof() {
             self.bump();

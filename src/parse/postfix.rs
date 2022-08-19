@@ -9,11 +9,6 @@ use ustr::ustr;
 
 impl Parser {
     pub fn parse_operand_postfix_operator(&mut self, mut expr: Ast) -> DiagnosticResult<Ast> {
-        // named struct literal
-        if !self.restrictions.contains(Restrictions::NO_STRUCT_LITERAL) && is!(self, OpenCurly) {
-            return self.parse_struct_literal(Some(Box::new(expr)));
-        }
-
         // postfix expressions (recursive)
         loop {
             let last_index = self.current;
@@ -28,47 +23,52 @@ impl Parser {
                 continue;
             } else {
                 self.current = last_index;
-            }
 
-            expr = if eat!(self, Dot) {
-                self.parse_member_access(expr)?
-            } else if eat!(self, OpenParen) {
-                self.parse_call(expr)?
-            } else if eat!(self, OpenBracket) {
-                self.parse_subscript_or_slice(expr)?
-            } else if !self.restrictions.contains(Restrictions::NO_CAST) && eat!(self, As) {
-                self.parse_cast(expr)?
-            } else if eat!(self, Fn) {
-                let start_span = expr.span();
+                expr = if eat!(self, Dot) {
+                    self.parse_member_access(expr)?
+                } else if eat!(self, OpenParen) {
+                    self.parse_call(expr)?
+                } else if eat!(self, OpenBracket) {
+                    self.parse_subscript_or_slice(expr)?
+                } else if !self.restrictions.contains(Restrictions::NO_CAST) && eat!(self, As) {
+                    self.parse_cast(expr)?
+                } else if eat!(self, Fn) {
+                    let start_span = expr.span();
 
-                let fn_arg = self.parse_function(None, false)?;
-                let span = start_span.to(self.previous_span());
+                    let fn_arg = self.parse_function(None, false)?;
+                    let span = start_span.to(self.previous_span());
 
-                match &mut expr {
-                    Ast::Call(call) => {
-                        // map(x) fn ...
-                        call.args.push(ast::CallArg {
-                            value: fn_arg,
-                            spread: false,
-                        });
-
-                        expr
-                    }
-                    _ => {
-                        // map fn ...
-                        Ast::Call(Call {
-                            callee: Box::new(expr),
-                            args: vec![ast::CallArg {
+                    match &mut expr {
+                        Ast::Call(call) => {
+                            // map(x) fn ...
+                            call.args.push(ast::CallArg {
                                 value: fn_arg,
                                 spread: false,
-                            }],
-                            span,
-                        })
+                            });
+
+                            expr
+                        }
+                        _ => {
+                            // map fn ...
+                            Ast::Call(Call {
+                                callee: Box::new(expr),
+                                args: vec![ast::CallArg {
+                                    value: fn_arg,
+                                    spread: false,
+                                }],
+                                span,
+                            })
+                        }
                     }
+                } else {
+                    break;
                 }
-            } else {
-                break;
             }
+        }
+
+        // named struct literal
+        if !self.restrictions.contains(Restrictions::NO_STRUCT_LITERAL) && is!(self, OpenCurly) {
+            return self.parse_struct_literal(Some(Box::new(expr)));
         }
 
         Ok(expr)
