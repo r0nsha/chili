@@ -6,6 +6,7 @@ pub trait OffsetOf {
 }
 
 impl OffsetOf for Type {
+    #[track_caller]
     fn offset_of(&self, index: usize, word_size: usize) -> usize {
         match self {
             Type::Array(ty, ..) => ty.size_of(word_size) * index,

@@ -5,6 +5,7 @@ pub trait AlignOf {
 }
 
 impl AlignOf for Type {
+    #[track_caller]
     fn align_of(&self, word_size: usize) -> usize {
         match self {
             Type::Unit | Type::Never | Type::Bool => 1,
