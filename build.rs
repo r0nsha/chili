@@ -1,8 +1,17 @@
 use fs_extra::dir;
 
 fn main() {
-    println!("cargo:rustc-link-search=/lib/llvm-12");
-    println!("cargo:rustc-link-lib=dylib=LLVM-12");
+    #[cfg(windows)]
+    {
+        println!("cargo:rustc-link-search=./llvm/windows");
+        println!("cargo:rustc-link-lib=dylib=LLVM-C");
+    }
+
+    #[cfg(not(windows))]
+    {
+        println!("cargo:rustc-link-search=/lib/llvm-12");
+        println!("cargo:rustc-link-lib=dylib=LLVM-12");
+    }
 
     let workspace_dir = std::env::current_dir().unwrap();
 
