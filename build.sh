@@ -5,7 +5,6 @@ if test $1 = "release"; then
     mkdir -p $dir
     cd $dir
     cp ../../target/release/chili chili
-    cp -r ../../lib lib
 else
     dir="dist/debug"
     cargo build
