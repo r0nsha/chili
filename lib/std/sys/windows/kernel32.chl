@@ -3,7 +3,7 @@ let * = import types
 let kernel32 = "kernel32"
 
 @lib(kernel32)
-pub extern fn CreateProcessA(
+pub extern fn CreateProcessW(
     lpApplicationName: LPCSTR,
     lpCommandLine: LPSTR,
     lpProcessAttributes: LPSECURITY_ATTRIBUTES,
@@ -13,7 +13,7 @@ pub extern fn CreateProcessA(
     lpEnvironment: LPVOID,
     lpCurrentDirectory: LPCSTR,
     lpStartupInfo: LPSTARTUPINFO,
-    lpProcessInformation: *mut PROCESS_INFORMATION,
+    lpProcessInformation: LPPROCESS_INFORMATION,
 ) -> BOOL
 
 @lib(kernel32)

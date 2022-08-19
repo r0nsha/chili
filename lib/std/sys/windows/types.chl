@@ -10,11 +10,12 @@ pub type LPVOID = *()
 
 pub type LPSECURITY_ATTRIBUTES = *SECURITY_ATTRIBUTES
 pub type LPSTARTUPINFO = *STARTUPINFO
-pub type LPPROCESS_INFORMATION = *PROCESS_INFORMATION
+pub type LPPROCESS_INFORMATION = *mut PROCESS_INFORMATION
 
-pub type WORD = u32
-pub type DWORD = u64
+pub type DWORD = u32
+pub type QWORD = u64
 pub type BOOL = u32
+pub type WORD = u16
 
 pub type SECURITY_ATTRIBUTES = struct {
     nLength: DWORD

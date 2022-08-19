@@ -1,27 +1,28 @@
 let * = import std/build
 
 fn build = {
-	# let build_options = BuildOptions {
-    #     input_file: "src/main.chl",
-    #     output_file: "out/main",
-    #     target: BuildTarget_auto,
-    #     optimization_level: OptimizationLevel_debug,
-	# }
+	let build_options = BuildOptions {
+        input_file: "src/main.chl",
+        output_file: "out/main",
+        target: BuildTarget_auto,
+        optimization_level: OptimizationLevel_debug,
+	}
 
-	# let workspace = Workspace {
-	# 	name: "hello",
-	# 	build_options
-	# }
+	let workspace = Workspace {
+		name: "hello",
+		build_options
+	}
 
-	# let (output_file, ok) = start_workspace(workspace)
-	let output_file = "D:\\Projects\\chili-lang\\examples\\playground\\out\\main.exe\0"
+	let (output_file, ok) = start_workspace(workspace)
+
 	if true {
 		let w = std.sys.windows
 
 		std.c.printf("%s\n".data, output_file.data)
+		std.c.printf("size = %d\n".data, size_of!(w.types.STARTUPINFO))
 
 		let si = w.types.STARTUPINFO {
-			cb: size_of!(w.types.STARTUPINFO),
+			cb: size_of!(w.types.STARTUPINFO) as _,
 			lpReserved: 0 as uint as _,
 			lpDesktop: 0 as uint as _,
 			lpTitle: 0 as uint as _,
@@ -49,9 +50,9 @@ fn build = {
 		}
 
 		println("AAA")
-		let result = w.kernel32.CreateProcessA(
-			output_file.data,
+		let result = w.kernel32.CreateProcessW(
 			0 as uint as _,
+			output_file.data,
 			0 as uint as _,
 			0 as uint as _,
 			0,

@@ -56,15 +56,20 @@ impl<'vm> VM<'vm> {
                 let result = crate::driver::start_workspace(workspace_value.name.to_string(), build_options);
 
                 let (output_file, ok) = if let Some(output_file) = &result.output_file {
-                    (self.bump.alloc_str(output_file.to_str().unwrap()), true)
+                    dbg!(format!("{}\0", output_file.to_str().unwrap()).as_bytes());
+                    (
+                        self.bump
+                            .alloc_slice_copy(format!("{}\0", output_file.to_str().unwrap()).as_bytes()),
+                        true,
+                    )
                 } else {
-                    (self.bump.alloc_str(""), false)
+                    (self.bump.alloc_slice_copy(b""), false)
                 };
 
                 let result_type = Type::Tuple(vec![Type::str_pointer(), Type::Bool]);
 
                 let result_value = Value::Buffer(Buffer::from_values(
-                    [Value::Buffer(Buffer::from_str(output_file)), Value::Bool(ok)],
+                    [Value::Buffer(Buffer::from_str_bytes(output_file)), Value::Bool(ok)],
                     result_type,
                 ));
 

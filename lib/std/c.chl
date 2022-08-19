@@ -1,3 +1,63 @@
+# Types
+type char = u8
+
+type schar = i8
+type short = i16
+type int = i32
+type long = if os == Os_windows || size_of!(uint) == 4 { i32 } else { i64 }
+type longlong = i64
+
+type uchar = u8
+type ushort = u16
+type uint = u32
+type ulong = if os == Os_windows || size_of!(uint) == 4 { u32 } else { u64 }
+type ulonglong = u64
+
+type bool = bool
+
+type size_t = uint
+type ssize_t = int
+type wchar_t = if os == Os_windows { u16 } else { u32 }
+
+type float = f32
+type double = f64
+
+type int8_t = i8
+type uint8_t = u8
+type int16_t = i16
+type uint16_t = u16
+type int32_t = i32
+type uint32_t = u32
+type int64_t = i64
+type uint64_t = u64
+
+type intptr_t = int
+type uintptr_t = uint
+
+type intmax_t = i64
+type uintmax_t = u64
+
+# Constants
+let INT8_MAX: int = 0x7f
+let INT16_MAX: int = 0x7fff
+let INT32_MAX: int = 0x7fffffff
+let INT64_MAX: longlong = 0x7fffffffffffffff
+
+let UINT8_MAX: int = 0xff
+let UINT16_MAX: int = 0xffff
+let UINT32_MAX: uint = 0xffffffff
+let UINT64_MAX: ulonglong = 0xffffffffffffffff
+
+let INT8_MIN = !INT8_MAX
+let INT16_MIN = !INT16_MAX
+let INT32_MIN = !INT32_MAX
+let INT64_MIN = !INT64_MAX
+
+let NULL: *u8 = 0 as _
+
+let CHAR_BIT = 8
+
+# Functions
 let LIB = "c"
 
 @lib(LIB)

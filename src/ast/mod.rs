@@ -323,7 +323,7 @@ pub struct Literal {
 pub enum LiteralKind {
     Nil,
     Bool(bool),
-    Int(i64),
+    Int(u64),
     Float(f64),
     Str(Ustr),
     Char(char),
