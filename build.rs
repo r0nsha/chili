@@ -1,6 +1,9 @@
 use fs_extra::dir;
 
 fn main() {
+    println!("cargo:rustc-link-search=/lib/llvm-12");
+    println!("cargo:rustc-link-lib=dylib=LLVM-12");
+
     let workspace_dir = std::env::current_dir().unwrap();
 
     let lib_dir = workspace_dir.join("lib");
