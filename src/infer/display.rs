@@ -155,6 +155,6 @@ impl OrReportErr for UnifyTypeResult {
         found: &impl DisplayType,
         found_span: Span,
     ) -> DiagnosticResult<()> {
-        self.map_err(|e| UnifyTypeErr::into_diagnostic(e, tcx, expected, expected_span, found, found_span))
+        self.map_err(|e| e.into_diagnostic(tcx, expected, expected_span, found, found_span))
     }
 }

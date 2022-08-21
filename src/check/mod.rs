@@ -3761,13 +3761,51 @@ fn check_function<'s>(
             );
         }
 
-        unify_node.or_report_err(
-            &sess.tcx,
-            &return_type,
-            Some(return_type_span),
-            &body_sequence.ty,
-            body.span(),
-        )?;
+        match unify_node {
+            Ok(_) => (),
+            Err(_) if return_type.normalize(&sess.tcx).is_unit() => {
+                // Make the body implicitly return unit, so that we won't have to
+                // add a `()` at the end of the body.
+                let unit_type = sess.tcx.common_types.unit;
+
+                body_sequence.statements.push(hir::Node::Const(hir::Const {
+                    value: ConstValue::Unit(()),
+                    ty: unit_type,
+                    span: body_sequence.span,
+                }));
+
+                body_sequence.ty = unit_type;
+            }
+            Err(err) => {
+                return Err(err.into_diagnostic(
+                    &sess.tcx,
+                    &return_type,
+                    Some(return_type_span),
+                    &body_sequence.ty,
+                    body.span(),
+                ))
+            }
+        }
+
+        // if return_type.normalize(&sess.tcx).is_unit() {
+        //     let unit_type = sess.tcx.common_types.unit;
+
+        //     body_sequence.statements.push(hir::Node::Const(hir::Const {
+        //         value: ConstValue::Unit(()),
+        //         ty: unit_type,
+        //         span: body_sequence.span,
+        //     }));
+
+        //     body_sequence.ty = unit_type;
+        // }
+
+        // unify_node.or_report_err(
+        //     &sess.tcx,
+        //     &return_type,
+        //     Some(return_type_span),
+        //     &body_sequence.ty,
+        //     body.span(),
+        // )?;
     }
 
     env.pop_scope();

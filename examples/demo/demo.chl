@@ -17,8 +17,6 @@ fn main() = {
     extern_functions()
     running_code_at_compile_time()
     starting_a_workspace()
-
-    ()
 }
 
 fn primitives_and_variables = {
@@ -556,7 +554,7 @@ fn starting_a_workspace = {
         let (output_file, ok) = start_workspace(workspace)
 
         if ok {
-            run_output_file(output_file)
+            std.process.start(output_file)
         }
     }
 }

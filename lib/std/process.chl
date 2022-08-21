@@ -4,7 +4,7 @@ let {
     c: { printf },
 } = import lib
 
-pub fn start(output_file: *str) = {
+pub fn start(output_file: *str) -> () = {
     if os == Os_linux {
         let { waitpid, fork, execl } = import c
 
@@ -65,7 +65,6 @@ pub fn start(output_file: *str) = {
 		) != 0 {
 			w.kernel32.WaitForSingleObject(pi.hProcess, w.types.INFINITE)
 			w.kernel32.CloseHandle(pi.hProcess)
-			()
 		} else {
 			printf("error = %d\n".data, w.kernel32.GetLastError())
 			panic("CreateProcessA failed")
@@ -75,6 +74,4 @@ pub fn start(output_file: *str) = {
         printf("os = %d\n".data, os)
         panic("unsupported OS")
     }
-
-    ()
 }
