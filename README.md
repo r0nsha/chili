@@ -12,34 +12,65 @@ fn main() = println("Hello, World!")
 
 For more information about up-to-date syntax and language features, check out the [demo file](https://github.com/r0nsha/chili/blob/main/examples/demo/demo.chl).
 
-## Installation
+## Getting Started
 
-> **🌶 The language is still going through its early iterations.**  
-> To build the compiler from source, you will need to:
->
-> - [Set up](https://github.com/llvm/llvm-project/releases/tag/llvmorg-12.0.1) LLVM 12 on your machine. Windows users need to build from source.
-> - [Install](https://www.rust-lang.org/tools/install) the rust compiler
+### For Windows
 
-As there's no freestanding binary yet, we still need to build the compiler from source. To build the compiler, run:
+There are a couple of prerequisites here. First, make sure you have [Rust's toolchain](https://www.rust-lang.org/tools/install) installed. Second, make sure you have [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) installed.
+
+You have to compile Chili from source and set up a working directory, to do that, navigate to Chili's directory and run:
 
 ```
-cargo build
+./build.bat release
 ```
 
-**Note:** Although the compiler itself supports both Windows and Linux (Mac OS support is also planned), the standard library is very young, and doesn't support Windows yet. This will be implemented in the near future. Have a look at the [Tasks](#Tasks) section.
+This will create a directory called `dist/release` under Chili's directory. To build Chili for debug, run `./build.bat debug`.
 
-## Running the example:
+### For \*Nix systems
 
-1. Open your favorite terminal
-2. Change directory to Chili's repository's root
-3. Run: `cargo run -- ./examples/hello_world.chl --run`
+First, make sure you have [Rust's toolchain](https://www.rust-lang.org/tools/install) installed.
+
+For Linux, make sure you have `llvm-12` and `clang` installed through your package manager.
+
+MacOS is currently not supported, but will be in the future.
+
+Navigate to Chili's directory and run:
+
+```
+sh build.sh release
+```
+
+This will create a directory called `dist/release` under Chili's directory. To build Chili for debug, run `sh build.sh`.
+
+### Trying it out
+
+> For ease of use, I recommend adding `dist/release` to your `PATH` environment variable.
+
+In your terminal, run `chili .\examples\playground\build.chl`
+
+```
+chili examples/playground/build.chl
+```
+
+You should see "Hello, World!" in printed to your terminal.
+
+To run a compile and run a file directly, without using Chili's build API, use the `--run` flag.
+Test this out by running the hello world example:
+
+```
+chili examples/hello_world.chl --run
+```
+
+For some examples of what you can do with Chili, check out the [examples folder](https://github.com/r0nsha/chili/blob/main/examples).
 
 ## Tooling
 
 - VSCode plugin is available [here](https://marketplace.visualstudio.com/items?itemName=chili-lang.chili) (currently includes syntax highlighting)
 
 ## Tasks
+
 ### Compiler
+
 - [x] Functions
 - [x] Variables
 - [x] Static Typing
@@ -58,6 +89,7 @@ cargo build
 - [x] Default function arguments
 - [x] Panic function
 - [x] Varargs
+- [ ] Named function arguments
 - [ ] Runtime type introspection
 - [ ] Printing and formatting
 - [ ] Parametric polymorphism - supporting both types and constant values
@@ -71,10 +103,10 @@ cargo build
   - [ ] Try ? operator
 - [ ] Traits / Typeclasses
 - [ ] Closures
-- [ ] Named function arguments
 - [ ] Built-in code testing
 
 ### Standard library
+
 - [ ] OS Abstractions for Windows
   - [ ] Filesystem API
   - [ ] Networking and HTTP

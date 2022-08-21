@@ -27,3 +27,4 @@ docs/demo
 docs/static
 local_resources
 hir.pretty.chl
+!llvm/**
