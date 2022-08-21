@@ -1,8 +1,4 @@
-use super::{
-    normalize::Normalize,
-    type_ctx::TypeCtx,
-    unify::{UnifyTypeErr, UnifyTypeResult},
-};
+use super::{normalize::Normalize, type_ctx::TypeCtx, unify::UnifyTypeResult};
 use crate::{check::symbols, error::DiagnosticResult, types::*};
 use crate::{span::Span, workspace::BindingId};
 

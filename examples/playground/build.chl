@@ -1,8 +1,6 @@
 let * = import std/build
 
 fn build = {
-	let array: *[]u8 = &[1, 2, 3]
-
 	let build_options = BuildOptions {
         input_file: "src/main.chl",
         output_file: "out/main",
