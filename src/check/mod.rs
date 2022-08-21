@@ -27,7 +27,7 @@ use crate::{
         cast::{can_cast_type, try_cast_const_value},
         coerce::{OrCoerce, OrCoerceIntoTy},
         display::{DisplayType, OrReportErr},
-        normalize::Normalize,
+        normalize::{IsConcrete, Normalize},
         substitute::substitute,
         type_ctx::TypeCtx,
         unify::{occurs, UnifyType, UnifyTypeErr},
@@ -810,6 +810,17 @@ impl Check for ast::Binding {
                         BindingInfoKind::ExternVariable,
                     )
                 };
+
+                if let Err(faulty_ty) = ty.is_concrete(&sess.tcx) {
+                    return Err(Diagnostic::error()
+                        .with_message(format!("extern variable `{}` isn't fully typed", name))
+                        .with_label(Label::primary(span, format!("`{}` defined here", name)))
+                        .maybe_with_label(
+                            sess.tcx
+                                .ty_span(faulty_ty)
+                                .map(|span| Label::secondary(span, "incomplete type found here")),
+                        ));
+                }
 
                 sess.bind_name(
                     env,
