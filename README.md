@@ -12,60 +12,56 @@ fn main() = println("Hello, World!")
 
 For more information about up-to-date syntax and language features, check out the [demo file](https://github.com/r0nsha/chili/blob/main/examples/demo/demo.chl).
 
-## Installation
+## Getting Started
 
-### Windows
+### For Windows
 
-1. [Install](https://www.rust-lang.org/tools/install) the rust toolchain
+There are a couple of prerequisites here. First, make sure you have [Rust's toolchain](https://www.rust-lang.org/tools/install) installed. Second, make sure you have [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) installed.
 
-2. [Install](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) Visual Studio Build Tools
+You have to compile Chili from source and set up a working directory, to do that, navigate to Chili's directory and run:
 
-3. Clone the repository
+```
+./build.bat release
+```
 
-4. Run the build script
+This will create a directory called `dist/release` under Chili's directory. To build Chili for debug, run `./build.bat debug`.
 
-   ```
-   ./build.bat
-   ```
+### For \*Nix systems
 
-5. You should see a `dist` folder with the compiled binaries. Add `dist` to your PATH environment variable.
+First, make sure you have [Rust's toolchain](https://www.rust-lang.org/tools/install) installed.
 
-6. Restart your shell and try out the compiler:
-   ```
-   chili examples/playground/build.chl
-   ```
+For Linux, make sure you have `llvm-12` and `clang` installed through your package manager.
 
-### Ubuntu
+MacOS is currently not supported, but will be in the future.
 
-1. [Install](https://www.rust-lang.org/tools/install) the rust toolchain
+Navigate to Chili's directory and run:
 
-2. Install LLVM and Clang binaries
+```
+sh build.sh release
+```
 
-   ```
-   sudo apt-get update
-   sudo apt-get -y install llvm-12 clang
-   ```
+This will create a directory called `dist/release` under Chili's directory. To build Chili for debug, run `sh build.sh`.
 
-3. Clone the repository
+### Trying it out
 
-4. Run the build script
+> For ease of use, I recommend adding `dist/release` to your `PATH` environment variable.
 
-   ```
-   sh build.sh release
-   ```
+In your terminal, run `chili .\examples\playground\build.chl`
 
-5. You should see a `dist` folder with the compiled binaries. Add `dist` to your PATH environment variable.
+```
+chili examples/playground/build.chl
+```
 
-6. Restart your shell and try out the compiler:
-   ```
-   chili examples/playground/build.chl
-   ```
+You should see "Hello, World!" in printed to your terminal.
 
-## Running the example:
+To run a compile and run a file directly, without using Chili's build API, use the `--run` flag.
+Test this out by running the hello world example:
 
-1. Open your favorite terminal
-2. Change directory to Chili's repository's root
-3. Run: `cargo run -- ./examples/hello_world.chl --run`
+```
+chili examples/hello_world.chl --run
+```
+
+For some examples of what you can do with Chili, check out the [examples folder](https://github.com/r0nsha/chili/blob/main/examples).
 
 ## Tooling
 
@@ -93,6 +89,7 @@ For more information about up-to-date syntax and language features, check out th
 - [x] Default function arguments
 - [x] Panic function
 - [x] Varargs
+- [ ] Named function arguments
 - [ ] Runtime type introspection
 - [ ] Printing and formatting
 - [ ] Parametric polymorphism - supporting both types and constant values
@@ -106,7 +103,6 @@ For more information about up-to-date syntax and language features, check out th
   - [ ] Try ? operator
 - [ ] Traits / Typeclasses
 - [ ] Closures
-- [ ] Named function arguments
 - [ ] Built-in code testing
 
 ### Standard library
