@@ -137,9 +137,15 @@ impl Parser {
         let token = self.previous();
         let span = token.span;
 
+        self.skip_newlines();
+
         let condition = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false, true)?;
 
+        self.skip_newlines();
+
         let then = self.parse_block_expr()?;
+
+        self.skip_newlines();
 
         let otherwise = if eat!(self, Else) {
             let expr = if eat!(self, If) {
@@ -524,7 +530,11 @@ impl Parser {
     pub fn parse_while(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
+        self.skip_newlines();
+
         let condition = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false, true)?;
+
+        self.skip_newlines();
 
         let block = self.parse_block()?;
 
@@ -541,6 +551,7 @@ impl Parser {
         let iter_ident = require!(self, Ident(_), "an identifier")?;
 
         self.skip_newlines();
+
         let iter_index_ident = if eat!(self, Comma) {
             Some(require!(self, Ident(_), "an identifier")?)
         } else {
@@ -564,6 +575,8 @@ impl Parser {
             ast::ForIter::Value(Box::new(iter_start))
         };
 
+        self.skip_newlines();
+
         let block = self.parse_block()?;
 
         Ok(Ast::For(ast::For {
@@ -583,20 +596,12 @@ impl Parser {
             Break => Ok(Ast::Break(ast::Empty { span })),
             Continue => Ok(Ast::Continue(ast::Empty { span })),
             Return => {
+                self.skip_newlines();
+
                 let expr = match self.peek().kind {
                     Newline | CloseCurly | Eof => None,
-                    _ => {
-                        let expr = self.parse_expression(false, true)?;
-                        Some(Box::new(expr))
-                    }
+                    _ => Some(Box::new(self.parse_expression(false, true)?)),
                 };
-
-                // let expr = if !self.peek().kind.is_expr_start() && is!(self, Semicolon) {
-                //     None
-                // } else {
-                //     let expr = self.parse_expression(false, true)?;
-                //     Some(Box::new(expr))
-                // };
 
                 Ok(Ast::Return(ast::Return {
                     expr,
@@ -611,6 +616,8 @@ impl Parser {
         let start_span = self.previous_span();
 
         require!(self, Static, "static")?;
+
+        self.skip_newlines();
 
         let expr = self.parse_block_expr()?;
 
