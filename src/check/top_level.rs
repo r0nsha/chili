@@ -232,11 +232,11 @@ impl<'s> CheckSess<'s> {
 
             self.queued_modules.get_mut(&module.id).unwrap().all_complete = true;
 
-            for const_ in module.consts.iter() {
-                let node = self.with_env(module.id, |sess, mut env| const_.check(sess, &mut env, None))?;
+            for r#static in module.statics.iter() {
+                let node = self.with_env(module.id, |sess, mut env| r#static.check(sess, &mut env, None))?;
 
                 if !self.workspace.build_options.check_mode {
-                    self.eval(&node, module.id, const_.span)?;
+                    self.eval(&node, module.id, r#static.span)?;
                 }
             }
 

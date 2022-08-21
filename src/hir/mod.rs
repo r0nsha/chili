@@ -412,4 +412,21 @@ impl Node {
             is_scope: false,
         })
     }
+
+    pub fn force_into_sequence(self) -> Sequence {
+        match self {
+            Self::Sequence(x) => x,
+            _ => {
+                let ty = self.ty();
+                let span = self.span();
+
+                Sequence {
+                    statements: vec![self],
+                    is_scope: false,
+                    ty,
+                    span,
+                }
+            }
+        }
+    }
 }

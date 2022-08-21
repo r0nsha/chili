@@ -74,6 +74,22 @@ impl Env {
         self.scope_level = self.scope_level.next();
     }
 
+    #[allow(unused)]
+    pub fn with_scope<R>(&mut self, kind: ScopeKind, f: impl FnOnce(&mut Self) -> R) -> R {
+        self.push_scope(kind);
+        let result = f(self);
+        self.pop_scope();
+        result
+    }
+
+    #[allow(unused)]
+    pub fn with_named_scope<R>(&mut self, name: impl ToString, kind: ScopeKind, f: impl FnOnce(&mut Self) -> R) -> R {
+        self.push_named_scope(name, kind);
+        let result = f(self);
+        self.pop_scope();
+        result
+    }
+
     pub fn pop_scope(&mut self) {
         self.scopes.pop();
         self.scope_level = self.scope_level.previous();

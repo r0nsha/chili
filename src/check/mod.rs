@@ -1821,7 +1821,7 @@ impl Check for ast::For {
                 }));
 
                 // loop block { ... }
-                let mut block_node = self.block.check(sess, env, None)?.into_sequence().unwrap();
+                let mut block_node = self.block.check(sess, env, None)?.force_into_sequence();
 
                 // index += 1
                 block_node.statements.push(hir::Node::Assign(hir::Assign {
@@ -2026,7 +2026,7 @@ impl Check for ast::For {
                 )?;
 
                 // loop block { ... }
-                let mut block_node = self.block.check(sess, env, None)?.into_sequence().unwrap();
+                let mut block_node = self.block.check(sess, env, None)?.force_into_sequence();
 
                 // let iter = value[index]
                 block_node.statements.insert(0, iter_binding);
@@ -2070,13 +2070,17 @@ impl Check for ast::For {
 }
 
 impl Check for ast::StaticEval {
-    fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
-        // Note (Ron 02/07/2022):
-        // The inner expression of `const` isn't allowed to capture its outer environment yet.
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
+        // Notes (Ron 02/07/2022):
+        // The inner expression of `static` isn't allowed to capture its outer environment yet.
         // TODO: Running arbitrary should code require these preconditions to be met:
-        //       1. All types are at least partially inferred
+        //       1. All types are concrete
         //       2. All types in all memory locations are sized
-        let node = sess.with_env(env.module_id(), |sess, mut env| self.expr.check(sess, &mut env, None))?;
+        let node = sess.with_env(env.module_id(), |sess, mut env| {
+            env.with_scope(ScopeKind::Block, |mut env| {
+                self.expr.check(sess, &mut env, expected_type)
+            })
+        })?;
 
         if sess.workspace.build_options.check_mode {
             // TODO: This is a hack so that printing won't interfere with our communication

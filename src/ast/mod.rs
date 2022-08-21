@@ -25,7 +25,7 @@ pub struct Module {
     pub info: ModuleInfo,
     pub file_id: FileId,
     pub bindings: Vec<Binding>,
-    pub consts: Vec<StaticEval>,
+    pub statics: Vec<StaticEval>,
 }
 
 impl Module {
@@ -35,7 +35,7 @@ impl Module {
             id: Default::default(),
             info: module_info,
             bindings: vec![],
-            consts: vec![],
+            statics: vec![],
         }
     }
 

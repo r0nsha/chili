@@ -124,10 +124,12 @@ impl<'i> InterpSess<'i> {
     pub fn eval(&'i mut self, node: &hir::Node, module_id: ModuleId) -> InterpResult {
         let mut start_code = Bytecode::new();
 
+        // lower expression tree into instructions
         self.env_stack.push((module_id, Env::default()));
 
-        // lower expression tree into instructions
+        self.env_mut().push_scope();
         node.lower(self, &mut start_code, LowerContext { take_ptr: false });
+        self.env_mut().pop_scope();
 
         if self.diagnostics.is_empty() {
             start_code.write_inst(Inst::Halt);
