@@ -1,7 +1,7 @@
 let * = import std/build
 
 fn build = {
-	// let array: *[]u8 = &[1, 2, 3]
+	let array: *[]u8 = &[1, 2, 3]
 
 	let build_options = BuildOptions {
         input_file: "src/main.chl",
@@ -19,11 +19,7 @@ fn build = {
 
 	if ok {
 		std.process.start(executable)
-	} else {
-		5
 	}
-
-	()
 }
 
 static { build() }
