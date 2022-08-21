@@ -3744,24 +3744,27 @@ fn check_function<'s>(
     param_bind_statements.append(&mut body_sequence.statements);
     body_sequence.statements = param_bind_statements;
 
-    let mut unify_node = body_sequence.ty.unify(&return_type, &mut sess.tcx);
+    // Unify the function's body with the its return type
+    {
+        let mut unify_node = body_sequence.ty.unify(&return_type, &mut sess.tcx);
 
-    if let Some(last_statement) = body_sequence.statements.last_mut() {
-        unify_node = unify_node.or_coerce_into_ty(
-            last_statement,
+        if let Some(last_statement) = body_sequence.statements.last_mut() {
+            unify_node = unify_node.or_coerce_into_ty(
+                last_statement,
+                &return_type,
+                &mut sess.tcx,
+                sess.target_metrics.word_size,
+            );
+        }
+
+        unify_node.or_report_err(
+            &sess.tcx,
             &return_type,
-            &mut sess.tcx,
-            sess.target_metrics.word_size,
-        );
+            Some(return_type_span),
+            &body_sequence.ty,
+            body.span(),
+        )?;
     }
-
-    unify_node.or_report_err(
-        &sess.tcx,
-        &return_type,
-        Some(return_type_span),
-        &body_sequence.ty,
-        body.span(),
-    )?;
 
     env.pop_scope();
 

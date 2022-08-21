@@ -152,10 +152,11 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TypeCtx) -> UnifyTypeResult
                 }
                 Type::Infer(other, InferType::AnyInt | InferType::AnyFloat) | Type::Var(other) => {
                     if other != var {
-                        tcx.bind_ty(other, var.into());
+                        tcx.bind_ty(other, var.as_kind());
                     }
                     Ok(())
                 }
+                Type::Never => Ok(()),
                 _ => Err(UnifyTypeErr::Mismatch),
             }
         }
@@ -168,10 +169,11 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TypeCtx) -> UnifyTypeResult
                 }
                 Type::Infer(other, InferType::AnyInt | InferType::AnyFloat) | Type::Var(other) => {
                     if other != var {
-                        tcx.bind_ty(other, var.into());
+                        tcx.bind_ty(other, var.as_kind());
                     }
                     Ok(())
                 }
+                Type::Never => Ok(()),
                 _ => Err(UnifyTypeErr::Mismatch),
             }
         }
@@ -239,6 +241,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TypeCtx) -> UnifyTypeResult
 
                     Ok(())
                 }
+                Type::Never => Ok(()),
                 _ => Err(UnifyTypeErr::Mismatch),
             }
         }
@@ -273,6 +276,7 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TypeCtx) -> UnifyTypeResult
 
                     Ok(())
                 }
+                Type::Never => Ok(()),
                 _ => Err(UnifyTypeErr::Mismatch),
             }
         }
