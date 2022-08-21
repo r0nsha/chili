@@ -1,6 +1,8 @@
 let * = import std/build
 
 fn build = {
+	// let array: *[]u8 = &[1, 2, 3]
+
 	let build_options = BuildOptions {
         input_file: "src/main.chl",
         output_file: "out/main",
@@ -13,11 +15,15 @@ fn build = {
 		build_options
 	}
 
-	let (output_file, ok) = start_workspace(workspace)
+	let (executable, ok) = start_workspace(workspace)
 
 	if ok {
-		std.process.start(output_file)
+		std.process.start(executable)
+	} else {
+		5
 	}
+
+	()
 }
 
 static { build() }

@@ -40,8 +40,8 @@
     "comments": {
       "patterns": [
         {
-          "match": "#(.*)",
-          "name": "comment.line.hash.chili"
+          "match": "//(.*)",
+          "name": "comment.line.double-slash.chili"
         }
       ]
     },

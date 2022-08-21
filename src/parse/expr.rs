@@ -145,6 +145,8 @@ impl Parser {
 
         let then = self.parse_block_expr()?;
 
+        let last_index = self.current;
+
         self.skip_newlines();
 
         let otherwise = if eat!(self, Else) {
@@ -156,6 +158,7 @@ impl Parser {
 
             Some(Box::new(expr))
         } else {
+            self.current = last_index;
             None
         };
 

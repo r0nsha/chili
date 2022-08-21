@@ -1,11 +1,11 @@
 let { Workspace } = import build
 
-# Workspace
+// Workspace
 
 @intrinsic
 pub extern fn start_workspace(workspace: Workspace) -> (*str, bool)
 
-# Location
+// Location
 
 pub type Location = struct {
     file: *str
@@ -19,7 +19,7 @@ pub extern fn location() -> Location
 @intrinsic
 pub extern fn caller_location() -> Location
 
-# Target
+// Target
 
 pub type Os = uint
 pub let Os_linux: Os = 0

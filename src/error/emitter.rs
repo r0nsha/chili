@@ -22,7 +22,7 @@ impl DiagnosticEmitter {
             config: Config {
                 display_style: DisplayStyle::Rich,
                 tab_width: 4,
-                chars: Chars::ascii(),
+                chars: Chars::box_drawing(),
                 ..Default::default()
             },
         }
