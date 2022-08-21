@@ -243,7 +243,6 @@ pub struct If {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Block {
     pub statements: Vec<Ast>,
-    pub yields: bool,
     pub span: Span,
 }
 
