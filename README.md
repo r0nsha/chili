@@ -17,6 +17,7 @@ For more information about up-to-date syntax and language features, check out th
 ### For Windows
 
 There are a couple of prerequisites here. First, make sure you have [Rust's toolchain](https://www.rust-lang.org/tools/install) installed. Second, make sure you have [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) installed.
+You can also initialize Visual Studio's environment by running `vcvarsall.bat x64`, which should be under `...\vs\root\BuildTools\VC\Auxiliary\Build`.
 
 You have to compile Chili from source and set up a working directory, to do that, navigate to Chili's directory and run:
 
