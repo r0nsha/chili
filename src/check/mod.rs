@@ -2191,44 +2191,66 @@ impl Check for ast::If {
             _ => {
                 let mut then_node = self.then.check(sess, env, expected_type)?;
 
-                let if_node = if let Some(otherwise) = &self.otherwise {
+                if let Some(otherwise) = &self.otherwise {
                     let mut otherwise_node = otherwise.check(sess, env, Some(then_node.ty()))?;
 
-                    otherwise_node
-                        .ty()
-                        .unify(&then_node.ty(), &mut sess.tcx)
-                        .or_coerce(
-                            &mut then_node,
-                            &mut otherwise_node,
-                            &mut sess.tcx,
-                            sess.target_metrics.word_size,
-                        )
-                        .or_report_err(
+                    let unify_nodes = otherwise_node.ty().unify(&then_node.ty(), &mut sess.tcx).or_coerce(
+                        &mut then_node,
+                        &mut otherwise_node,
+                        &mut sess.tcx,
+                        sess.target_metrics.word_size,
+                    );
+
+                    match unify_nodes {
+                        Ok(_) => Ok(hir::Node::Control(hir::Control::If(hir::If {
+                            ty: then_node.ty(),
+                            span: self.span,
+                            condition: Box::new(condition_node),
+                            then: Box::new(then_node),
+                            otherwise: Some(Box::new(otherwise_node)),
+                        }))),
+                        Err(_) if expected_type.map_or(false, |ty| ty.normalize(&sess.tcx).is_unit()) => {
+                            // If the types don't match, and the expected type is unit, then we can assume
+                            // that the if's result is not used
+                            let unit_type = sess.tcx.common_types.unit;
+
+                            Ok(hir::Node::Sequence(hir::Sequence {
+                                statements: vec![
+                                    hir::Node::Control(hir::Control::If(hir::If {
+                                        ty: then_node.ty(),
+                                        span: self.span,
+                                        condition: Box::new(condition_node),
+                                        then: Box::new(then_node),
+                                        otherwise: Some(Box::new(otherwise_node)),
+                                    })),
+                                    hir::Node::Const(hir::Const {
+                                        value: ConstValue::Unit(()),
+                                        ty: unit_type,
+                                        span: self.span,
+                                    }),
+                                ],
+                                is_scope: false,
+                                ty: unit_type,
+                                span: self.span,
+                            }))
+                        }
+                        Err(err) => Err(err.into_diagnostic(
                             &sess.tcx,
                             &then_node.ty(),
                             Some(self.then.span()),
                             &otherwise_node.ty(),
                             otherwise.span(),
-                        )?;
-
-                    hir::If {
-                        ty: then_node.ty(),
-                        span: self.span,
-                        condition: Box::new(condition_node),
-                        then: Box::new(then_node),
-                        otherwise: Some(Box::new(otherwise_node)),
+                        )),
                     }
                 } else {
-                    hir::If {
+                    Ok(hir::Node::Control(hir::Control::If(hir::If {
                         ty: unit_type,
                         span: self.span,
                         condition: Box::new(condition_node),
                         then: Box::new(then_node),
                         otherwise: None,
-                    }
-                };
-
-                Ok(hir::Node::Control(hir::Control::If(if_node)))
+                    })))
+                }
             }
         }
     }
