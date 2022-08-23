@@ -10,7 +10,7 @@ impl Parser {
     pub fn parse_function_expr(&mut self, name: Option<Ustr>, kind: FunctionTypeKind) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
-        let sig = self.parse_function_sig(name, kind, false)?;
+        let (sig, used_parens) = self.parse_function_sig(name, kind, false)?;
 
         if is!(self, OpenCurly) {
             let body = self.parse_block()?;
@@ -20,8 +20,10 @@ impl Parser {
                 body,
                 span: start_span.to(self.previous_span()),
             }))
-        } else {
+        } else if used_parens {
             Ok(Ast::FunctionType(sig))
+        } else {
+            Err(SyntaxError::expected(start_span.after(), "("))
         }
     }
 
@@ -30,33 +32,36 @@ impl Parser {
         name: Option<Ustr>,
         kind: FunctionTypeKind,
         require_parens: bool,
-    ) -> DiagnosticResult<FunctionSig> {
+    ) -> DiagnosticResult<(FunctionSig, bool)> {
         let start_span = self.previous_span();
 
-        let (params, varargs) = self.parse_function_params(require_parens)?;
+        let (params, varargs, used_parens) = self.parse_function_params(require_parens)?;
 
         let return_type = self.parse_function_return_type()?;
 
-        Ok(FunctionSig {
-            name,
-            params,
-            varargs,
-            return_type,
-            kind,
-            span: start_span.to(self.previous_span()),
-        })
+        Ok((
+            FunctionSig {
+                name,
+                params,
+                varargs,
+                return_type,
+                kind,
+                span: start_span.to(self.previous_span()),
+            },
+            used_parens,
+        ))
     }
 
     fn parse_function_params(
         &mut self,
         require_parens: bool,
-    ) -> DiagnosticResult<(Vec<FunctionParam>, Option<FunctionVarargs>)> {
+    ) -> DiagnosticResult<(Vec<FunctionParam>, Option<FunctionVarargs>, bool)> {
         if !eat!(self, OpenParen) {
             if require_parens {
                 return Err(SyntaxError::expected(self.span(), "("));
             }
 
-            return Ok((vec![], None));
+            return Ok((vec![], None, false));
         }
 
         let mut varargs: Option<FunctionVarargs> = None;
@@ -109,7 +114,7 @@ impl Parser {
             ", or )"
         );
 
-        Ok((params, varargs))
+        Ok((params, varargs, true))
     }
 
     fn parse_function_return_type(&mut self) -> DiagnosticResult<Option<Box<Ast>>> {
@@ -117,7 +122,7 @@ impl Parser {
             Ok(Some(Box::new(self.parse_expression_res(
                 Restrictions::NO_STRUCT_LITERAL,
                 false,
-                true,
+                false,
             )?)))
         } else {
             Ok(None)

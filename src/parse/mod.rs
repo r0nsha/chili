@@ -11,7 +11,7 @@ mod top_level;
 use crate::{
     ast::{self, Ast},
     error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError},
-    span::{EndPosition, Position, Span},
+    span::Span,
     token::{lexer::Lexer, Token, TokenKind::*},
     workspace::{library::Library, ModuleInfo, ModulePath},
 };
@@ -82,7 +82,7 @@ macro_rules! parse_delimited_list {
             } else if eat!($parser, $close_delim) {
                 break;
             } else {
-                let span = Parser::get_missing_delimiter_span($parser.previous_span());
+                let span = $parser.previous_span().after();
                 return Err(SyntaxError::expected(span, &format!("{}, got {}", $msg, $parser.peek().kind.lexeme())));
             }
         }
@@ -249,21 +249,6 @@ impl Parser {
         while !is!(self, Semicolon | Newline) && !self.eof() {
             self.bump();
         }
-    }
-
-    #[inline]
-    pub fn get_missing_delimiter_span(after_span: Span) -> Span {
-        let start_pos = Position {
-            index: after_span.end.index,
-            line: after_span.start.line,
-            column: after_span.start.column,
-        };
-
-        let end_pos = EndPosition {
-            index: after_span.end.index,
-        };
-
-        after_span.with_start(start_pos).with_end(end_pos)
     }
 
     pub fn skip_newlines(&mut self) {

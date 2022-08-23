@@ -92,7 +92,7 @@ impl Parser {
 
         let name_and_span = ast::NameAndSpan { name, span: id.span };
 
-        let sig = self.parse_function_sig(Some(name), FunctionTypeKind::Orphan, true)?;
+        let (sig, _) = self.parse_function_sig(Some(name), FunctionTypeKind::Orphan, true)?;
 
         require!(self, Eq, "=")?;
 
@@ -124,7 +124,7 @@ impl Parser {
 
             let name_and_span = ast::NameAndSpan { name, span: id.span };
 
-            let sig = self.parse_function_sig(Some(name), FunctionTypeKind::Extern, true)?;
+            let (sig, _) = self.parse_function_sig(Some(name), FunctionTypeKind::Extern, true)?;
 
             Ok(ast::Binding {
                 module_id: ModuleId::unknown(),

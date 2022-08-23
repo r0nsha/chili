@@ -24,12 +24,11 @@ pub fn substitute<'a>(diagnostics: &'a mut Diagnostics, tcx: &'a mut TypeCtx, ca
     // substitute used types - extracting erroneous types
     cache.substitute(&mut sess);
 
-    if sess.diagnostics.has_errors() {
+    if sess.erroneous_types.is_empty() {
+        sess.make_all_types_concrete();
+    } else {
         sess.emit_erroneous_types();
-        return;
     }
-
-    sess.make_all_types_concrete();
 }
 
 struct Sess<'a> {
@@ -50,8 +49,7 @@ impl<'a> Sess<'a> {
             .flat_map(|(&ty, spans)| {
                 let ty_span = self.tcx.ty_span(ty);
 
-                let ty_origin_label =
-                    ty_span.map(|span| Label::secondary(span, "because its type originates from this expression"));
+                let ty_origin_label = ty_span.map(|span| Label::secondary(span, "incomplete type originates here"));
 
                 spans
                     .iter()
@@ -59,7 +57,7 @@ impl<'a> Sess<'a> {
                     .map(|&span| {
                         Diagnostic::error()
                             .with_message("can't infer the expression's type")
-                            .with_label(Label::primary(span, "can't infer type"))
+                            .with_label(Label::primary(span, "can't infer this type"))
                             .maybe_with_label(ty_origin_label.clone())
                             .with_note("try adding more type information")
                     })
@@ -368,7 +366,7 @@ fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
                 extract_free_type_vars(ty, free_types);
             }
         }
-        Type::Pointer(ty, _) | Type::Array(ty, _) | Type::Slice(ty) | Type::Str(ty) => {
+        Type::Pointer(ty, _) | Type::Array(ty, _) | Type::Slice(ty) | Type::Str(ty) | Type::Type(ty) => {
             extract_free_type_vars(ty, free_types)
         }
         Type::Tuple(tys) | Type::Infer(_, InferType::PartialTuple(tys)) => {
@@ -380,6 +378,15 @@ fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
         Type::Infer(_, InferType::PartialStruct(fields)) => {
             fields.iter().for_each(|(_, ty)| extract_free_type_vars(ty, free_types));
         }
-        _ => (),
+
+        Type::Never
+        | Type::Unit
+        | Type::Bool
+        | Type::Int(_)
+        | Type::Uint(_)
+        | Type::Float(_)
+        | Type::Module(_)
+        | Type::AnyType
+        | Type::Infer(_, InferType::AnyInt | InferType::AnyFloat) => (),
     }
 }

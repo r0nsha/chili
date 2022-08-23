@@ -117,7 +117,7 @@ impl Parser {
                 } else if eat!(self, CloseCurly) {
                     break;
                 } else {
-                    let span = Self::get_missing_delimiter_span(self.previous_span());
+                    let span = self.previous_span().after();
                     return Err(SyntaxError::expected(span, ", or }"));
                 }
             }
