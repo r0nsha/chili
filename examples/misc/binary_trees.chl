@@ -33,7 +33,7 @@ fn node_create(depth: i32) -> *mut Node = {
 
 let min_depth: i32 = 4
 
-fn main = {
+fn main() = {
     let n = 10
 
     let max_depth = if min_depth + 2 > n { min_depth + 2 } else { n }

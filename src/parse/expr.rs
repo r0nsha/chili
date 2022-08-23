@@ -7,7 +7,7 @@ use crate::{
     },
     span::Span,
     token::TokenKind::*,
-    types::StructTypeKind,
+    types::{FunctionTypeKind, StructTypeKind},
 };
 use std::vec;
 
@@ -378,7 +378,7 @@ impl Parser {
                 }
             }
         } else if eat!(self, Fn) {
-            self.parse_function(None, false)
+            self.parse_function_expr(None, FunctionTypeKind::Orphan)
         } else if eat!(self, Struct) {
             self.parse_struct_type()
         } else if eat!(self, Union) {

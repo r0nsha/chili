@@ -115,7 +115,7 @@ fn execute(program Program) = {
     }
 }
 
-fn main = {
+fn main() = {
     let program = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."
     let program = compile(program)
     if program.len > 0 {

@@ -7,10 +7,10 @@ use crate::{
 use ustr::Ustr;
 
 impl Parser {
-    pub fn parse_function(&mut self, name: Option<Ustr>, is_extern: bool) -> DiagnosticResult<Ast> {
+    pub fn parse_function_expr(&mut self, name: Option<Ustr>, kind: FunctionTypeKind) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
-        let sig = self.parse_function_sig(name, is_extern)?;
+        let sig = self.parse_function_sig(name, kind, false)?;
 
         if is!(self, OpenCurly) {
             let body = self.parse_block()?;
@@ -25,37 +25,37 @@ impl Parser {
         }
     }
 
-    pub fn parse_function_sig(&mut self, name: Option<Ustr>, is_extern: bool) -> DiagnosticResult<FunctionSig> {
+    pub fn parse_function_sig(
+        &mut self,
+        name: Option<Ustr>,
+        kind: FunctionTypeKind,
+        require_parens: bool,
+    ) -> DiagnosticResult<FunctionSig> {
         let start_span = self.previous_span();
 
-        let (params, varargs) = self.parse_function_params()?;
+        let (params, varargs) = self.parse_function_params(require_parens)?;
 
-        let return_type = if eat!(self, RightArrow) {
-            Some(Box::new(self.parse_expression_res(
-                Restrictions::NO_STRUCT_LITERAL,
-                false,
-                true,
-            )?))
-        } else {
-            None
-        };
+        let return_type = self.parse_function_return_type()?;
 
         Ok(FunctionSig {
             name,
             params,
             varargs,
             return_type,
-            kind: if is_extern {
-                FunctionTypeKind::Extern
-            } else {
-                FunctionTypeKind::Orphan
-            },
+            kind,
             span: start_span.to(self.previous_span()),
         })
     }
 
-    pub fn parse_function_params(&mut self) -> DiagnosticResult<(Vec<FunctionParam>, Option<FunctionVarargs>)> {
+    fn parse_function_params(
+        &mut self,
+        require_parens: bool,
+    ) -> DiagnosticResult<(Vec<FunctionParam>, Option<FunctionVarargs>)> {
         if !eat!(self, OpenParen) {
+            if require_parens {
+                return Err(SyntaxError::expected(self.span(), "("));
+            }
+
             return Ok((vec![], None));
         }
 
@@ -110,5 +110,17 @@ impl Parser {
         );
 
         Ok((params, varargs))
+    }
+
+    fn parse_function_return_type(&mut self) -> DiagnosticResult<Option<Box<Ast>>> {
+        if eat!(self, RightArrow) {
+            Ok(Some(Box::new(self.parse_expression_res(
+                Restrictions::NO_STRUCT_LITERAL,
+                false,
+                true,
+            )?)))
+        } else {
+            Ok(None)
+        }
     }
 }

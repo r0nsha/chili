@@ -19,7 +19,7 @@ fn main() = {
     starting_a_workspace()
 }
 
-fn primitives_and_variables = {
+fn primitives_and_variables() = {
     println("primitives_and_variables")
     
     // Primitive types:
@@ -149,7 +149,7 @@ fn operators() = {
     x >>= 3
 }
 
-fn control_flow_if = {
+fn control_flow_if() = {
     println("control_flow_if")
 
     // If can be used as a statement
@@ -185,7 +185,7 @@ fn control_flow_if = {
 }
 
 
-fn control_flow_while = {
+fn control_flow_while() = {
     println("control_flow_while")
 
     let mut i = 3
@@ -198,7 +198,7 @@ fn control_flow_while = {
     println("Launch!")
 }
 
-fn arrays = {
+fn arrays() = {
     // An array is a sequence of data, which its size is statically known at compile-time.
     // Arrays are bounds checked, meaning you can't index them out of bounds.
     println("arrays")
@@ -216,7 +216,7 @@ fn arrays = {
     // let what_are_you_doing = words[5]
 }
 
-fn control_flow_for = {
+fn control_flow_for() = {
     println("control_flow_for")
 
     for item, index in [42, 3.14, 666.0] {
@@ -224,7 +224,7 @@ fn control_flow_for = {
     }
 }
 
-fn pointers_and_references = {
+fn pointers_and_references() = {
     println("pointers_and_references")
 
     let foo = 5
@@ -252,7 +252,7 @@ fn pointers_and_references = {
     std.c.printf("x = %d, y = %d\n".data, x, y.*)
 }
 
-fn slices = {
+fn slices() = {
     // println("slices")
 
     // Slices are useful when you want to represent an array
@@ -284,7 +284,7 @@ fn slices = {
     print_slice(slice)
 }
 
-fn functions = {
+fn functions() = {
     println("functions")
 
     // Declaring a named function
@@ -295,12 +295,9 @@ fn functions = {
     fn five() = 5
     std.c.printf("five = %d\n".data, five())
 
-    // If the function takes no parameters, the parentheses can be omitted
-    fn pi = 3.14
-    std.c.printf("pi = %f\n".data, pi())
 
     // A function can also be used as an expression, which makes it anonymous.
-    // Function expressions follow the same rules as function declaration regarding type inference, omitting parentheses, etc.
+    // If a function expression has no parameters, the parentheses can be omitted
     let hello = fn { "Hello" }
     println(hello())
 
@@ -337,7 +334,7 @@ fn functions = {
     std.c.printf("mul(5) = %d\n".data, mul(5))
 }
 
-fn variadic_functions = {
+fn variadic_functions() = {
     println("variadic functions")
 
     // Variadic parameters are treated as a boundless number of optional parameters.
@@ -361,7 +358,7 @@ fn variadic_functions = {
     printints(array...)
 }
 
-fn structs = {
+fn structs() = {
     println("structs")
 
     // Struct fields are either separated by semicolons or newlines
@@ -390,7 +387,7 @@ fn structs = {
     print_point(my_point)
 }
 
-fn tuples = {
+fn tuples() = {
     println("tuples")
     
     // Tuples are essentially anonymous structs, with positional elements
@@ -408,7 +405,7 @@ fn tuples = {
     let unit = ()
 }
 
-fn imports = {
+fn imports() = {
     println("imports")
 
     // Import using the builtin `import` function.
@@ -425,7 +422,7 @@ fn imports = {
     foo.hello()
 }
 
-fn binding_patterns = {
+fn binding_patterns() = {
     println("binding_patterns")
 
     // Unpack patterns are used for conveniently using inner elements of
@@ -503,7 +500,7 @@ fn binding_patterns = {
     printf("My name is %s %s and I'm %d years old\n".data, first.data, last.data, age)
 }
 
-fn builtin_functions = {
+fn builtin_functions() = {
     // There are two builtin functions
     // size_of!(Type)  : returns a type's size
     // align_of!(Type) : returns a type's alignment
@@ -515,7 +512,7 @@ fn builtin_functions = {
     std.c.printf("align_of(u8) = %d\n".data, align_of!(u8))
 }
 
-fn extern_functions = {
+fn extern_functions() = {
     // To use a function or variable declared externally of our program,
     // likely in some static/dynamic library, we declare an `extern` function.
     extern fn printf(fmt: *u8, args...) -> int
@@ -525,14 +522,14 @@ fn extern_functions = {
     // extern let baz: int
 }
 
-fn running_code_at_compile_time = {
+fn running_code_at_compile_time() = {
     // Use a static block to run arbitrary code to return at compile time!
     // Static blocks translate to a no-op at runtime
     println("running_code_at_compile_time")
     static { println("Compile time: I appear first") }
 }
 
-fn starting_a_workspace = {
+fn starting_a_workspace() = {
     println("starting_a_workspace:")
     static { println("Compile time: I appear second") }
 

@@ -4,6 +4,7 @@ use crate::{
     error::*,
     span::EndPosition,
     token::TokenKind::*,
+    types::FunctionTypeKind,
 };
 use ustr::ustr;
 
@@ -35,7 +36,7 @@ impl Parser {
                 } else if eat!(self, Fn) {
                     let start_span = expr.span();
 
-                    let fn_arg = self.parse_function(None, false)?;
+                    let fn_arg = self.parse_function_expr(None, FunctionTypeKind::Orphan)?;
                     let span = start_span.to(self.previous_span());
 
                     match &mut expr {
