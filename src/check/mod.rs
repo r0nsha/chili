@@ -283,12 +283,7 @@ impl<'s> CheckSess<'s> {
         name
     }
 
-    pub(super) fn eval(
-        &mut self,
-        node: &hir::Node,
-        module_id: ModuleId,
-        eval_span: Span,
-    ) -> Result<ConstValue, Diagnostic> {
+    pub(super) fn eval(&mut self, node: &hir::Node, module_id: ModuleId, eval_span: Span) -> CheckResult<ConstValue> {
         if let Some(const_value) = node.as_const_value() {
             Ok(const_value.clone())
         } else {
@@ -303,17 +298,13 @@ impl<'s> CheckSess<'s> {
                 Ok(value) => match value.try_into_const_value(&mut self.tcx, &ty, eval_span) {
                     Ok(const_value) => Ok(const_value),
                     Err(value_str) => Err(Diagnostic::error()
-                        .with_message(format!("compile-time evaluation cannot result in `{}`", value_str,))
+                        .with_message(format!("compile-time evaluation cannot result in `{}`", value_str))
                         .with_label(Label::primary(eval_span, "evaluated here"))),
                 },
-                Err(diagnostics) => {
-                    let (last, tail) = diagnostics.split_last().unwrap();
-
-                    for diag in tail {
-                        self.workspace.diagnostics.push(diag.clone());
-                    }
-
-                    Err(last.clone())
+                Err(mut diagnostics) => {
+                    let last = diagnostics.pop().unwrap();
+                    self.workspace.diagnostics.extend(diagnostics);
+                    Err(last)
                 }
             }
         }
@@ -590,6 +581,8 @@ impl Check for ast::Binding {
             } => {
                 let (name, span) = (*name, *span);
 
+                check_function_sig_has_type_annotations(sess, sig)?;
+
                 let node = check_function(
                     sess,
                     env,
@@ -648,13 +641,7 @@ impl Check for ast::Binding {
             } => {
                 let (name, span) = (*name, *span);
 
-                for param in sig.params.iter() {
-                    if param.type_expr.is_none() {
-                        return Err(Diagnostic::error()
-                            .with_message("extern function must specify all of its parameter types")
-                            .with_label(Label::primary(param.pattern.span(), "parameter type not specified")));
-                    }
-                }
+                check_function_sig_has_type_annotations(sess, sig)?;
 
                 let lib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Lib)?;
                 let dylib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Dylib)?;
@@ -885,6 +872,7 @@ impl Check for ast::Binding {
 
 impl Check for ast::FunctionSig {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
+        check_function_sig_has_type_annotations(sess, self)?;
         check_function_sig(sess, env, self, expected_type, TrackCaller::No)
     }
 }
@@ -3906,7 +3894,7 @@ fn check_function_sig<'s>(
 
     // Whenever a function declaration is annotated with @track_caller, we implicitly
     // insert a location parameter at the start - track_caller@location: Location
-    if track_caller {
+    if track_caller == TrackCaller::Yes {
         let name = ustr(symbols::SYM_TRACK_CALLER_LOCATION_PARAM);
         let ty = sess.location_type()?.normalize(&sess.tcx);
 
@@ -4038,4 +4026,27 @@ fn check_function_sig<'s>(
         ty: sess.tcx.bound(function_type.as_kind().create_type(), sig.span),
         span: sig.span,
     }))
+}
+
+fn check_function_sig_has_type_annotations<'s>(sess: &mut CheckSess<'s>, sig: &ast::FunctionSig) -> CheckResult<()> {
+    let mut diagnostics = sig
+        .params
+        .iter()
+        .map(|param| {
+            param.type_expr.is_none().then(|| {
+                Diagnostic::error()
+                    .with_message(format!("missing type for function parameter `{}`", param.pattern))
+                    .with_label(Label::primary(param.pattern.span(), "missing type annotation"))
+            })
+        })
+        .flatten()
+        .collect::<Vec<_>>();
+
+    if diagnostics.is_empty() {
+        Ok(())
+    } else {
+        let last = diagnostics.pop().unwrap();
+        sess.workspace.diagnostics.extend(diagnostics);
+        Err(last)
+    }
 }
