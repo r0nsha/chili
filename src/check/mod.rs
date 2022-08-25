@@ -4048,10 +4048,19 @@ fn check_function_sig<'s>(
         None
     };
 
-    // if the function signature has no parameters, and the
-    // parent type is a function with 1 parameter, add an implicit `it` parameter
-    if sig.params.is_empty() && varargs.is_none() {
-        if let Some(Type::Function(expected_function_type)) = expected_type.map(|ty| ty.normalize(&sess.tcx)) {
+    let return_type = match (sig.return_type.as_ref(), default_return_type) {
+        // there's a return type annotation
+        (Some(return_type), _) => check_type_expr(return_type, sess, env)?,
+        // there's no annotation, but we have a default return type
+        (None, Some(default)) => default,
+        // else
+        _ => sess.tcx.var(sig.span),
+    };
+
+    if let Some(Type::Function(expected_function_type)) = expected_type.map(|ty| ty.normalize(&sess.tcx)) {
+        // if the function signature has no parameters, and the
+        // parent type is a function with 1 parameter, add an implicit `it` parameter
+        if sig.params.is_empty() && varargs.is_none() {
             if expected_function_type.params.len() == 1 {
                 let param = &expected_function_type.params[0];
                 param_types.push(FunctionTypeParam {
@@ -4061,16 +4070,17 @@ fn check_function_sig<'s>(
                 });
             }
         }
-    }
 
-    let return_type = match (sig.return_type.as_ref(), default_return_type) {
-        // there's a return type annotation
-        (Some(return_type), _) => check_type_expr(return_type, sess, env)?,
-        // there's no annotation, but we have a default return type
-        (None, Some(default)) => default,
-        // else
-        _ => sess.tcx.var(sig.span),
-    };
+        return_type
+            .unify(expected_function_type.return_type.as_ref(), &mut sess.tcx)
+            .or_report_err(
+                &sess.tcx,
+                expected_function_type.return_type.as_ref(),
+                None,
+                &return_type,
+                sig.return_type.as_ref().map(|t| t.span()).unwrap_or(sig.span),
+            )?;
+    }
 
     if let FunctionSigTypeReqs::AllConcrete = type_requirements {
         if let Err(faulty_ty) = return_type.is_concrete(&sess.tcx) {
