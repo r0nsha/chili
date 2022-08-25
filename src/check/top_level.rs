@@ -9,6 +9,7 @@ use crate::{
         DiagnosticResult,
     },
     hir,
+    infer::substitute::substitute,
     span::Span,
     types::{Type, TypeId},
     workspace::{library::LIB_NAME_STD, BindingId, BindingInfoFlags, BindingInfoKind, ModuleId},
@@ -26,6 +27,12 @@ where
 impl CheckTopLevel for ast::Binding {
     fn check_top_level(&self, sess: &mut CheckSess) -> DiagnosticResult<UstrMap<BindingId>> {
         let node = sess.with_env(self.module_id, |sess, mut env| self.check(sess, &mut env, None))?;
+
+        if let Err(mut diagnostics) = substitute(&node, &mut sess.tcx) {
+            let last = diagnostics.pop().unwrap();
+            sess.workspace.diagnostics.extend(diagnostics);
+            return Err(last);
+        }
 
         fn collect_bound_names(node: hir::Node, bound_names: &mut UstrMap<BindingId>, sess: &mut CheckSess) {
             match node {

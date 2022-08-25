@@ -29,7 +29,6 @@ use crate::{
         display::{DisplayType, OrReportErr},
         misc::IsConcrete,
         normalize::Normalize,
-        substitute::substitute,
         type_ctx::TypeCtx,
         unify::{occurs, UnifyType, UnifyTypeErr},
     },
@@ -63,10 +62,6 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
 
     if sess.workspace.diagnostics.has_errors() {
         return sess.into_data();
-    }
-
-    if let Err(diagnostics) = substitute(&sess.cache, &mut sess.tcx) {
-        sess.workspace.diagnostics.extend(diagnostics);
     }
 
     sess.check_entry_point_function_exists();
@@ -4059,6 +4054,8 @@ fn check_function_sig<'s>(
         _ => sess.tcx.var(sig.span),
     };
 
+    let return_type_span = sig.return_type.as_ref().map(|t| t.span()).unwrap_or(sig.span);
+
     if let Some(Type::Function(expected_function_type)) = expected_type.map(|ty| ty.normalize(&sess.tcx)) {
         // if the function signature has no parameters, and the
         // parent type is a function with 1 parameter, add an implicit `it` parameter
@@ -4080,7 +4077,7 @@ fn check_function_sig<'s>(
                 expected_function_type.return_type.as_ref(),
                 None,
                 &return_type,
-                sig.return_type.as_ref().map(|t| t.span()).unwrap_or(sig.span),
+                return_type_span,
             )?;
     }
 
@@ -4092,10 +4089,7 @@ fn check_function_sig<'s>(
                         "function return type `{}` is incomplete",
                         return_type.display(&sess.tcx),
                     ))
-                    .with_label(Label::primary(
-                        sig.return_type.as_ref().map(|t| t.span()).unwrap_or(sig.span),
-                        "incomplete return type",
-                    ))
+                    .with_label(Label::primary(return_type_span, "incomplete return type"))
                     .maybe_with_label(
                         sess.tcx
                             .ty_span(faulty_ty)
@@ -4108,7 +4102,7 @@ fn check_function_sig<'s>(
     let function_type = sess.tcx.bound(
         Type::Function(FunctionType {
             params: param_types,
-            return_type: Box::new(return_type.into()),
+            return_type: Box::new(return_type.as_kind()),
             varargs,
             kind: sig.kind.clone(),
         }),

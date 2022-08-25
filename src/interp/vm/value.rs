@@ -317,6 +317,7 @@ impl Buffer {
         Buffer { bytes, ty }
     }
 
+    #[allow(unused)]
     pub fn from_str(s: &mut str) -> Self {
         let ty = Type::str_pointer();
         let size = ty.size_of(WORD_SIZE);

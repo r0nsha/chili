@@ -10,7 +10,7 @@ use crate::{
 };
 use std::collections::{HashMap, HashSet};
 
-pub fn substitute<'a>(cache: &'a hir::Cache, tcx: &'a mut TypeCtx) -> Result<(), Vec<Diagnostic>> {
+pub fn substitute<'a>(node: &'a hir::Node, tcx: &'a mut TypeCtx) -> Result<(), Vec<Diagnostic>> {
     let mut sess = Sess {
         tcx,
         erroneous_types: HashMap::new(),
@@ -18,7 +18,7 @@ pub fn substitute<'a>(cache: &'a hir::Cache, tcx: &'a mut TypeCtx) -> Result<(),
     };
 
     // substitute used types - extracting erroneous types
-    cache.substitute(&mut sess);
+    node.substitute(&mut sess);
     sess.finish()
 }
 
@@ -32,7 +32,7 @@ struct Sess<'a> {
 impl<'a> Sess<'a> {
     fn finish(mut self) -> Result<(), Vec<Diagnostic>> {
         if self.erroneous_types.is_empty() {
-            Ok(self.make_all_types_concrete())
+            Ok(self.make_used_types_concrete())
         } else {
             Err(self.collect_diagnostics())
         }
@@ -61,12 +61,10 @@ impl<'a> Sess<'a> {
             .collect()
     }
 
-    fn make_all_types_concrete(&mut self) {
-        let tys: Vec<TypeId> = self.tcx.bindings.iter().map(|(ty, _)| TypeId::from(ty)).collect();
-
-        for ty in tys {
+    fn make_used_types_concrete(&mut self) {
+        for ty in self.used_types.iter() {
             let concrete_type = ty.concrete(&self.tcx);
-            self.tcx.bind_ty(ty, concrete_type);
+            self.tcx.bind_ty(*ty, concrete_type);
         }
     }
 }
