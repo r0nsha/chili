@@ -595,6 +595,7 @@ impl Check for ast::Binding {
                     } else {
                         TrackCaller::No
                     },
+                    FunctionSigTypeReqs::ConcreteParams,
                 )?;
 
                 // If this function binding matches the entry point function's requirements, Tag it as the entry function
@@ -878,6 +879,7 @@ impl Check for ast::FunctionSig {
             expected_type,
             Some(sess.tcx.common_types.unit),
             TrackCaller::No,
+            FunctionSigTypeReqs::AllConcrete,
         )
     }
 }
@@ -2125,6 +2127,7 @@ impl Check for ast::Function {
             self.span,
             expected_type,
             TrackCaller::No,
+            FunctionSigTypeReqs::None,
         )
     }
 }
@@ -3620,6 +3623,13 @@ enum TrackCaller {
     No,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FunctionSigTypeReqs {
+    AllConcrete,
+    ConcreteParams,
+    None,
+}
+
 fn check_function<'s>(
     sess: &mut CheckSess<'s>,
     env: &mut Env,
@@ -3628,11 +3638,12 @@ fn check_function<'s>(
     span: Span,
     expected_type: Option<TypeId>,
     track_caller: TrackCaller,
+    type_requirements: FunctionSigTypeReqs,
 ) -> CheckResult {
     let name = sig.name_or_anonymous();
     let qualified_name = get_qualified_name(env.scope_name(), name);
 
-    let sig_node = check_function_sig(sess, env, sig, expected_type, None, track_caller)?;
+    let sig_node = check_function_sig(sess, env, sig, expected_type, None, track_caller, type_requirements)?;
     let sig_type = sess.extract_const_type(&sig_node)?;
     let function_type = sig_type.normalize(&sess.tcx).into_function();
 
@@ -3895,7 +3906,10 @@ fn check_function_sig<'s>(
     expected_type: Option<TypeId>,
     default_return_type: Option<TypeId>,
     track_caller: TrackCaller,
+    type_requirements: FunctionSigTypeReqs,
 ) -> CheckResult {
+    let mut extra_diagnostics: Vec<Diagnostic> = vec![];
+
     let mut param_types: Vec<FunctionTypeParam> = vec![];
     let mut defined_params = UstrMap::default();
     let mut first_default_param_span: Option<Span> = None;
@@ -3969,27 +3983,30 @@ fn check_function_sig<'s>(
             None
         };
 
+        if let FunctionSigTypeReqs::AllConcrete | FunctionSigTypeReqs::ConcreteParams = type_requirements {
+            if let Err(faulty_ty) = param_type.is_concrete(&sess.tcx) {
+                extra_diagnostics.push(
+                    Diagnostic::error()
+                        .with_message(format!(
+                            "function parameter type `{}` is incomplete",
+                            param_type.display(&sess.tcx),
+                        ))
+                        .with_label(Label::primary(param_span, "incomplete parameter type"))
+                        .maybe_with_label(
+                            sess.tcx
+                                .ty_span(faulty_ty)
+                                .map(|ty| Label::secondary(ty, "caused by this")),
+                        ),
+                )
+            }
+        }
+
         param_types.push(FunctionTypeParam {
             name,
             ty: param_type.as_kind(),
             default_value,
         });
     }
-
-    let return_type = match (sig.return_type.as_ref(), default_return_type) {
-        // There's a return type annotation
-        (Some(return_type), _) => check_type_expr(return_type, sess, env)?,
-        // There's no annotation, but we have a default return type
-        (None, Some(default)) => default,
-        // Else
-        _ => sess.tcx.var(sig.span),
-    };
-
-    if sig.return_type.is_none() && sig.kind.is_extern() {
-        sess.tcx.common_types.unit
-    } else {
-        check_optional_type_expr(&sig.return_type, sess, env, sig.span)?
-    };
 
     let varargs = if let Some(varargs) = &sig.varargs {
         let ty = if varargs.type_expr.is_some() {
@@ -3999,7 +4016,25 @@ fn check_function_sig<'s>(
             None
         };
 
-        if ty.is_none() && !sig.kind.is_extern() {
+        if let Some(ty) = &ty {
+            if let FunctionSigTypeReqs::AllConcrete | FunctionSigTypeReqs::ConcreteParams = type_requirements {
+                if let Err(faulty_ty) = ty.is_concrete(&sess.tcx) {
+                    extra_diagnostics.push(
+                        Diagnostic::error()
+                            .with_message(format!(
+                                "function variadic parameter type `{}` is incomplete",
+                                ty.display(&sess.tcx),
+                            ))
+                            .with_label(Label::primary(varargs.span, "incomplete variadic parameter type"))
+                            .maybe_with_label(
+                                sess.tcx
+                                    .ty_span(faulty_ty)
+                                    .map(|ty| Label::secondary(ty, "caused by this")),
+                            ),
+                    )
+                }
+            }
+        } else if !sig.kind.is_extern() {
             return Err(Diagnostic::error()
                 .with_message("variadic parameter must be typed")
                 .with_label(Label::primary(varargs.span, "missing a type annotation")));
@@ -4013,10 +4048,10 @@ fn check_function_sig<'s>(
         None
     };
 
-    if let Some(Type::Function(expected_function_type)) = expected_type.map(|ty| ty.normalize(&sess.tcx)) {
-        if sig.params.is_empty() {
-            // if the function signature has no parameters, and the
-            // parent type is a function with 1 parameter, add an implicit `it` parameter
+    // if the function signature has no parameters, and the
+    // parent type is a function with 1 parameter, add an implicit `it` parameter
+    if sig.params.is_empty() && varargs.is_none() {
+        if let Some(Type::Function(expected_function_type)) = expected_type.map(|ty| ty.normalize(&sess.tcx)) {
             if expected_function_type.params.len() == 1 {
                 let param = &expected_function_type.params[0];
                 param_types.push(FunctionTypeParam {
@@ -4025,6 +4060,36 @@ fn check_function_sig<'s>(
                     default_value: param.default_value.clone(),
                 });
             }
+        }
+    }
+
+    let return_type = match (sig.return_type.as_ref(), default_return_type) {
+        // there's a return type annotation
+        (Some(return_type), _) => check_type_expr(return_type, sess, env)?,
+        // there's no annotation, but we have a default return type
+        (None, Some(default)) => default,
+        // else
+        _ => sess.tcx.var(sig.span),
+    };
+
+    if let FunctionSigTypeReqs::AllConcrete = type_requirements {
+        if let Err(faulty_ty) = return_type.is_concrete(&sess.tcx) {
+            extra_diagnostics.push(
+                Diagnostic::error()
+                    .with_message(format!(
+                        "function return type `{}` is incomplete",
+                        return_type.display(&sess.tcx),
+                    ))
+                    .with_label(Label::primary(
+                        sig.return_type.as_ref().map(|t| t.span()).unwrap_or(sig.span),
+                        "incomplete return type",
+                    ))
+                    .maybe_with_label(
+                        sess.tcx
+                            .ty_span(faulty_ty)
+                            .map(|ty| Label::secondary(ty, "caused by this")),
+                    ),
+            )
         }
     }
 
@@ -4038,11 +4103,17 @@ fn check_function_sig<'s>(
         sig.span,
     );
 
-    Ok(hir::Node::Const(hir::Const {
-        value: ConstValue::Type(function_type),
-        ty: sess.tcx.bound(function_type.as_kind().create_type(), sig.span),
-        span: sig.span,
-    }))
+    if extra_diagnostics.is_empty() {
+        Ok(hir::Node::Const(hir::Const {
+            value: ConstValue::Type(function_type),
+            ty: sess.tcx.bound(function_type.as_kind().create_type(), sig.span),
+            span: sig.span,
+        }))
+    } else {
+        let last = extra_diagnostics.pop().unwrap();
+        sess.workspace.diagnostics.extend(extra_diagnostics);
+        Err(last)
+    }
 }
 
 fn check_function_sig_has_type_annotations<'s>(sess: &mut CheckSess<'s>, sig: &ast::FunctionSig) -> CheckResult<()> {

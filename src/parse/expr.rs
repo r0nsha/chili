@@ -370,10 +370,7 @@ impl Parser {
                     self.parse_tuple_literal(expr, start_span)
                 } else {
                     require!(self, CloseParen, ")")?;
-
-                    expr.span().range().start -= 1;
-                    *expr.span_mut() = Span::to(&expr.span(), self.previous_span());
-
+                    *expr.span_mut() = start_span.to(self.previous_span());
                     Ok(expr)
                 }
             }
@@ -503,7 +500,7 @@ impl Parser {
                     span: id.span,
                 }
             },
-            "new line, ; or }"
+            "a new line, ; or }"
         );
 
         Ok(fields)
