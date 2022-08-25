@@ -590,7 +590,19 @@ impl Check for ast::Binding {
             } => {
                 let (name, span) = (*name, *span);
 
-                let node = check_function(sess, env, sig, body, span, None, attrs.has(AttrKind::TrackCaller))?;
+                let node = check_function(
+                    sess,
+                    env,
+                    sig,
+                    body,
+                    span,
+                    None,
+                    if attrs.has(AttrKind::TrackCaller) {
+                        TrackCaller::Yes
+                    } else {
+                        TrackCaller::No
+                    },
+                )?;
 
                 // If this function binding matches the entry point function's requirements, Tag it as the entry function
                 // Requirements:
@@ -873,7 +885,7 @@ impl Check for ast::Binding {
 
 impl Check for ast::FunctionSig {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
-        check_function_sig(sess, env, self, expected_type, false)
+        check_function_sig(sess, env, self, expected_type, TrackCaller::No)
     }
 }
 
@@ -2119,7 +2131,7 @@ impl Check for ast::Function {
             &ast::Ast::Block(self.body.clone()),
             self.span,
             expected_type,
-            false,
+            TrackCaller::No,
         )
     }
 }
@@ -3609,6 +3621,12 @@ pub(super) fn check_type_expr<'s>(
     sess.extract_const_type(&node)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TrackCaller {
+    Yes,
+    No,
+}
+
 fn check_function<'s>(
     sess: &mut CheckSess<'s>,
     env: &mut Env,
@@ -3616,7 +3634,7 @@ fn check_function<'s>(
     body: &ast::Ast,
     span: Span,
     expected_type: Option<TypeId>,
-    track_caller: bool,
+    track_caller: TrackCaller,
 ) -> CheckResult {
     let name = sig.name_or_anonymous();
     let qualified_name = get_qualified_name(env.scope_name(), name);
@@ -3880,7 +3898,7 @@ fn check_function_sig<'s>(
     env: &mut Env,
     sig: &ast::FunctionSig,
     expected_type: Option<TypeId>,
-    track_caller: bool,
+    track_caller: TrackCaller,
 ) -> CheckResult {
     let mut param_types: Vec<FunctionTypeParam> = vec![];
     let mut defined_params = UstrMap::default();
