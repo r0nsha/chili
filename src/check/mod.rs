@@ -590,7 +590,6 @@ impl Check for ast::Binding {
                     body,
                     span,
                     None,
-                    None,
                     if attrs.has(AttrKind::TrackCaller) {
                         TrackCaller::Yes
                     } else {
@@ -2125,7 +2124,6 @@ impl Check for ast::Function {
             &ast::Ast::Block(self.body.clone()),
             self.span,
             expected_type,
-            None,
             TrackCaller::No,
         )
     }
@@ -3629,13 +3627,12 @@ fn check_function<'s>(
     body: &ast::Ast,
     span: Span,
     expected_type: Option<TypeId>,
-    default_return_type: Option<TypeId>,
     track_caller: TrackCaller,
 ) -> CheckResult {
     let name = sig.name_or_anonymous();
     let qualified_name = get_qualified_name(env.scope_name(), name);
 
-    let sig_node = check_function_sig(sess, env, sig, expected_type, default_return_type, track_caller)?;
+    let sig_node = check_function_sig(sess, env, sig, expected_type, None, track_caller)?;
     let sig_type = sess.extract_const_type(&sig_node)?;
     let function_type = sig_type.normalize(&sess.tcx).into_function();
 
