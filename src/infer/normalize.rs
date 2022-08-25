@@ -200,7 +200,14 @@ impl NormalizeCtx {
                     )
                 }
             }
-            _ => kind.clone(),
+            Type::Never
+            | Type::Unit
+            | Type::Bool
+            | Type::Int(_)
+            | Type::Uint(_)
+            | Type::Float(_)
+            | Type::Module(_)
+            | Type::AnyType => kind.clone(),
         }
     }
 

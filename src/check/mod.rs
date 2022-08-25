@@ -65,7 +65,9 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
         return sess.into_data();
     }
 
-    substitute(&mut sess.workspace.diagnostics, &mut sess.tcx, &sess.cache);
+    if let Err(diagnostics) = substitute(&sess.cache, &mut sess.tcx) {
+        sess.workspace.diagnostics.extend(diagnostics);
+    }
 
     sess.check_entry_point_function_exists();
 

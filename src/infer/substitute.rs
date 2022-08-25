@@ -3,19 +3,15 @@ use super::{
     type_ctx::TypeCtx,
 };
 use crate::{
-    error::{
-        diagnostic::{Diagnostic, Label},
-        Diagnostics,
-    },
+    error::diagnostic::{Diagnostic, Label},
     hir,
     span::Span,
     types::*,
 };
 use std::collections::{HashMap, HashSet};
 
-pub fn substitute<'a>(diagnostics: &'a mut Diagnostics, tcx: &'a mut TypeCtx, cache: &'a hir::Cache) {
+pub fn substitute<'a>(cache: &'a hir::Cache, tcx: &'a mut TypeCtx) -> Result<(), Vec<Diagnostic>> {
     let mut sess = Sess {
-        diagnostics,
         tcx,
         erroneous_types: HashMap::new(),
         used_types: HashSet::new(),
@@ -23,28 +19,27 @@ pub fn substitute<'a>(diagnostics: &'a mut Diagnostics, tcx: &'a mut TypeCtx, ca
 
     // substitute used types - extracting erroneous types
     cache.substitute(&mut sess);
-
-    if sess.erroneous_types.is_empty() {
-        sess.make_all_types_concrete();
-    } else {
-        sess.emit_erroneous_types();
-    }
+    sess.finish()
 }
 
 struct Sess<'a> {
-    diagnostics: &'a mut Diagnostics,
     tcx: &'a mut TypeCtx,
-
     // map of Ty -> Set of reduced expression spans that couldn't be inferred because of the key ty
     erroneous_types: HashMap<TypeId, Vec<Span>>,
-
     used_types: HashSet<TypeId>,
 }
 
 impl<'a> Sess<'a> {
-    fn emit_erroneous_types(&mut self) {
-        let diagnostics: Vec<Diagnostic> = self
-            .erroneous_types
+    fn finish(mut self) -> Result<(), Vec<Diagnostic>> {
+        if self.erroneous_types.is_empty() {
+            Ok(self.make_all_types_concrete())
+        } else {
+            Err(self.collect_diagnostics())
+        }
+    }
+
+    fn collect_diagnostics(&self) -> Vec<Diagnostic> {
+        self.erroneous_types
             .iter()
             .flat_map(|(&ty, spans)| {
                 let ty_span = self.tcx.ty_span(ty);
@@ -63,9 +58,7 @@ impl<'a> Sess<'a> {
                     })
                     .collect::<Vec<Diagnostic>>()
             })
-            .collect();
-
-        self.diagnostics.extend(diagnostics);
+            .collect()
     }
 
     fn make_all_types_concrete(&mut self) {
