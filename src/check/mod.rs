@@ -590,6 +590,7 @@ impl Check for ast::Binding {
                     body,
                     span,
                     None,
+                    None,
                     if attrs.has(AttrKind::TrackCaller) {
                         TrackCaller::Yes
                     } else {
@@ -640,8 +641,6 @@ impl Check for ast::Binding {
                 sig,
             } => {
                 let (name, span) = (*name, *span);
-
-                check_function_sig_has_type_annotations(sess, sig)?;
 
                 let lib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Lib)?;
                 let dylib = sess.maybe_get_extern_lib_attr(env, &attrs, AttrKind::Dylib)?;
@@ -873,7 +872,14 @@ impl Check for ast::Binding {
 impl Check for ast::FunctionSig {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
         check_function_sig_has_type_annotations(sess, self)?;
-        check_function_sig(sess, env, self, expected_type, TrackCaller::No)
+        check_function_sig(
+            sess,
+            env,
+            self,
+            expected_type,
+            Some(sess.tcx.common_types.unit),
+            TrackCaller::No,
+        )
     }
 }
 
@@ -2119,6 +2125,7 @@ impl Check for ast::Function {
             &ast::Ast::Block(self.body.clone()),
             self.span,
             expected_type,
+            None,
             TrackCaller::No,
         )
     }
@@ -3622,12 +3629,13 @@ fn check_function<'s>(
     body: &ast::Ast,
     span: Span,
     expected_type: Option<TypeId>,
+    default_return_type: Option<TypeId>,
     track_caller: TrackCaller,
 ) -> CheckResult {
     let name = sig.name_or_anonymous();
     let qualified_name = get_qualified_name(env.scope_name(), name);
 
-    let sig_node = check_function_sig(sess, env, sig, expected_type, track_caller)?;
+    let sig_node = check_function_sig(sess, env, sig, expected_type, default_return_type, track_caller)?;
     let sig_type = sess.extract_const_type(&sig_node)?;
     let function_type = sig_type.normalize(&sess.tcx).into_function();
 
@@ -3830,6 +3838,7 @@ fn check_function<'s>(
 
     env.pop_scope();
 
+    // TODO: move this to check_function_sig
     // Check that all parameter types are sized
     for param in params.iter() {
         let ty = param.ty.normalize(&sess.tcx);
@@ -3845,15 +3854,7 @@ fn check_function<'s>(
         }
     }
 
-    // Check that the return type is sized
-    let return_type_norm = return_type.normalize(&sess.tcx);
-    if return_type_norm.is_unsized() {
-        sess.workspace.diagnostics.push(TypeError::type_is_unsized(
-            return_type_norm.display(&sess.tcx),
-            return_type_span,
-        ))
-    }
-
+    // TODO: move this to check_function_sig
     // Check that the variadic argument is sized
     if let Some(varargs) = &function_type.varargs {
         if let Some(varargs_type) = &varargs.ty {
@@ -3866,6 +3867,15 @@ fn check_function<'s>(
                 ))
             }
         }
+    }
+
+    // Check that the return type is sized
+    let return_type_norm = return_type.normalize(&sess.tcx);
+    if return_type_norm.is_unsized() {
+        sess.workspace.diagnostics.push(TypeError::type_is_unsized(
+            return_type_norm.display(&sess.tcx),
+            return_type_span,
+        ))
     }
 
     sess.cache
@@ -3886,6 +3896,7 @@ fn check_function_sig<'s>(
     env: &mut Env,
     sig: &ast::FunctionSig,
     expected_type: Option<TypeId>,
+    default_return_type: Option<TypeId>,
     track_caller: TrackCaller,
 ) -> CheckResult {
     let mut param_types: Vec<FunctionTypeParam> = vec![];
@@ -3968,7 +3979,16 @@ fn check_function_sig<'s>(
         });
     }
 
-    let return_type = if sig.return_type.is_none() && sig.kind.is_extern() {
+    let return_type = match (sig.return_type.as_ref(), default_return_type) {
+        // There's a return type annotation
+        (Some(return_type), _) => check_type_expr(return_type, sess, env)?,
+        // There's no annotation, but we have a default return type
+        (None, Some(default)) => default,
+        // Else
+        _ => sess.tcx.var(sig.span),
+    };
+
+    if sig.return_type.is_none() && sig.kind.is_extern() {
         sess.tcx.common_types.unit
     } else {
         check_optional_type_expr(&sig.return_type, sess, env, sig.span)?
