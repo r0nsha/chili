@@ -1,6 +1,6 @@
 let * = import std/build
 
-fn build = {
+fn build() = {
 	let build_options = BuildOptions {
         input_file: "src/main.chl",
         output_file: "out/main",

@@ -73,6 +73,18 @@ impl Span {
             end,
         }
     }
+
+    pub fn after(&self) -> Span {
+        let start_pos = Position {
+            index: self.end.index,
+            line: self.start.line,
+            column: self.start.column,
+        };
+
+        let end_pos = EndPosition { index: self.end.index };
+
+        self.with_start(start_pos).with_end(end_pos)
+    }
 }
 
 impl Ord for Span {

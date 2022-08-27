@@ -90,7 +90,7 @@ For some examples of what you can do with Chili, check out the [examples folder]
 - [x] Default function arguments
 - [x] Panic function
 - [x] Varargs
-- [ ] Named function arguments
+- [ ] Named arguments
 - [ ] Runtime type introspection
 - [ ] Printing and formatting
 - [ ] Parametric polymorphism - supporting both types and constant values

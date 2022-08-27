@@ -32,7 +32,7 @@ fn compile(buf str) -> Program = {
     let mut stack Stack
     let mut sp uint = 0
     
-    while buf[ip] != c"\0" && ip < PROGRAM_SIZE {
+    while buf[ip] != '\0' && ip < PROGRAM_SIZE {
         let c = buf[ip]
 
         if c == '>' {
@@ -115,7 +115,7 @@ fn execute(program Program) = {
     }
 }
 
-fn main = {
+fn main() = {
     let program = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."
     let program = compile(program)
     if program.len > 0 {

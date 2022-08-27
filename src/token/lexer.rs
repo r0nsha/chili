@@ -13,8 +13,7 @@ use ustr::ustr;
 
 pub const EOF_CHAR: char = '\0';
 pub const DOUBLE_QUOTE: char = '"';
-pub const RAW_STR_PREFIX: char = 'r';
-pub const CHAR_PREFIX: char = 'c';
+pub const SINGLE_QUOTE: char = '\'';
 
 pub struct Lexer<'lx> {
     pub source: Source<'lx>,
@@ -51,13 +50,7 @@ impl<'lx> Lexer<'lx> {
         let ch = self.bump();
 
         let tt = if is_id_start(ch) {
-            if ch == RAW_STR_PREFIX && self.peek() == DOUBLE_QUOTE {
-                self.eat_raw_str()?
-            } else if ch == CHAR_PREFIX && self.peek() == DOUBLE_QUOTE {
-                self.eat_char()?
-            } else {
-                self.eat_id()
-            }
+            self.eat_id()
         } else {
             match ch {
                 '@' => At,
@@ -126,19 +119,8 @@ impl<'lx> Lexer<'lx> {
                 // skip this character
                 ' ' | '\r' | '\t' => self.eat_token()?,
                 '\n' => Newline,
-                DOUBLE_QUOTE => {
-                    if self.eat(DOUBLE_QUOTE) {
-                        if self.eat(DOUBLE_QUOTE) {
-                            // this is a multiline string
-                            self.eat_str(StrFlavor::Multiline)?
-                        } else {
-                            // this is just an empty string, we can return an empty Str
-                            Str(ustr(""))
-                        }
-                    } else {
-                        self.eat_str(StrFlavor::Normal)?
-                    }
-                }
+                SINGLE_QUOTE => self.eat_char()?,
+                DOUBLE_QUOTE => self.eat_str()?,
                 '^' => {
                     if self.eat('=') {
                         CaretEq
@@ -228,17 +210,7 @@ impl<'lx> Lexer<'lx> {
         Ok(tt)
     }
 
-    fn eat_char(&mut self) -> DiagnosticResult<TokenKind> {
-        self.bump();
-        self.eat_str(StrFlavor::Char)
-    }
-
-    fn eat_raw_str(&mut self) -> DiagnosticResult<TokenKind> {
-        self.bump();
-        self.eat_str(StrFlavor::Raw)
-    }
-
-    fn eat_str(&mut self, flavor: StrFlavor) -> DiagnosticResult<TokenKind> {
+    fn eat_str(&mut self) -> DiagnosticResult<TokenKind> {
         while self.peek() != DOUBLE_QUOTE && !self.is_eof() {
             if self.peek() == '\\' && self.peek_next() == '"' {
                 self.bump();
@@ -257,77 +229,73 @@ impl<'lx> Lexer<'lx> {
                 .with_label(Label::primary(self.cursor.span(), "missing terminator")));
         }
 
-        if flavor == StrFlavor::Multiline {
-            self.expect(DOUBLE_QUOTE)?;
-            self.expect(DOUBLE_QUOTE)?;
-            self.expect(DOUBLE_QUOTE)?;
-        } else {
-            self.expect(DOUBLE_QUOTE)?;
-        }
+        self.expect(DOUBLE_QUOTE)?;
 
-        let value = match flavor {
-            StrFlavor::Normal | StrFlavor::Multiline => self.source.range(self.cursor.range()),
-            StrFlavor::Raw | StrFlavor::Char => self
-                .source
-                .range(self.cursor.start_index() + 1..self.cursor.end_index()),
-        };
+        let value = self.source.range(self.cursor.range());
 
         let mut chars = value.chars();
 
-        if flavor == StrFlavor::Multiline {
-            chars.next();
-            chars.next();
-            chars.next();
-            chars.next_back();
-            chars.next_back();
-            chars.next_back();
-        } else {
-            chars.next();
-            chars.next_back();
+        chars.next();
+        chars.next_back();
+
+        let contents = chars.as_str().to_string();
+        let contents = unindent(contents.trim());
+
+        let contents = unescape(&contents, self.cursor.span()).map_err(|e| match e {
+            UnescapeError::InvalidEscapeSequence(span) => {
+                let message = "unknown escape sequence";
+                Diagnostic::error()
+                    .with_message(message)
+                    .with_label(Label::primary(span, message))
+            }
+        })?;
+
+        Ok(Str(ustr(&contents)))
+    }
+
+    fn eat_char(&mut self) -> DiagnosticResult<TokenKind> {
+        while self.peek() != SINGLE_QUOTE && !self.is_eof() {
+            if self.peek() == '\\' && self.peek_next() == '"' {
+                self.bump();
+                self.bump();
+            } else {
+                self.bump();
+            }
         }
+
+        if self.is_eof() {
+            return Err(Diagnostic::error()
+                .with_message(format!("missing a terminating {} at the of char literal", SINGLE_QUOTE))
+                .with_label(Label::primary(self.cursor.span(), "missing terminator")));
+        }
+
+        self.expect(SINGLE_QUOTE)?;
+
+        let value = self.source.range(self.cursor.range());
+
+        let mut chars = value.chars();
+
+        chars.next();
+        chars.next_back();
 
         let contents = chars.as_str().to_string();
 
-        match flavor {
-            StrFlavor::Raw => Ok(Str(ustr(&contents))),
-            flavor => {
-                match flavor {
-                    StrFlavor::Normal if contents.contains('\n') => {
-                        return Err(Diagnostic::error()
-                            .with_message("string cannot contain newline characters")
-                            .with_label(Label::primary(self.cursor.span(), "cannot contain newline"))
-                            .with_note("use a multiline string instead, example: \"\"\"your string\"\"\""))
-                    }
-                    StrFlavor::Char if contents.len() != 1 => {
-                        return Err(Diagnostic::error()
-                            .with_message("character literal must be one character long")
-                            .with_label(Label::primary(self.cursor.span(), "not one character long")))
-                    }
-                    _ => (),
-                }
-
-                let contents = if matches!(flavor, StrFlavor::Multiline) {
-                    unindent(contents.trim())
-                } else {
-                    contents
-                };
-
-                let contents = unescape(&contents, self.cursor.span()).map_err(|e| match e {
-                    UnescapeError::InvalidEscapeSequence(span) => {
-                        let message = "unknown escape sequence";
-                        Diagnostic::error()
-                            .with_message(message)
-                            .with_label(Label::primary(span, message))
-                    }
-                })?;
-
-                if flavor == StrFlavor::Char {
-                    Ok(Char(contents.chars().next().unwrap()))
-                } else {
-                    Ok(Str(ustr(&contents)))
-                }
-            }
+        if contents.len() != 1 {
+            return Err(Diagnostic::error()
+                .with_message("character literal must be one character long")
+                .with_label(Label::primary(self.cursor.span(), "not one character long")));
         }
+
+        let contents = unescape(&contents, self.cursor.span()).map_err(|e| match e {
+            UnescapeError::InvalidEscapeSequence(span) => {
+                let message = "unknown escape sequence";
+                Diagnostic::error()
+                    .with_message(message)
+                    .with_label(Label::primary(span, message))
+            }
+        })?;
+
+        Ok(Char(contents.chars().next().unwrap()))
     }
 
     fn eat_line(&mut self) {
@@ -526,12 +494,4 @@ fn is_id_start(ch: char) -> bool {
 #[inline]
 fn is_id_continue(ch: char) -> bool {
     UnicodeXID::is_xid_continue(ch) || ch == '_'
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum StrFlavor {
-    Normal,    // single line, with escape sequences
-    Raw,       // multiline, no escape sequences
-    Multiline, // multiline, with escape sequences
-    Char,      // single character, with escape sequences
 }

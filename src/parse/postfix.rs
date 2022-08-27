@@ -4,6 +4,7 @@ use crate::{
     error::*,
     span::EndPosition,
     token::TokenKind::*,
+    types::FunctionTypeKind,
 };
 use ustr::ustr;
 
@@ -35,7 +36,7 @@ impl Parser {
                 } else if eat!(self, Fn) {
                     let start_span = expr.span();
 
-                    let fn_arg = self.parse_function(None, false)?;
+                    let fn_arg = self.parse_function_expr(None, FunctionTypeKind::Orphan)?;
                     let span = start_span.to(self.previous_span());
 
                     match &mut expr {
@@ -165,7 +166,7 @@ impl Parser {
     fn parse_subscript_or_slice(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
-        if eat!(self, Colon) {
+        if eat!(self, DotDot) {
             let high = if eat!(self, CloseBracket) {
                 None
             } else {
@@ -183,7 +184,7 @@ impl Parser {
         } else {
             let index = self.parse_expression(false, true)?;
 
-            if eat!(self, Colon) {
+            if eat!(self, DotDot) {
                 let high = if eat!(self, CloseBracket) {
                     None
                 } else {

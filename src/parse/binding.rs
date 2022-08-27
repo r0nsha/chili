@@ -1,5 +1,5 @@
 use super::*;
-use crate::{ast::pattern::Pattern, workspace::ModuleId};
+use crate::{ast::pattern::Pattern, types::FunctionTypeKind, workspace::ModuleId};
 
 impl Parser {
     pub fn try_parse_any_binding(
@@ -92,7 +92,7 @@ impl Parser {
 
         let name_and_span = ast::NameAndSpan { name, span: id.span };
 
-        let sig = self.parse_function_sig(Some(name), false)?;
+        let (sig, _) = self.parse_function_sig(Some(name), FunctionTypeKind::Orphan, true)?;
 
         require!(self, Eq, "=")?;
 
@@ -124,7 +124,7 @@ impl Parser {
 
             let name_and_span = ast::NameAndSpan { name, span: id.span };
 
-            let sig = self.parse_function_sig(Some(name), true)?;
+            let (sig, _) = self.parse_function_sig(Some(name), FunctionTypeKind::Extern, true)?;
 
             Ok(ast::Binding {
                 module_id: ModuleId::unknown(),
