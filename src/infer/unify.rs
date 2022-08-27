@@ -1,11 +1,9 @@
 use super::{display::DisplayType, inference_value::InferenceValue, normalize::Normalize, type_ctx::TypeCtx};
 use crate::{
-    common::builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
     error::diagnostic::{Diagnostic, Label},
     span::Span,
     types::*,
 };
-use ustr::ustr;
 
 pub trait UnifyType<T>
 where
@@ -177,109 +175,6 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TypeCtx) -> UnifyTypeResult
                 _ => Err(UnifyTypeErr::Mismatch),
             }
         }
-        InferenceValue::PartialStruct(mut partial_struct) => {
-            let other_kind = other.normalize(tcx);
-            match other_kind.maybe_deref_once() {
-                Type::Array(..) if partial_struct.contains_key(&ustr(BUILTIN_FIELD_LEN)) => {
-                    tcx.bind_ty(var, other_kind);
-                    Ok(())
-                }
-                Type::Slice(_) | Type::Str(_)
-                    if partial_struct.contains_key(&ustr(BUILTIN_FIELD_LEN))
-                        || partial_struct.contains_key(&ustr(BUILTIN_FIELD_DATA)) =>
-                {
-                    tcx.bind_ty(var, other_kind);
-                    Ok(())
-                }
-                Type::Struct(ref other_struct) => {
-                    for (name, ty) in partial_struct.iter() {
-                        // if both the partial struct and the struct have this field, unify their types
-                        if let Some(other_ty) = other_struct.field(*name) {
-                            ty.unify(&other_ty.ty, tcx)?;
-                        } else {
-                            // any field that exists in the partial struct, but doesn't exist in struct, is an error
-                            return Err(UnifyTypeErr::Mismatch);
-                        }
-                    }
-
-                    tcx.bind_ty(var, other_kind);
-
-                    Ok(())
-                }
-                Type::Module(module_id) => {
-                    // TODO: check that the names in this PartialStruct actually exist in this module
-                    tcx.bind_ty(var, Type::Module(module_id));
-                    Ok(())
-                }
-                Type::Infer(other, InferType::PartialStruct(ref other_partial)) => {
-                    for (name, ty) in partial_struct.iter() {
-                        // if both partial structs have this field, unify their types
-                        if let Some(other_ty) = other_partial.get(name) {
-                            ty.unify(other_ty, tcx)?;
-                        }
-                    }
-
-                    for (name, ty) in other_partial.iter() {
-                        // if the other partial struct has fields that this struct doesn't, add them
-                        if !partial_struct.contains_key(name) {
-                            partial_struct.insert(*name, ty.clone());
-                        }
-                    }
-
-                    // bind both vars to the new partial struct
-                    let value = InferenceValue::PartialStruct(partial_struct);
-
-                    tcx.bind_value(var, value.clone());
-                    tcx.bind_value(other, value);
-
-                    Ok(())
-                }
-                Type::Var(other) => {
-                    if other != var {
-                        tcx.bind_ty(other, var.into());
-                    }
-
-                    Ok(())
-                }
-                Type::Never => Ok(()),
-                _ => Err(UnifyTypeErr::Mismatch),
-            }
-        }
-        InferenceValue::PartialTuple(partial_tuple) => {
-            let other_kind = other.normalize(tcx);
-            match other_kind {
-                Type::Tuple(ref other_tuple) | Type::Infer(_, InferType::PartialTuple(ref other_tuple)) => {
-                    let mut any_err = false;
-
-                    if other_tuple.len() < partial_tuple.len() {
-                        any_err = true;
-                    }
-
-                    for (index, ty) in partial_tuple.iter().enumerate() {
-                        if let Some(other) = other_tuple.get(index) {
-                            any_err |= ty.unify(other, tcx).is_err();
-                        }
-                    }
-
-                    tcx.bind_ty(var, other_kind);
-
-                    if any_err {
-                        Err(UnifyTypeErr::Mismatch)
-                    } else {
-                        Ok(())
-                    }
-                }
-                Type::Var(other) => {
-                    if other != var {
-                        tcx.bind_ty(other, var.into());
-                    }
-
-                    Ok(())
-                }
-                Type::Never => Ok(()),
-                _ => Err(UnifyTypeErr::Mismatch),
-            }
-        }
         InferenceValue::Unbound => {
             let other_kind = other.normalize(tcx);
 
@@ -299,8 +194,6 @@ pub fn occurs(var: TypeId, kind: &Type, tcx: &TypeCtx) -> bool {
             use InferenceValue::*;
             match tcx.value_of(other) {
                 Bound(ty) => occurs(var, ty, tcx) || var == other,
-                PartialStruct(partial) => partial.values().any(|ty| occurs(var, ty, tcx)) || var == other,
-                PartialTuple(partial) => partial.iter().any(|ty| occurs(var, ty, tcx)) || var == other,
                 AnyInt | AnyFloat | Unbound => var == other,
             }
         }
@@ -308,12 +201,6 @@ pub fn occurs(var: TypeId, kind: &Type, tcx: &TypeCtx) -> bool {
         Type::Array(ty, _) => occurs(var, ty, tcx),
         Type::Tuple(tys) => tys.iter().any(|ty| occurs(var, ty, tcx)),
         Type::Struct(st) => st.fields.iter().any(|f| occurs(var, &f.ty, tcx)),
-        Type::Infer(other, InferType::PartialStruct(partial)) => {
-            partial.values().any(|ty| occurs(var, ty, tcx)) || var == *other
-        }
-        Type::Infer(other, InferType::PartialTuple(partial)) => {
-            partial.iter().any(|ty| occurs(var, ty, tcx)) || var == *other
-        }
         _ => false,
     }
 }

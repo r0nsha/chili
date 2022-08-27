@@ -21,25 +21,12 @@ impl SizeOf for Type {
             },
             Type::Function(..) => word_size,
             Type::Array(ty, len) => ty.size_of(word_size) * len,
-            Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => StructType::temp(
+            Type::Tuple(elems) => StructType::temp(
                 elems.iter().map(|t| StructTypeField::temp(t.clone())).collect(),
                 StructTypeKind::Struct,
             )
             .size_of(word_size),
             Type::Struct(s) => s.size_of(word_size),
-            Type::Infer(_, InferType::PartialStruct(partial_struct)) => {
-                let mut offset = 0;
-
-                for (_, field) in partial_struct.iter() {
-                    let align = field.align_of(word_size);
-                    offset = calculate_align_from_offset(offset, align);
-                    offset += field.size_of(word_size);
-                }
-
-                offset = calculate_align_from_offset(offset, self.align_of(word_size));
-
-                offset
-            }
             Type::Infer(_, InferType::AnyInt) => IntType::Int.size_of(word_size),
             Type::Infer(_, InferType::AnyFloat) => FloatType::Float.size_of(word_size),
             _ => panic!("type {:?} is unsized", self),

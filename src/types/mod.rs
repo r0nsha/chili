@@ -9,8 +9,6 @@ use crate::{
     span::Span,
     workspace::{BindingId, ModuleId},
 };
-use indexmap::IndexMap;
-use std::ops::{Deref, DerefMut};
 use ustr::{ustr, Ustr};
 
 define_id_type!(TypeId);
@@ -53,8 +51,6 @@ pub enum Type {
 pub enum InferType {
     AnyInt,
     AnyFloat,
-    PartialStruct(PartialStructType),
-    PartialTuple(Vec<Type>),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -167,42 +163,6 @@ impl StructType {
     pub fn field_and_position(&self, name: impl AsRef<str>) -> Option<(usize, &StructTypeField)> {
         let field = name.as_ref();
         self.fields.iter().enumerate().find(|(_, f)| f.name == field)
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct PartialStructType(pub IndexMap<Ustr, Type>);
-
-impl Deref for PartialStructType {
-    type Target = IndexMap<Ustr, Type>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for PartialStructType {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl PartialStructType {
-    #[allow(unused)]
-    pub fn into_struct(&self) -> StructType {
-        StructType {
-            name: ustr(""),
-            binding_id: Default::default(),
-            fields: self
-                .iter()
-                .map(|(&name, ty)| StructTypeField {
-                    name,
-                    ty: ty.clone(),
-                    span: Span::unknown(),
-                })
-                .collect(),
-            kind: StructTypeKind::Struct,
-        }
     }
 }
 

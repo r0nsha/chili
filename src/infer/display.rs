@@ -44,7 +44,7 @@ fn display_type(ty: &Type, tcx: &TypeCtx) -> String {
         Type::Array(inner, size) => format!("[{}]{}", size, display_type(inner, tcx)),
         Type::Slice(inner) => format!("[]{}", display_type(inner, tcx)),
         Type::Str(_) => "str".to_string(),
-        Type::Tuple(tys) | Type::Infer(_, InferType::PartialTuple(tys)) => format!(
+        Type::Tuple(tys) => format!(
             "({})",
             tys.iter()
                 .map(|t| display_type(t, tcx))
@@ -55,7 +55,6 @@ fn display_type(ty: &Type, tcx: &TypeCtx) -> String {
         Type::Type(_) | Type::AnyType => "type".to_string(),
         Type::Module(_) => "{module}".to_string(),
         Type::Never => "never".to_string(),
-        Type::Infer(_, InferType::PartialStruct(ty)) => ty.display(tcx),
         Type::Infer(_, InferType::AnyInt) => "{integer}".to_string(),
         Type::Infer(_, InferType::AnyFloat) => "{float}".to_string(),
         Type::Var(_) => "?".to_string(),
@@ -81,18 +80,6 @@ impl DisplayType for StructType {
                     .join(", ")
             )
         }
-    }
-}
-
-impl DisplayType for PartialStructType {
-    fn display(&self, tcx: &TypeCtx) -> String {
-        format!(
-            "struct {{ {} }}",
-            self.iter()
-                .map(|(symbol, ty)| format!("{}: {}", symbol, display_type(ty, tcx)))
-                .collect::<Vec<String>>()
-                .join(", ")
-        )
     }
 }
 
