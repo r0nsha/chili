@@ -20,14 +20,6 @@ impl AlignOf for Type {
             )
             .align_of(word_size),
             Type::Struct(s) => s.align_of(word_size),
-            Type::Infer(_, InferType::PartialStruct(partial_struct)) => {
-                let mut max_align: usize = 1;
-                for (_, field) in partial_struct.iter() {
-                    let field_align = field.align_of(word_size);
-                    max_align = max_align.max(field_align);
-                }
-                max_align
-            }
             Type::Infer(_, InferType::AnyInt) => IntType::Int.align_of(word_size),
             Type::Infer(_, InferType::AnyFloat) => FloatType::Float.align_of(word_size),
             _ => panic!("type {:?} is unsized", self),

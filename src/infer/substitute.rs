@@ -364,9 +364,6 @@ fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
         Type::Struct(StructType { fields, .. }) => {
             fields.iter().for_each(|f| extract_free_type_vars(&f.ty, free_types));
         }
-        Type::Infer(_, InferType::PartialStruct(fields)) => {
-            fields.iter().for_each(|(_, ty)| extract_free_type_vars(ty, free_types));
-        }
 
         Type::Never
         | Type::Unit

@@ -1,12 +1,11 @@
 use super::display::DisplayType;
-use crate::types::{PartialStructType, Type};
+use crate::types::Type;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum InferenceValue {
     Bound(Type),
     AnyInt,
     AnyFloat,
-    PartialStruct(PartialStructType),
     Unbound,
 }
 
@@ -16,7 +15,6 @@ impl DisplayType for InferenceValue {
             InferenceValue::Bound(t) => t.display(tcx),
             InferenceValue::AnyInt => "[integer]".to_string(),
             InferenceValue::AnyFloat => "[float]".to_string(),
-            InferenceValue::PartialStruct(partial) => partial.display(tcx),
             InferenceValue::Unbound => "unbound".to_string(),
         }
     }

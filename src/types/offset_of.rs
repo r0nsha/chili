@@ -29,17 +29,6 @@ impl OffsetOf for Type {
             )
             .offset_of(index, word_size),
             Type::Struct(s) => s.offset_of(index, word_size),
-            Type::Infer(_, InferType::PartialStruct(partial_struct)) => {
-                let mut offset = 0;
-
-                partial_struct.iter().take(index).for_each(|(_, field)| {
-                    let align = field.align_of(word_size);
-                    offset = calculate_align_from_offset(offset, align);
-                    offset += field.size_of(word_size);
-                });
-
-                offset
-            }
             ty => panic!("{:?} isn't an aggregate type", ty),
         }
     }

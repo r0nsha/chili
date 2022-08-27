@@ -6,7 +6,7 @@ use super::{
 use crate::{
     common::id_cache::IdCache,
     span::Span,
-    types::{PartialStructType, Type, TypeId},
+    types::{Type, TypeId},
 };
 
 pub struct TypeCtx {
@@ -48,11 +48,6 @@ impl TypeCtx {
     #[inline]
     pub fn anyfloat(&mut self, span: Span) -> TypeId {
         self.insert(InferenceValue::AnyFloat, Some(span))
-    }
-
-    #[inline]
-    pub fn partial_struct(&mut self, partial_struct: PartialStructType, span: Span) -> TypeId {
-        self.insert(InferenceValue::PartialStruct(partial_struct), Some(span))
     }
 
     #[inline]

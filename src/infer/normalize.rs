@@ -1,7 +1,5 @@
 use super::{inference_value::InferenceValue, type_ctx::TypeCtx};
-use crate::{span::Span, types::*, workspace::BindingId};
-use indexmap::IndexMap;
-use ustr::ustr;
+use crate::{types::*, workspace::BindingId};
 
 pub trait Normalize {
     fn normalize(&self, tcx: &TypeCtx) -> Type;
@@ -62,32 +60,6 @@ impl NormalizeCtx {
             InferenceValue::Bound(kind) => self.normalize_kind(tcx, kind),
             InferenceValue::AnyInt => self.normalize_anyint(ty),
             InferenceValue::AnyFloat => self.normalize_anyfloat(ty),
-            InferenceValue::PartialStruct(st) => {
-                if self.concrete {
-                    Type::Struct(StructType {
-                        name: ustr(""),
-                        binding_id: BindingId::unknown(),
-                        fields: st
-                            .iter()
-                            .map(|(name, ty)| StructTypeField {
-                                name: *name,
-                                ty: self.normalize_kind(tcx, ty),
-                                span: Span::unknown(),
-                            })
-                            .collect(),
-                        kind: StructTypeKind::Struct,
-                    })
-                } else {
-                    Type::Infer(
-                        ty,
-                        InferType::PartialStruct(PartialStructType(
-                            st.iter()
-                                .map(|(name, ty)| (*name, self.normalize_kind(tcx, ty)))
-                                .collect(),
-                        )),
-                    )
-                }
-            }
             InferenceValue::Unbound => ty.as_kind(),
         }
     }
@@ -149,30 +121,6 @@ impl NormalizeCtx {
             Type::Type(inner) => self.normalize_kind(tcx, inner).create_type(),
             Type::Infer(ty, InferType::AnyInt) => self.normalize_anyint(*ty),
             Type::Infer(ty, InferType::AnyFloat) => self.normalize_anyfloat(*ty),
-            Type::Infer(ty, InferType::PartialStruct(st)) => {
-                if self.concrete {
-                    Type::Struct(StructType {
-                        name: ustr(""),
-                        binding_id: BindingId::unknown(),
-                        fields: st
-                            .iter()
-                            .map(|(name, ty)| StructTypeField {
-                                name: *name,
-                                ty: self.normalize_kind(tcx, ty),
-                                span: Span::unknown(),
-                            })
-                            .collect(),
-                        kind: StructTypeKind::Struct,
-                    })
-                } else {
-                    Type::Infer(
-                        *ty,
-                        InferType::PartialStruct(PartialStructType(IndexMap::from_iter(
-                            st.iter().map(|(name, ty)| (*name, self.normalize_kind(tcx, ty))),
-                        ))),
-                    )
-                }
-            }
             Type::Never
             | Type::Unit
             | Type::Bool

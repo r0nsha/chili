@@ -374,11 +374,6 @@ impl Buffer {
                 .enumerate()
                 .map(|(index, _)| self.get_value_at_index(index))
                 .collect(),
-            Type::Infer(_, InferType::PartialStruct(partial_struct)) => partial_struct
-                .iter()
-                .enumerate()
-                .map(|(index, _)| self.get_value_at_index(index))
-                .collect(),
             Type::Tuple(elements) => elements
                 .iter()
                 .enumerate()
@@ -413,10 +408,6 @@ impl Buffer {
         match &self.ty {
             Type::Unit => panic!("{}", index),
             Type::Struct(struct_type) => self.bytes.offset(offset).get_value(&struct_type.fields[index].ty),
-            Type::Infer(_, InferType::PartialStruct(partial_struct)) => self
-                .bytes
-                .offset(offset)
-                .get_value(&partial_struct.get_index(index).unwrap().1),
             Type::Tuple(elements) => self.bytes.offset(offset).get_value(&elements[index]),
             Type::Array(ty, _) => self.bytes.offset(offset).get_value(ty),
             Type::Pointer(inner, _) => match inner.as_ref() {
@@ -532,9 +523,7 @@ impl From<&Type> for ValueKind {
                 _ => Self::Pointer,
             },
             Type::Function(_) => Self::Function,
-            Type::Array(_, _) | Type::Tuple(_) | Type::Struct(_) | Type::Infer(_, InferType::PartialStruct(_)) => {
-                Self::Buffer
-            }
+            Type::Array(_, _) | Type::Tuple(_) | Type::Struct(_) => Self::Buffer,
             Type::Module(_) => panic!(),
             Type::Type(_) => Self::Type,
             Type::Infer(_, InferType::AnyInt) => Self::Int,
@@ -619,7 +608,6 @@ impl Value {
                     Self::F32(*(ptr as *mut f32))
                 }
             }
-            Type::Infer(_, _) => todo!(),
             _ => panic!("invalid type {:?}", ty),
         }
     }
@@ -740,25 +728,6 @@ impl Value {
 
                     Ok(ConstValue::Struct(fields))
                 }
-                Type::Infer(_, InferType::PartialStruct(struct_type)) => {
-                    let align = ty.align_of(WORD_SIZE);
-                    let mut fields = IndexMap::<Ustr, ConstElement>::new();
-
-                    for (index, (name, field_type)) in struct_type.iter().enumerate() {
-                        let value = buf.bytes.offset(index * align).get_value(field_type);
-                        let const_value = value.try_into_const_value(tcx, ty, eval_span)?;
-
-                        fields.insert(
-                            *name,
-                            ConstElement {
-                                value: const_value,
-                                ty: tcx.bound(field_type.clone(), eval_span),
-                            },
-                        );
-                    }
-
-                    Ok(ConstValue::Struct(fields))
-                }
                 ty => panic!("value type mismatch. expected an aggregate type, got {:?}", ty),
             },
             Self::Function(f) => Ok(ConstValue::Function(ConstFunction { id: f.id, name: f.name })),
@@ -860,7 +829,6 @@ impl Pointer {
                     Self::F64(ptr as _)
                 }
             }
-            Type::Infer(_, _) => todo!(),
             _ => panic!("invalid type {:?}", ty),
         }
     }
@@ -969,7 +937,6 @@ impl Display for Buffer {
 
             let len = match &self.ty {
                 Type::Struct(s) => s.fields.len(),
-                Type::Infer(_, InferType::PartialStruct(partial_struct)) => partial_struct.len(),
                 Type::Tuple(elements) => elements.len(),
                 Type::Array(_, size) => *size,
                 Type::Pointer(inner, _) => match inner.as_ref() {
@@ -987,7 +954,7 @@ impl Display for Buffer {
             };
 
             match &self.ty {
-                Type::Struct(_) | Type::Infer(_, InferType::PartialStruct(_)) => {
+                Type::Struct(_) => {
                     write!(f, "{{{}{}}}", values_joined, extra_values_str)
                 }
                 Type::Tuple(_) => {

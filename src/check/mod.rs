@@ -36,7 +36,7 @@ use crate::{
     span::Span,
     types::{
         align_of::AlignOf, is_sized::IsSized, size_of::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeParam,
-        FunctionTypeVarargs, InferType, StructType, StructTypeField, StructTypeKind, Type, TypeId,
+        FunctionTypeVarargs, StructType, StructTypeField, StructTypeKind, Type, TypeId,
     },
     workspace::{
         BindingId, BindingInfo, BindingInfoFlags, BindingInfoKind, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
@@ -1293,36 +1293,6 @@ impl Check for ast::Ast {
                             ty.display(&sess.tcx),
                         )),
                     },
-                    ty @ Type::Infer(_, InferType::PartialStruct(partial_struct)) => {
-                        match partial_struct.get_full(&access.member) {
-                            Some((index, _, field_ty)) => {
-                                let ty = sess.tcx.bound(field_ty.clone(), access.span);
-
-                                if let Some(ConstValue::Struct(const_fields)) = node.as_const_value() {
-                                    Ok(hir::Node::Const(hir::Const {
-                                        value: const_fields[&access.member].value.clone(),
-                                        ty,
-                                        span: access.span,
-                                    }))
-                                } else {
-                                    // TODO: The index here *could be wrong*.
-                                    // TODO: We need to test this to make sure there aren't messing anything here
-                                    Ok(hir::Node::MemberAccess(hir::MemberAccess {
-                                        ty,
-                                        span: access.span,
-                                        value: Box::new(node),
-                                        member_name: access.member,
-                                        member_index: index as _,
-                                    }))
-                                }
-                            }
-                            None => Err(TypeError::invalid_struct_field(
-                                access.expr.span(),
-                                access.member,
-                                ty.display(&sess.tcx),
-                            )),
-                        }
-                    }
                     Type::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         Ok(hir::Node::Const(hir::Const {
                             value: ConstValue::Uint(*size as _),
