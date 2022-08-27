@@ -1166,8 +1166,6 @@ impl Check for ast::Ast {
             ast::Ast::MemberAccess(access) => {
                 let node = access.expr.check(sess, env, None)?;
 
-                let member_tuple_index = access.member.as_str().parse::<usize>();
-
                 // if the accessed expression's type is not resolved yet - try unifying it with a partial type
                 match node.ty().normalize(&sess.tcx) {
                     Type::Var(_)
@@ -1177,7 +1175,7 @@ impl Check for ast::Ast {
                         // otherwise, this is a struct field access - `strct.field`
 
                         let member_ty = sess.tcx.var(access.span);
-                        let partial_ty = match member_tuple_index {
+                        let partial_ty = match access.member.as_str().parse::<usize>() {
                             Ok(index) => {
                                 let elements = repeat_with(|| sess.tcx.var(access.span))
                                     .take(index + 1)
@@ -1265,7 +1263,7 @@ impl Check for ast::Ast {
 
                 match &node_type.maybe_deref_once() {
                     ty @ Type::Tuple(elements) | ty @ Type::Infer(_, InferType::PartialTuple(elements)) => {
-                        match member_tuple_index {
+                        match access.member.as_str().parse::<usize>() {
                             Ok(index) => match elements.get(index) {
                                 Some(field_ty) => {
                                     let ty = sess.tcx.bound(field_ty.clone(), access.span);
