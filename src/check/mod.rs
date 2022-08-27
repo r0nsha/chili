@@ -141,7 +141,7 @@ impl<'s> CheckSess<'s> {
     }
 
     pub fn start(&mut self) -> DiagnosticResult<()> {
-        self.add_builtin_types();
+        self.init_builtin_types();
 
         for module in self.modules.iter() {
             self.check_module(module)?;
@@ -150,45 +150,7 @@ impl<'s> CheckSess<'s> {
         Ok(())
     }
 
-    fn into_data(self) -> CheckData {
-        (self.cache, self.tcx)
-    }
-
-    pub fn with_function_frame<T, F: FnMut(&mut Self) -> T>(&mut self, frame: FunctionFrame, mut f: F) -> T {
-        self.function_frames.push(frame);
-        let result = f(self);
-        self.function_frames.pop();
-        result
-    }
-
-    pub fn with_env<T, F: FnMut(&mut Self, Env) -> T>(&mut self, module_id: ModuleId, mut f: F) -> T {
-        let module_info = *self.workspace.module_infos.get(module_id).unwrap();
-        f(self, Env::new(module_id, module_info))
-    }
-
-    pub fn function_frame(&self) -> Option<FunctionFrame> {
-        self.function_frames.last().map(|&f| f)
-    }
-
-    pub fn extract_const_type(&self, node: &hir::Node) -> DiagnosticResult<TypeId> {
-        match node.as_const_value() {
-            Some(ConstValue::Type(t)) => Ok(*t),
-            _ => Err(TypeError::expected(node.span(), node.ty().display(&self.tcx), "a type")),
-        }
-    }
-
-    pub fn extract_const_int(&self, node: &hir::Node) -> DiagnosticResult<i64> {
-        match node.as_const_value() {
-            Some(ConstValue::Int(v)) => Ok(*v),
-            _ => Err(TypeError::expected(
-                node.span(),
-                node.ty().display(&self.tcx),
-                "compile-time known integer",
-            )),
-        }
-    }
-
-    fn add_builtin_types(&mut self) {
+    fn init_builtin_types(&mut self) {
         let mk = |sess: &mut CheckSess, name: &str, ty: TypeId| {
             let name = ustr(name);
 
@@ -237,6 +199,44 @@ impl<'s> CheckSess<'s> {
         mk(self, symbols::SYM_NEVER, self.tcx.common_types.never);
 
         mk(self, symbols::SYM_STR, self.tcx.common_types.str);
+    }
+
+    fn into_data(self) -> CheckData {
+        (self.cache, self.tcx)
+    }
+
+    pub fn with_function_frame<T, F: FnMut(&mut Self) -> T>(&mut self, frame: FunctionFrame, mut f: F) -> T {
+        self.function_frames.push(frame);
+        let result = f(self);
+        self.function_frames.pop();
+        result
+    }
+
+    pub fn with_env<T, F: FnMut(&mut Self, Env) -> T>(&mut self, module_id: ModuleId, mut f: F) -> T {
+        let module_info = *self.workspace.module_infos.get(module_id).unwrap();
+        f(self, Env::new(module_id, module_info))
+    }
+
+    pub fn function_frame(&self) -> Option<FunctionFrame> {
+        self.function_frames.last().map(|&f| f)
+    }
+
+    pub fn require_const_type(&self, node: &hir::Node) -> DiagnosticResult<TypeId> {
+        match node.as_const_value() {
+            Some(ConstValue::Type(t)) => Ok(*t),
+            _ => Err(TypeError::expected(node.span(), node.ty().display(&self.tcx), "a type")),
+        }
+    }
+
+    pub fn require_const_int(&self, node: &hir::Node) -> DiagnosticResult<i64> {
+        match node.as_const_value() {
+            Some(ConstValue::Int(v)) => Ok(*v),
+            _ => Err(TypeError::expected(
+                node.span(),
+                node.ty().display(&self.tcx),
+                "compile-time known integer",
+            )),
+        }
     }
 
     pub(super) fn is_lvalue(&self, node: &hir::Node) -> bool {
@@ -1480,7 +1480,7 @@ impl Check for ast::Ast {
                 }
                 ast::ArrayLiteralKind::Fill { len, expr } => {
                     let len_node = len.check(sess, env, None)?;
-                    let len = sess.extract_const_int(&len_node)?;
+                    let len = sess.require_const_int(&len_node)?;
 
                     if len < 0 {
                         return Err(TypeError::negative_array_len(len_node.span(), len));
@@ -1517,7 +1517,7 @@ impl Check for ast::Ast {
             ast::Ast::StructLiteral(lit) => match &lit.type_expr {
                 Some(type_expr) => {
                     let node = type_expr.check(sess, env, Some(sess.tcx.common_types.anytype))?;
-                    let ty = sess.extract_const_type(&node)?;
+                    let ty = sess.require_const_type(&node)?;
 
                     let kind = ty.normalize(&sess.tcx);
 
@@ -1585,7 +1585,7 @@ impl Check for ast::Ast {
                 let inner_type = check_type_expr(inner, sess, env)?;
 
                 let size_node = size.check(sess, env, None)?;
-                let size_value = sess.extract_const_int(&size_node)?;
+                let size_value = sess.require_const_int(&size_node)?;
 
                 if size_value < 0 {
                     return Err(TypeError::negative_array_len(size.span(), size_value));
@@ -3392,7 +3392,7 @@ impl Check for ast::StructType {
 
         for field in self.fields.iter() {
             let node = field.ty.check(sess, env, Some(sess.tcx.common_types.anytype))?;
-            let ty = sess.extract_const_type(&node)?;
+            let ty = sess.require_const_type(&node)?;
 
             if let Some(defined_span) = field_map.insert(field.name, field.span) {
                 return Err(SyntaxError::duplicate_struct_field(
@@ -3627,7 +3627,7 @@ pub(super) fn check_type_expr<'s>(
     env: &mut Env,
 ) -> DiagnosticResult<TypeId> {
     let node = type_expr.check(sess, env, Some(sess.tcx.common_types.anytype))?;
-    sess.extract_const_type(&node)
+    sess.require_const_type(&node)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -3649,7 +3649,7 @@ fn check_function<'s>(
     let qualified_name = get_qualified_name(env.scope_name(), name);
 
     let sig_node = check_function_sig(sess, env, sig, expected_type, None, track_caller)?;
-    let sig_type = sess.extract_const_type(&sig_node)?;
+    let sig_type = sess.require_const_type(&sig_node)?;
     let function_type = sig_type.normalize(&sess.tcx).into_function();
 
     let return_type = sess.tcx.bound(

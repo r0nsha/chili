@@ -100,6 +100,8 @@ pub enum Ast {
     FunctionType(FunctionSig),
     SelfType(Empty),
     Placeholder(Empty),
+
+    #[allow(unused)]
     Error(Empty),
 }
 
