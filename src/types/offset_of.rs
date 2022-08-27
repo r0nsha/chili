@@ -23,7 +23,7 @@ impl OffsetOf for Type {
                 1 => word_size,
                 _ => panic!("{}", index),
             },
-            Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => StructType::temp(
+            Type::Tuple(elems) => StructType::temp(
                 elems.iter().map(|t| StructTypeField::temp(t.clone())).collect(),
                 StructTypeKind::Struct,
             )

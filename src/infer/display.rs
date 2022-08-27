@@ -44,7 +44,7 @@ fn display_type(ty: &Type, tcx: &TypeCtx) -> String {
         Type::Array(inner, size) => format!("[{}]{}", size, display_type(inner, tcx)),
         Type::Slice(inner) => format!("[]{}", display_type(inner, tcx)),
         Type::Str(_) => "str".to_string(),
-        Type::Tuple(tys) | Type::Infer(_, InferType::PartialTuple(tys)) => format!(
+        Type::Tuple(tys) => format!(
             "({})",
             tys.iter()
                 .map(|t| display_type(t, tcx))

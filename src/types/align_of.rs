@@ -14,7 +14,7 @@ impl AlignOf for Type {
             Type::Float(ty) => ty.align_of(word_size),
             Type::Pointer(..) | Type::Function(..) => word_size,
             Type::Array(ty, ..) => ty.align_of(word_size),
-            Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => StructType::temp(
+            Type::Tuple(elems) => StructType::temp(
                 elems.iter().map(|t| StructTypeField::temp(t.clone())).collect(),
                 StructTypeKind::Struct,
             )

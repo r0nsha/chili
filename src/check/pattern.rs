@@ -609,59 +609,68 @@ impl<'s> CheckSess<'s> {
         ty_origin_span: Span,
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<()> {
-        let ty = value.ty();
+        match value.ty().normalize(&self.tcx) {
+            Type::Tuple(elem_types) => {
+                if pattern.sub_patterns.len() <= elem_types.len() {
+                    let mut pattern_types: Vec<TypeId> = vec![];
 
-        let element_types: Vec<TypeId> = pattern
-            .sub_patterns
-            .iter()
-            .map(|pattern| self.tcx.var(pattern.span()))
-            .collect();
+                    pattern.sub_patterns.iter().enumerate().for_each(|(index, pattern)| {
+                        let ty = match elem_types.get(index) {
+                            Some(elem) => self.tcx.bound(elem.clone(), pattern.span()),
+                            None => self.tcx.var(pattern.span()),
+                        };
 
-        let partial_tuple = self
-            .tcx
-            .partial_tuple(element_types.iter().map(TypeId::as_kind).collect(), pattern.span);
+                        pattern_types.push(ty)
+                    });
 
-        ty.unify(&partial_tuple, &mut self.tcx).or_report_err(
-            &self.tcx,
-            &partial_tuple,
-            Some(pattern.span),
-            &ty,
-            ty_origin_span,
-        )?;
+                    for ((index, sub_pattern), &ty) in pattern.sub_patterns.iter().enumerate().zip(pattern_types.iter())
+                    {
+                        let element_value = |pattern: &Pattern| match value.as_const_value() {
+                            Some(const_value) if !pattern.is_mutable() => hir::Node::Const(hir::Const {
+                                value: const_value.as_tuple().unwrap()[index].value.clone(),
+                                ty,
+                                span: value.span(),
+                            }),
+                            _ => hir::Node::MemberAccess(hir::MemberAccess {
+                                value: Box::new(value.clone()),
+                                member_name: ustr(&index.to_string()),
+                                member_index: index as _,
+                                ty,
+                                span: value.span(),
+                            }),
+                        };
 
-        for ((index, sub_pattern), &ty) in pattern.sub_patterns.iter().enumerate().zip(element_types.iter()) {
-            let element_value = |pattern: &Pattern| match value.as_const_value() {
-                Some(const_value) if !pattern.is_mutable() => hir::Node::Const(hir::Const {
-                    value: const_value.as_tuple().unwrap()[index].value.clone(),
-                    ty,
-                    span: value.span(),
-                }),
-                _ => hir::Node::MemberAccess(hir::MemberAccess {
-                    value: Box::new(value.clone()),
-                    member_name: ustr(&index.to_string()),
-                    member_index: index as _,
-                    ty,
-                    span: value.span(),
-                }),
-            };
+                        let element_value = element_value(sub_pattern);
 
-            let element_value = element_value(sub_pattern);
+                        let (_, bound_node) = self.bind_pattern(
+                            env,
+                            sub_pattern,
+                            visibility,
+                            ty,
+                            Some(element_value),
+                            kind,
+                            ty_origin_span,
+                            flags | BindingInfoFlags::TYPE_WAS_INFERRED,
+                        )?;
 
-            let (_, bound_node) = self.bind_pattern(
-                env,
-                sub_pattern,
-                visibility,
-                ty,
-                Some(element_value),
-                kind,
-                ty_origin_span,
-                flags | BindingInfoFlags::TYPE_WAS_INFERRED,
-            )?;
+                        statements.push(bound_node);
+                    }
 
-            statements.push(bound_node);
+                    Ok(())
+                } else {
+                    Err(Diagnostic::error()
+                        .with_message(format!(
+                            "too many unpacked elements - expected {} elements, got {}",
+                            elem_types.len(),
+                            pattern.sub_patterns.len()
+                        ))
+                        .with_label(Label::primary(pattern.span, "too many elements")))
+                }
+            }
+            ty => Err(Diagnostic::error()
+                .with_message(format!("cannot use tuple unpack on type `{}`", ty.display(&self.tcx)))
+                .with_label(Label::primary(pattern.span, "illegal tuple unpack"))),
         }
-
-        Ok(())
     }
 }
 

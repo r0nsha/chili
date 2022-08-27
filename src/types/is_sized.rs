@@ -25,7 +25,7 @@ impl IsSized for Type {
 
             Type::Module(_) | Type::Type(_) | Type::AnyType | Type::Var(_) | Type::Slice(_) | Type::Str(_) => false,
 
-            Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => elems.iter().all(|e| e.is_sized()),
+            Type::Tuple(elems) => elems.iter().all(|e| e.is_sized()),
 
             Type::Struct(s) => s.fields.iter().all(|f| f.ty.is_sized()),
 

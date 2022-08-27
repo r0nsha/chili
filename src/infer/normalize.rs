@@ -62,18 +62,6 @@ impl NormalizeCtx {
             InferenceValue::Bound(kind) => self.normalize_kind(tcx, kind),
             InferenceValue::AnyInt => self.normalize_anyint(ty),
             InferenceValue::AnyFloat => self.normalize_anyfloat(ty),
-            InferenceValue::PartialTuple(elements) => {
-                let elements = elements
-                    .iter()
-                    .map(|el| self.normalize_kind(tcx, el))
-                    .collect::<Vec<Type>>();
-
-                if self.concrete {
-                    Type::Tuple(elements)
-                } else {
-                    Type::Infer(ty, InferType::PartialTuple(elements))
-                }
-            }
             InferenceValue::PartialStruct(st) => {
                 if self.concrete {
                     Type::Struct(StructType {
@@ -161,21 +149,6 @@ impl NormalizeCtx {
             Type::Type(inner) => self.normalize_kind(tcx, inner).create_type(),
             Type::Infer(ty, InferType::AnyInt) => self.normalize_anyint(*ty),
             Type::Infer(ty, InferType::AnyFloat) => self.normalize_anyfloat(*ty),
-            Type::Infer(ty, InferType::PartialTuple(elements)) => {
-                let elements = elements
-                    .iter()
-                    .map(|el| self.normalize_kind(tcx, el))
-                    .collect::<Vec<Type>>();
-
-                if self.concrete {
-                    Type::Tuple(elements)
-                } else {
-                    Type::Infer(
-                        *ty,
-                        InferType::PartialTuple(elements.iter().map(|ty| self.normalize_kind(tcx, ty)).collect()),
-                    )
-                }
-            }
             Type::Infer(ty, InferType::PartialStruct(st)) => {
                 if self.concrete {
                     Type::Struct(StructType {

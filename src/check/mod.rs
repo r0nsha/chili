@@ -28,7 +28,7 @@ use crate::{
         coerce::{OrCoerce, OrCoerceIntoTy},
         display::{DisplayType, OrReportErr},
         misc::IsConcrete,
-        normalize::Normalize,
+        normalize::{Concrete, Normalize},
         type_ctx::TypeCtx,
         unify::{occurs, UnifyType, UnifyTypeErr},
     },
@@ -36,7 +36,7 @@ use crate::{
     span::Span,
     types::{
         align_of::AlignOf, is_sized::IsSized, size_of::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeParam,
-        FunctionTypeVarargs, InferType, PartialStructType, StructType, StructTypeField, StructTypeKind, Type, TypeId,
+        FunctionTypeVarargs, InferType, StructType, StructTypeField, StructTypeKind, Type, TypeId,
     },
     workspace::{
         BindingId, BindingInfo, BindingInfoFlags, BindingInfoKind, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
@@ -47,7 +47,6 @@ use indexmap::{indexmap, IndexMap};
 use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
-    iter::repeat_with,
 };
 use top_level::CallerInfo;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
@@ -1166,40 +1165,6 @@ impl Check for ast::Ast {
             ast::Ast::MemberAccess(access) => {
                 let node = access.expr.check(sess, env, None)?;
 
-                // if the accessed expression's type is not resolved yet - try unifying it with a partial type
-                match node.ty().normalize(&sess.tcx) {
-                    Type::Var(_)
-                    | Type::Infer(_, InferType::PartialStruct(_))
-                    | Type::Infer(_, InferType::PartialTuple(_)) => {
-                        // if this parsing operation succeeds, this is a tuple member access - `tup.0`
-                        // otherwise, this is a struct field access - `strct.field`
-
-                        let member_ty = sess.tcx.var(access.span);
-                        let partial_ty = match access.member.as_str().parse::<usize>() {
-                            Ok(index) => {
-                                let elements = repeat_with(|| sess.tcx.var(access.span))
-                                    .take(index + 1)
-                                    .map(Type::Var)
-                                    .collect::<Vec<Type>>();
-                                sess.tcx.partial_tuple(elements, access.span)
-                            }
-                            Err(_) => {
-                                let fields = IndexMap::from([(access.member, Type::Var(member_ty))]);
-                                sess.tcx.partial_struct(PartialStructType(fields), access.span)
-                            }
-                        };
-
-                        node.ty().unify(&partial_ty, &mut sess.tcx).or_report_err(
-                            &sess.tcx,
-                            &partial_ty,
-                            None,
-                            &node.ty(),
-                            access.expr.span(),
-                        )?;
-                    }
-                    _ => (),
-                }
-
                 let node_type = node.ty().normalize(&sess.tcx);
 
                 match &node_type {
@@ -1262,7 +1227,7 @@ impl Check for ast::Ast {
                 };
 
                 match &node_type.maybe_deref_once() {
-                    ty @ Type::Tuple(elements) | ty @ Type::Infer(_, InferType::PartialTuple(elements)) => {
+                    ty @ Type::Tuple(elements) => {
                         match access.member.as_str().parse::<usize>() {
                             Ok(index) => match elements.get(index) {
                                 Some(field_ty) => {
@@ -4075,24 +4040,27 @@ fn check_function_param_types<'s>(
     varargs: Option<&FunctionTypeVarargs>,
 ) -> CheckResult<()> {
     fn inner_check<'s>(
-        sess: &CheckSess<'s>,
+        sess: &mut CheckSess<'s>,
         diagnostics: &mut Vec<Diagnostic>,
-        ty: &impl Normalize,
+        ty: &Type,
         name: &impl Display,
         span: Span,
     ) {
-        let ty = ty.normalize(&sess.tcx);
+        sess.tcx.try_make_concrete(ty);
+
+        let ty = ty.concrete(&sess.tcx);
 
         if let Err(faulty_ty) = ty.is_concrete(&sess.tcx) {
             diagnostics.push(
                 Diagnostic::error()
                     .with_message(format!("function parameter `{}` isn't fully typed", name))
                     .with_label(Label::primary(span, "defined here"))
-                    .maybe_with_label(
-                        sess.tcx
-                            .ty_span(faulty_ty)
-                            .map(|span| Label::secondary(span, "caused by this type")),
-                    ),
+                    .maybe_with_label(sess.tcx.ty_span(faulty_ty).map(|span| {
+                        Label::secondary(
+                            span,
+                            format!("because this is of type `{}`", faulty_ty.display(&sess.tcx)),
+                        )
+                    })),
             )
         } else if ty.is_unsized() {
             diagnostics.push(
@@ -4124,7 +4092,7 @@ fn check_function_param_types<'s>(
         inner_check(
             sess,
             &mut diagnostics,
-            &param_type.ty,
+            &param_type.ty.normalize(&sess.tcx),
             &param.pattern,
             param.pattern.span(),
         );
@@ -4132,7 +4100,13 @@ fn check_function_param_types<'s>(
 
     if let Some(FunctionTypeVarargs { ty: Some(ty), .. }) = varargs {
         let varargs = sig.varargs.as_ref().unwrap();
-        inner_check(sess, &mut diagnostics, ty, &varargs.name, varargs.span);
+        inner_check(
+            sess,
+            &mut diagnostics,
+            &ty.normalize(&sess.tcx),
+            &varargs.name,
+            varargs.span,
+        );
     }
 
     if diagnostics.is_empty() {
@@ -4145,17 +4119,20 @@ fn check_function_param_types<'s>(
 }
 
 fn check_function_return_type<'s>(sess: &mut CheckSess<'s>, return_type: &Type, span: Span) -> CheckResult<()> {
-    let return_type = return_type.normalize(&sess.tcx);
+    sess.tcx.try_make_concrete(return_type);
+
+    let return_type = return_type.concrete(&sess.tcx);
 
     if let Err(faulty_ty) = return_type.is_concrete(&sess.tcx) {
         Err(Diagnostic::error()
             .with_message("function return isn't fully typed")
             .with_label(Label::primary(span, "incomplete return type"))
-            .maybe_with_label(
-                sess.tcx
-                    .ty_span(faulty_ty)
-                    .map(|span| Label::secondary(span, "caused by this type")),
-            ))
+            .maybe_with_label(sess.tcx.ty_span(faulty_ty).map(|span| {
+                Label::secondary(
+                    span,
+                    format!("because this is of type `{}`", faulty_ty.display(&sess.tcx)),
+                )
+            })))
     } else if return_type.is_unsized() {
         Err(TypeError::type_is_unsized(return_type.display(&sess.tcx), span))
     } else if !can_type_be_in_function_sig(&return_type) {

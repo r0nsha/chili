@@ -379,7 +379,7 @@ impl Buffer {
                 .enumerate()
                 .map(|(index, _)| self.get_value_at_index(index))
                 .collect(),
-            Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => elements
+            Type::Tuple(elements) => elements
                 .iter()
                 .enumerate()
                 .map(|(index, _)| self.get_value_at_index(index))
@@ -417,9 +417,7 @@ impl Buffer {
                 .bytes
                 .offset(offset)
                 .get_value(&partial_struct.get_index(index).unwrap().1),
-            Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => {
-                self.bytes.offset(offset).get_value(&elements[index])
-            }
+            Type::Tuple(elements) => self.bytes.offset(offset).get_value(&elements[index]),
             Type::Array(ty, _) => self.bytes.offset(offset).get_value(ty),
             Type::Pointer(inner, _) => match inner.as_ref() {
                 Type::Slice(ty) | Type::Str(ty) => match index {
@@ -534,10 +532,9 @@ impl From<&Type> for ValueKind {
                 _ => Self::Pointer,
             },
             Type::Function(_) => Self::Function,
-            Type::Array(_, _)
-            | Type::Tuple(_)
-            | Type::Struct(_)
-            | Type::Infer(_, InferType::PartialStruct(_) | InferType::PartialTuple(_)) => Self::Buffer,
+            Type::Array(_, _) | Type::Tuple(_) | Type::Struct(_) | Type::Infer(_, InferType::PartialStruct(_)) => {
+                Self::Buffer
+            }
             Type::Module(_) => panic!(),
             Type::Type(_) => Self::Type,
             Type::Infer(_, InferType::AnyInt) => Self::Int,
@@ -709,7 +706,7 @@ impl Value {
                     }
                     _ => panic!("value type mismatch. expected an aggregate type, got {:?}", ty),
                 },
-                Type::Infer(_, InferType::PartialTuple(elements)) | Type::Tuple(elements) => {
+                Type::Tuple(elements) => {
                     let align = ty.align_of(WORD_SIZE);
                     let mut values = Vec::with_capacity(elements.len());
 
@@ -973,7 +970,7 @@ impl Display for Buffer {
             let len = match &self.ty {
                 Type::Struct(s) => s.fields.len(),
                 Type::Infer(_, InferType::PartialStruct(partial_struct)) => partial_struct.len(),
-                Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => elements.len(),
+                Type::Tuple(elements) => elements.len(),
                 Type::Array(_, size) => *size,
                 Type::Pointer(inner, _) => match inner.as_ref() {
                     Type::Slice(_) | Type::Str(_) => 2,
@@ -993,7 +990,7 @@ impl Display for Buffer {
                 Type::Struct(_) | Type::Infer(_, InferType::PartialStruct(_)) => {
                     write!(f, "{{{}{}}}", values_joined, extra_values_str)
                 }
-                Type::Tuple(_) | Type::Infer(_, InferType::PartialTuple(_)) => {
+                Type::Tuple(_) => {
                     write!(f, "({}{})", values_joined, extra_values_str)
                 }
                 Type::Array(..) => {

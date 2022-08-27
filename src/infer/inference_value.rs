@@ -6,7 +6,6 @@ pub enum InferenceValue {
     Bound(Type),
     AnyInt,
     AnyFloat,
-    PartialTuple(Vec<Type>),
     PartialStruct(PartialStructType),
     Unbound,
 }
@@ -17,7 +16,6 @@ impl DisplayType for InferenceValue {
             InferenceValue::Bound(t) => t.display(tcx),
             InferenceValue::AnyInt => "[integer]".to_string(),
             InferenceValue::AnyFloat => "[float]".to_string(),
-            InferenceValue::PartialTuple(elements) => Type::Tuple(elements.clone()).display(tcx),
             InferenceValue::PartialStruct(partial) => partial.display(tcx),
             InferenceValue::Unbound => "unbound".to_string(),
         }

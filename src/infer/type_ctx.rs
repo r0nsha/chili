@@ -1,4 +1,8 @@
-use super::{display::DisplayType, inference_value::InferenceValue, normalize::Normalize};
+use super::{
+    display::DisplayType,
+    inference_value::InferenceValue,
+    normalize::{Concrete, Normalize},
+};
 use crate::{
     common::id_cache::IdCache,
     span::Span,
@@ -44,11 +48,6 @@ impl TypeCtx {
     #[inline]
     pub fn anyfloat(&mut self, span: Span) -> TypeId {
         self.insert(InferenceValue::AnyFloat, Some(span))
-    }
-
-    #[inline]
-    pub fn partial_tuple(&mut self, elements: Vec<Type>, span: Span) -> TypeId {
-        self.insert(InferenceValue::PartialTuple(elements), Some(span))
     }
 
     #[inline]
@@ -102,6 +101,19 @@ impl TypeCtx {
             .bindings
             .get_mut(id)
             .unwrap_or_else(|| panic!("type id not found: {:?}", id)) = value;
+    }
+
+    #[allow(unused)]
+    pub fn try_make_concrete(&mut self, ty: &Type) -> bool {
+        match ty {
+            Type::Infer(id, _) => {
+                let concrete = ty.concrete(self);
+                self.bind_ty(*id, concrete.clone());
+                true
+            }
+            Type::Var(_) => false,
+            _ => true,
+        }
     }
 
     #[allow(unused)]

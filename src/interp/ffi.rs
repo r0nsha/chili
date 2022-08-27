@@ -336,7 +336,6 @@ impl AsFfiType for Type {
                     }
                 }
                 InferType::PartialStruct(_) => todo!(),
-                InferType::PartialTuple(_) => todo!(),
             },
             Type::Never => FfiType::void(),
             _ => panic!("invalid type {:?}", self),

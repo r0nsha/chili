@@ -54,7 +54,6 @@ pub enum InferType {
     AnyInt,
     AnyFloat,
     PartialStruct(PartialStructType),
-    PartialTuple(Vec<Type>),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

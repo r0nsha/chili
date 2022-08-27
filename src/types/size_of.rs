@@ -21,7 +21,7 @@ impl SizeOf for Type {
             },
             Type::Function(..) => word_size,
             Type::Array(ty, len) => ty.size_of(word_size) * len,
-            Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => StructType::temp(
+            Type::Tuple(elems) => StructType::temp(
                 elems.iter().map(|t| StructTypeField::temp(t.clone())).collect(),
                 StructTypeKind::Struct,
             )

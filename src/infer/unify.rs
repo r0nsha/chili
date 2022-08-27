@@ -245,41 +245,6 @@ fn unify_var_ty(var: TypeId, other: &Type, tcx: &mut TypeCtx) -> UnifyTypeResult
                 _ => Err(UnifyTypeErr::Mismatch),
             }
         }
-        InferenceValue::PartialTuple(partial_tuple) => {
-            let other_kind = other.normalize(tcx);
-            match other_kind {
-                Type::Tuple(ref other_tuple) | Type::Infer(_, InferType::PartialTuple(ref other_tuple)) => {
-                    let mut any_err = false;
-
-                    if other_tuple.len() < partial_tuple.len() {
-                        any_err = true;
-                    }
-
-                    for (index, ty) in partial_tuple.iter().enumerate() {
-                        if let Some(other) = other_tuple.get(index) {
-                            any_err |= ty.unify(other, tcx).is_err();
-                        }
-                    }
-
-                    tcx.bind_ty(var, other_kind);
-
-                    if any_err {
-                        Err(UnifyTypeErr::Mismatch)
-                    } else {
-                        Ok(())
-                    }
-                }
-                Type::Var(other) => {
-                    if other != var {
-                        tcx.bind_ty(other, var.into());
-                    }
-
-                    Ok(())
-                }
-                Type::Never => Ok(()),
-                _ => Err(UnifyTypeErr::Mismatch),
-            }
-        }
         InferenceValue::Unbound => {
             let other_kind = other.normalize(tcx);
 
@@ -300,7 +265,6 @@ pub fn occurs(var: TypeId, kind: &Type, tcx: &TypeCtx) -> bool {
             match tcx.value_of(other) {
                 Bound(ty) => occurs(var, ty, tcx) || var == other,
                 PartialStruct(partial) => partial.values().any(|ty| occurs(var, ty, tcx)) || var == other,
-                PartialTuple(partial) => partial.iter().any(|ty| occurs(var, ty, tcx)) || var == other,
                 AnyInt | AnyFloat | Unbound => var == other,
             }
         }
@@ -310,9 +274,6 @@ pub fn occurs(var: TypeId, kind: &Type, tcx: &TypeCtx) -> bool {
         Type::Struct(st) => st.fields.iter().any(|f| occurs(var, &f.ty, tcx)),
         Type::Infer(other, InferType::PartialStruct(partial)) => {
             partial.values().any(|ty| occurs(var, ty, tcx)) || var == *other
-        }
-        Type::Infer(other, InferType::PartialTuple(partial)) => {
-            partial.iter().any(|ty| occurs(var, ty, tcx)) || var == *other
         }
         _ => false,
     }
