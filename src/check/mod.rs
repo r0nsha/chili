@@ -28,7 +28,8 @@ use crate::{
         coerce::{OrCoerce, OrCoerceIntoTy},
         display::{DisplayType, OrReportErr},
         misc::IsConcrete,
-        normalize::{Concrete, Normalize},
+        normalize::Normalize,
+        substitute::substitute_cache,
         type_ctx::TypeCtx,
         unify::{occurs, UnifyType, UnifyTypeErr},
     },
@@ -146,7 +147,11 @@ impl<'s> CheckSess<'s> {
             self.check_module(module)?;
         }
 
-        Ok(())
+        substitute_cache(&self.cache, &mut self.tcx).map_err(|mut diagnostics| {
+            let last = diagnostics.pop().unwrap();
+            self.workspace.diagnostics.extend(diagnostics);
+            last
+        })
     }
 
     fn init_builtin_types(&mut self) {
@@ -4016,9 +4021,8 @@ fn check_function_param_types<'s>(
         name: &impl Display,
         span: Span,
     ) {
-        sess.tcx.try_make_concrete(ty);
-
-        let ty = ty.concrete(&sess.tcx);
+        let mut ty = ty.normalize(&sess.tcx);
+        sess.tcx.make_concrete(&mut ty);
 
         if let Err(faulty_ty) = ty.is_concrete(&sess.tcx) {
             diagnostics.push(
@@ -4089,9 +4093,8 @@ fn check_function_param_types<'s>(
 }
 
 fn check_function_return_type<'s>(sess: &mut CheckSess<'s>, return_type: &Type, span: Span) -> CheckResult<()> {
-    sess.tcx.try_make_concrete(return_type);
-
-    let return_type = return_type.concrete(&sess.tcx);
+    let mut return_type = return_type.normalize(&sess.tcx);
+    sess.tcx.make_concrete(&mut return_type);
 
     if let Err(faulty_ty) = return_type.is_concrete(&sess.tcx) {
         Err(Diagnostic::error()

@@ -1,12 +1,8 @@
-use super::{
-    display::DisplayType,
-    inference_value::InferenceValue,
-    normalize::{Concrete, Normalize},
-};
+use super::{display::DisplayType, inference_value::InferenceValue, normalize::Normalize};
 use crate::{
     common::id_cache::IdCache,
     span::Span,
-    types::{Type, TypeId},
+    types::{InferType, StructType, Type, TypeId},
 };
 
 pub struct TypeCtx {
@@ -99,15 +95,49 @@ impl TypeCtx {
     }
 
     #[allow(unused)]
-    pub fn try_make_concrete(&mut self, ty: &Type) -> bool {
+    pub fn make_concrete(&mut self, ty: &mut Type) {
         match ty {
-            Type::Infer(id, _) => {
-                let concrete = ty.concrete(self);
+            Type::Infer(id, InferType::AnyInt) => {
+                let concrete = Type::int();
                 self.bind_ty(*id, concrete.clone());
-                true
+                *ty = concrete;
             }
-            Type::Var(_) => false,
-            _ => true,
+
+            Type::Infer(id, InferType::AnyFloat) => {
+                let concrete = Type::float();
+                self.bind_ty(*id, concrete.clone());
+                *ty = concrete;
+            }
+
+            Type::Function(f) => {
+                f.params.iter_mut().for_each(|p| self.make_concrete(&mut p.ty));
+
+                self.make_concrete(&mut f.return_type);
+
+                if let Some(ty) = f.varargs.as_mut().and_then(|v| v.ty.as_mut()) {
+                    self.make_concrete(ty);
+                }
+            }
+
+            Type::Pointer(ty, _) | Type::Array(ty, _) | Type::Slice(ty) | Type::Str(ty) | Type::Type(ty) => {
+                self.make_concrete(ty)
+            }
+
+            Type::Tuple(tys) => tys.iter_mut().for_each(|t| self.make_concrete(t)),
+
+            Type::Struct(StructType { fields, .. }) => {
+                fields.iter_mut().for_each(|f| self.make_concrete(&mut f.ty));
+            }
+
+            Type::Never
+            | Type::Unit
+            | Type::Bool
+            | Type::Int(_)
+            | Type::Uint(_)
+            | Type::Float(_)
+            | Type::Module(_)
+            | Type::AnyType
+            | Type::Var(_) => (),
         }
     }
 

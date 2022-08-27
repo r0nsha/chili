@@ -1,7 +1,4 @@
-use super::{
-    normalize::{Concrete, Normalize},
-    type_ctx::TypeCtx,
-};
+use super::{normalize::Normalize, type_ctx::TypeCtx};
 use crate::{
     error::diagnostic::{Diagnostic, Label},
     hir,
@@ -10,14 +7,22 @@ use crate::{
 };
 use std::collections::{HashMap, HashSet};
 
-pub fn substitute<'a>(node: &'a hir::Node, tcx: &'a mut TypeCtx) -> Result<(), Vec<Diagnostic>> {
+pub fn substitute_cache<'a>(cache: &'a hir::Cache, tcx: &'a mut TypeCtx) -> Result<(), Vec<Diagnostic>> {
     let mut sess = Sess {
         tcx,
         erroneous_types: HashMap::new(),
-        used_types: HashSet::new(),
     };
 
-    // substitute used types - extracting erroneous types
+    cache.substitute(&mut sess);
+    sess.finish()
+}
+
+pub fn substitute_node<'a>(node: &'a hir::Node, tcx: &'a mut TypeCtx) -> Result<(), Vec<Diagnostic>> {
+    let mut sess = Sess {
+        tcx,
+        erroneous_types: HashMap::new(),
+    };
+
     node.substitute(&mut sess);
     sess.finish()
 }
@@ -26,13 +31,12 @@ struct Sess<'a> {
     tcx: &'a mut TypeCtx,
     // map of Ty -> Set of reduced expression spans that couldn't be inferred because of the key ty
     erroneous_types: HashMap<TypeId, Vec<Span>>,
-    used_types: HashSet<TypeId>,
 }
 
 impl<'a> Sess<'a> {
-    fn finish(mut self) -> Result<(), Vec<Diagnostic>> {
+    fn finish(self) -> Result<(), Vec<Diagnostic>> {
         if self.erroneous_types.is_empty() {
-            Ok(self.make_used_types_concrete())
+            Ok(())
         } else {
             Err(self.collect_diagnostics())
         }
@@ -59,13 +63,6 @@ impl<'a> Sess<'a> {
                     .collect::<Vec<Diagnostic>>()
             })
             .collect()
-    }
-
-    fn make_used_types_concrete(&mut self) {
-        for ty in self.used_types.iter() {
-            let concrete_type = ty.concrete(&self.tcx);
-            self.tcx.bind_ty(*ty, concrete_type);
-        }
     }
 }
 
@@ -315,14 +312,11 @@ trait SubstituteTy<'a> {
 
 impl<'a> SubstituteTy<'a> for TypeId {
     fn substitute(&self, sess: &mut Sess<'a>, span: Span) {
-        sess.used_types.insert(*self);
-
-        let ty = self.normalize(sess.tcx);
+        let mut ty = self.normalize(sess.tcx);
 
         // Check if any type variables are left after normalization
-        // (normalization = reducing the type variable to its concrete type, recursively)
         let mut free_types: HashSet<TypeId> = Default::default();
-        extract_free_type_vars(&ty, &mut free_types);
+        extract_free_type_vars(&mut ty, &mut free_types, sess.tcx);
 
         if free_types.is_empty() {
             sess.tcx.bind_ty(*self, ty);
@@ -343,26 +337,46 @@ impl<'a> SubstituteTy<'a> for TypeId {
     }
 }
 
-fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
+fn extract_free_type_vars(ty: &mut Type, free_types: &mut HashSet<TypeId>, tcx: &mut TypeCtx) {
     match ty {
         Type::Var(var) => {
             free_types.insert(*var);
         }
+
+        Type::Infer(id, InferType::AnyInt) => {
+            let concrete = Type::int();
+            tcx.bind_ty(*id, concrete.clone());
+            *ty = concrete;
+        }
+
+        Type::Infer(id, InferType::AnyFloat) => {
+            let concrete = Type::float();
+            tcx.bind_ty(*id, concrete.clone());
+            *ty = concrete;
+        }
+
         Type::Function(f) => {
-            f.params.iter().for_each(|p| extract_free_type_vars(&p.ty, free_types));
+            f.params
+                .iter_mut()
+                .for_each(|p| extract_free_type_vars(&mut p.ty, free_types, tcx));
 
-            extract_free_type_vars(&f.return_type, free_types);
+            extract_free_type_vars(&mut f.return_type, free_types, tcx);
 
-            if let Some(ty) = f.varargs.as_ref().and_then(|v| v.ty.as_ref()) {
-                extract_free_type_vars(ty, free_types);
+            if let Some(ty) = f.varargs.as_mut().and_then(|v| v.ty.as_mut()) {
+                extract_free_type_vars(ty, free_types, tcx);
             }
         }
+
         Type::Pointer(ty, _) | Type::Array(ty, _) | Type::Slice(ty) | Type::Str(ty) | Type::Type(ty) => {
-            extract_free_type_vars(ty, free_types)
+            extract_free_type_vars(ty, free_types, tcx)
         }
-        Type::Tuple(tys) => tys.iter().for_each(|t| extract_free_type_vars(t, free_types)),
+
+        Type::Tuple(tys) => tys.iter_mut().for_each(|t| extract_free_type_vars(t, free_types, tcx)),
+
         Type::Struct(StructType { fields, .. }) => {
-            fields.iter().for_each(|f| extract_free_type_vars(&f.ty, free_types));
+            fields
+                .iter_mut()
+                .for_each(|f| extract_free_type_vars(&mut f.ty, free_types, tcx));
         }
 
         Type::Never
@@ -372,7 +386,6 @@ fn extract_free_type_vars(ty: &Type, free_types: &mut HashSet<TypeId>) {
         | Type::Uint(_)
         | Type::Float(_)
         | Type::Module(_)
-        | Type::AnyType
-        | Type::Infer(_, InferType::AnyInt | InferType::AnyFloat) => (),
+        | Type::AnyType => (),
     }
 }
