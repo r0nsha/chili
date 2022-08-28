@@ -1,7 +1,7 @@
 use std::ptr;
 
 use libc::{free, malloc, memcpy, wcslen};
-use widestring::{u16cstr, u16str, U16CStr, U16String};
+use widestring::{u16cstr, u16str, U16CStr, U16CString, U16String};
 use winapi::{
     ctypes::wchar_t,
     shared::{
@@ -106,22 +106,30 @@ unsafe fn concat4(a: *const wchar_t, b: *const wchar_t, c: *const wchar_t, d: *c
     concat([a, b, c, d])
 }
 
-type VisitFn = unsafe fn(*const wchar_t, *const wchar_t, &mut VersionData);
+type VisitFn = unsafe fn(&U16CStr, U16String, &mut VersionData);
 
-unsafe fn visit_files_w(dir_name: *mut wchar_t, data: &mut VersionData, f: VisitFn) -> bool {
-    let wildcard_name = concat2(dir_name, u16cstr!("\\*").as_ptr());
+unsafe fn visit_files_w(dir_name: U16String, data: &mut VersionData, f: VisitFn) -> bool {
+    let mut wildcard_name = dir_name.clone();
+    wildcard_name.push(u16str!("\\*"));
+    let wildcard_name = U16CString::from_ustr(wildcard_name).unwrap();
 
     let mut find_data = WIN32_FIND_DATAW::default();
 
-    let handle = FindFirstFileW(wildcard_name.as_ref() as _, &mut find_data);
+    let handle = FindFirstFileW(wildcard_name.as_ptr(), &mut find_data);
 
     let dot = u16str!(".").as_slice()[0];
 
     if handle != INVALID_HANDLE_VALUE {
         loop {
             if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY != 0) && (find_data.cFileName[0] != dot) {
-                let mut full_name = concat3(dir_name, u16cstr!("\\").as_ptr(), find_data.cFileName.as_ptr());
-                f(find_data.cFileName.as_ptr(), full_name.as_mut() as _, data);
+                let short_name =
+                    U16CStr::from_ptr(find_data.cFileName.as_ptr(), wcslen(find_data.cFileName.as_ptr())).unwrap();
+
+                let mut full_name = dir_name.clone();
+                full_name.push(u16str!("\\"));
+                full_name.push(short_name);
+
+                f(short_name, full_name, data);
             }
 
             if FindNextFileW(handle, &mut find_data) == 0 {
@@ -197,13 +205,10 @@ unsafe fn read_from_the_registry(key: HKEY, value_name: *const wchar_t) -> Optio
     }
 }
 
-unsafe fn win10_best(short_name: *const wchar_t, full_name: *const wchar_t, data: &mut VersionData) {
-    let string = U16CStr::from_ptr(short_name, wcslen(short_name))
-        .unwrap()
+unsafe fn win10_best(short_name: &U16CStr, full_name: U16String, data: &mut VersionData) {
+    let parts = short_name
         .to_string()
-        .unwrap();
-
-    let parts = string
+        .unwrap()
         .split('.')
         .map(|part| part.parse::<i32>().unwrap())
         .collect::<Vec<_>>();
@@ -229,7 +234,7 @@ unsafe fn win10_best(short_name: *const wchar_t, full_name: *const wchar_t, data
 
         // we have to copy_string and free here because visit_files free's the full_name string
         // after we execute this function, so Win*_Data would contain an invalid pointer.
-        data.best_name = U16String::from_ptr(full_name, wcslen(full_name));
+        data.best_name = full_name;
 
         data.best_version[0] = i0;
         data.best_version[1] = i1;
@@ -238,13 +243,10 @@ unsafe fn win10_best(short_name: *const wchar_t, full_name: *const wchar_t, data
     }
 }
 
-unsafe fn win8_best(short_name: *const wchar_t, full_name: *const wchar_t, data: &mut VersionData) {
-    let string = U16CStr::from_ptr(short_name, wcslen(short_name))
-        .unwrap()
+unsafe fn win8_best(short_name: &U16CStr, full_name: U16String, data: &mut VersionData) {
+    let parts = short_name
         .to_string()
-        .unwrap();
-
-    let parts = string
+        .unwrap()
         .trim_start_matches("winv")
         .split('.')
         .map(|part| part.parse::<i32>().unwrap())
@@ -263,7 +265,7 @@ unsafe fn win8_best(short_name: *const wchar_t, full_name: *const wchar_t, data:
 
         // we have to copy_string and free here because visit_files free's the full_name string
         // after we execute this function, so Win*_Data would contain an invalid pointer.
-        data.best_name = U16String::from_ptr(full_name, wcslen(full_name));
+        data.best_name = full_name;
 
         data.best_version[0] = i0;
         data.best_version[1] = i1;
@@ -314,14 +316,17 @@ unsafe fn find_windows_kit_root(result: &mut FindResult) {
 
     // Look for a Windows 10 entry.
     if let Some(windows10_root) = read_from_the_registry(main_key.inner, u16cstr!("KitsRoot10").as_ptr()) {
+        let windows10_root = windows10_root.as_ref() as *const u16;
+
         let mut data = VersionData {
             best_version: [0, 0, 0, 0],
             best_name: U16String::new(),
         };
 
-        let mut windows10_lib = concat2(windows10_root.as_ref() as _, u16cstr!("Lib").as_ptr());
+        let mut windows10_lib = U16String::from_ptr(windows10_root, wcslen(windows10_root));
+        windows10_lib.push(u16str!("Lib"));
 
-        visit_files_w(windows10_lib.as_mut() as _, &mut data, win10_best);
+        visit_files_w(windows10_lib, &mut data, win10_best);
 
         result.windows_sdk_version = 10;
         result.windows_sdk_root = Some(data.best_name);
@@ -329,14 +334,17 @@ unsafe fn find_windows_kit_root(result: &mut FindResult) {
     }
     // Look for a Windows 8 entry.
     else if let Some(windows8_root) = read_from_the_registry(main_key.inner, u16cstr!("KitsRoot81").as_ptr()) {
+        let windows8_root = windows8_root.as_ref() as *const u16;
+
         let mut data = VersionData {
             best_version: [0, 0, 0, 0],
             best_name: U16String::new(),
         };
 
-        let mut windows8_lib = concat2(windows8_root.as_ref() as _, u16cstr!("Lib").as_ptr());
+        let mut windows8_lib = U16String::from_ptr(windows8_root, wcslen(windows8_root));
+        windows8_lib.push(u16str!("Lib"));
 
-        visit_files_w(windows8_lib.as_mut() as _, &mut data, win8_best);
+        visit_files_w(windows8_lib, &mut data, win8_best);
 
         result.windows_sdk_version = 8;
         result.windows_sdk_root = Some(data.best_name);
@@ -491,14 +499,19 @@ pub unsafe fn find_visual_studio_and_windows_sdk() -> FindResult {
 
     find_windows_kit_root(&mut result);
 
-    dbg!(&result);
+    if let Some(windows_sdk_root) = &result.windows_sdk_root {
+        let mut windows_sdk_um_library_path = windows_sdk_root.clone();
+        windows_sdk_um_library_path.push(u16str!("\\um\\x64"));
+        result.windows_sdk_um_library_path = Some(windows_sdk_um_library_path);
 
-    //     if (result.windows_sdk_root) {
-    //         result.windows_sdk_um_library_path   = concat(result.windows_sdk_root, L"\\um\\x64");
-    //         result.windows_sdk_ucrt_library_path = concat(result.windows_sdk_root, L"\\ucrt\\x64");
-    //     }
+        let mut windows_sdk_ucrt_library_path = windows_sdk_root.clone();
+        windows_sdk_ucrt_library_path.push(u16str!("\\ucrt\\x64"));
+        result.windows_sdk_ucrt_library_path = Some(windows_sdk_ucrt_library_path);
+    }
 
     //     find_visual_studio_by_fighting_through_microsoft_craziness(&result);
+
+    dbg!(&result);
 
     result
 }
