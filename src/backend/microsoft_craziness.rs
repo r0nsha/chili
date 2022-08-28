@@ -1,13 +1,13 @@
 use std::ptr;
 
 use libc::{free, malloc, memcpy, wcslen};
-use widestring::{u16cstr, u16str, U16CStr};
+use widestring::{u16cstr, u16str, U16CStr, U16String};
 use winapi::{
     ctypes::wchar_t,
     shared::{
-        minwindef::{DWORD, HKEY, LPFILETIME},
+        minwindef::{DWORD, HKEY, HKEY__, LPFILETIME},
         ntdef::LPCWSTR,
-        winerror::ERROR_MORE_DATA,
+        winerror::{ERROR_MORE_DATA, S_OK},
         wtypes::BSTR,
         wtypesbase::{LPCOLESTR, ULONG},
     },
@@ -15,19 +15,19 @@ use winapi::{
         fileapi::{FindClose, FindFirstFileW, FindNextFileW, GetFileAttributesW, INVALID_FILE_ATTRIBUTES},
         handleapi::INVALID_HANDLE_VALUE,
         minwinbase::WIN32_FIND_DATAW,
-        winnt::{FILE_ATTRIBUTE_DIRECTORY, REG_SZ},
-        winreg::RegQueryValueExW,
+        winnt::{FILE_ATTRIBUTE_DIRECTORY, KEY_ENUMERATE_SUB_KEYS, KEY_QUERY_VALUE, KEY_WOW64_32KEY, REG_SZ},
+        winreg::{RegCloseKey, RegOpenKeyExA, RegQueryValueExW, HKEY_LOCAL_MACHINE},
     },
 };
 
 #[derive(Debug, Clone)]
 pub struct FindResult {
     pub windows_sdk_version: i32, // Zero if no Windows SDK found.
-    pub windows_sdk_root: String,
-    pub windows_sdk_um_library_path: String,
-    pub windows_sdk_ucrt_library_path: String,
-    pub vs_exe_path: String,
-    pub vs_library_path: String,
+    pub windows_sdk_root: Option<U16String>,
+    pub windows_sdk_um_library_path: Option<U16String>,
+    pub windows_sdk_ucrt_library_path: Option<U16String>,
+    pub vs_exe_path: Option<U16String>,
+    pub vs_library_path: Option<U16String>,
 }
 
 #[allow(non_snake_case)]
@@ -62,7 +62,7 @@ struct ISetupConfiguration {
 
 struct VersionData {
     best_version: [i32; 4],
-    best_name: *const wchar_t,
+    best_name: U16String,
 }
 
 fn os_file_exists(name: *const wchar_t) -> bool {
@@ -106,9 +106,9 @@ unsafe fn concat4(a: *const wchar_t, b: *const wchar_t, c: *const wchar_t, d: *c
     concat([a, b, c, d])
 }
 
-type VisitFn = fn(*const wchar_t, *const wchar_t, &VersionData);
+type VisitFn = unsafe fn(*const wchar_t, *const wchar_t, &mut VersionData);
 
-unsafe fn visit_files_w(dir_name: *mut wchar_t, data: &VersionData, f: VisitFn) -> bool {
+unsafe fn visit_files_w(dir_name: *mut wchar_t, data: &mut VersionData, f: VisitFn) -> bool {
     let wildcard_name = concat2(dir_name, u16cstr!("\\*").as_ptr());
 
     let mut find_data = WIN32_FIND_DATAW::default();
@@ -120,7 +120,7 @@ unsafe fn visit_files_w(dir_name: *mut wchar_t, data: &VersionData, f: VisitFn) 
     if handle != INVALID_HANDLE_VALUE {
         loop {
             if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY != 0) && (find_data.cFileName[0] != dot) {
-                let mut full_name = concat3(dir_name, u16cstr!("\\*").as_ptr(), find_data.cFileName.as_ptr());
+                let mut full_name = concat3(dir_name, u16cstr!("\\").as_ptr(), find_data.cFileName.as_ptr());
                 f(find_data.cFileName.as_ptr(), full_name.as_mut() as _, data);
             }
 
@@ -197,115 +197,153 @@ unsafe fn read_from_the_registry(key: HKEY, value_name: *const wchar_t) -> Optio
     }
 }
 
-unsafe fn win10_best(short_name: *const wchar_t, full_name: *const wchar_t) -> VersionData {
-    let c = U16CStr::from_ptr(short_name, wcslen(short_name)).unwrap();
+unsafe fn win10_best(short_name: *const wchar_t, full_name: *const wchar_t, data: &mut VersionData) {
+    let string = U16CStr::from_ptr(short_name, wcslen(short_name))
+        .unwrap()
+        .to_string()
+        .unwrap();
 
-    c.to_string().unwrap().split('.').take(4).map(|part| dbg!(part));
+    let parts = string
+        .split('.')
+        .map(|part| part.parse::<i32>().unwrap())
+        .collect::<Vec<_>>();
 
-    todo!()
+    if let [i0, i1, i2, i3] = &parts[..] {
+        let (i0, i1, i2, i3) = (*i0, *i1, *i2, *i3);
 
-    //     int i0, i1, i2, i3;
-    //     auto success = swscanf_s(short_name, L"%d.%d.%d.%d", &i0, &i1, &i2, &i3);
-    //     if (success < 4) return;
+        if i0 < data.best_version[0] {
+            return;
+        } else if i0 == data.best_version[0] {
+            if i1 < data.best_version[1] {
+                return;
+            } else if i1 == data.best_version[1] {
+                if i2 < data.best_version[2] {
+                    return;
+                } else if i2 == data.best_version[2] {
+                    if i3 < data.best_version[3] {
+                        return;
+                    }
+                }
+            }
+        }
 
-    //     if (i0 < data->best_version[0]) return;
-    //     else if (i0 == data->best_version[0]) {
-    //         if (i1 < data->best_version[1]) return;
-    //         else if (i1 == data->best_version[1]) {
-    //             if (i2 < data->best_version[2]) return;
-    //             else if (i2 == data->best_version[2]) {
-    //                 if (i3 < data->best_version[3]) return;
-    //             }
-    //         }
-    //     }
+        // we have to copy_string and free here because visit_files free's the full_name string
+        // after we execute this function, so Win*_Data would contain an invalid pointer.
+        data.best_name = U16String::from_ptr(full_name, wcslen(full_name));
 
-    //     // we have to copy_string and free here because visit_files free's the full_name string
-    //     // after we execute this function, so Win*_Data would contain an invalid pointer.
-    //     if (data->best_name) free(data->best_name);
-    //     data->best_name = _wcsdup(full_name);
-
-    //     if (data->best_name) {
-    //         data->best_version[0] = i0;
-    //         data->best_version[1] = i1;
-    //         data->best_version[2] = i2;
-    //         data->best_version[3] = i3;
-    //     }
+        data.best_version[0] = i0;
+        data.best_version[1] = i1;
+        data.best_version[2] = i2;
+        data.best_version[3] = i3;
+    }
 }
 
-unsafe fn win8_best(short_name: *const wchar_t, full_name: *const wchar_t) -> VersionData {
-    todo!()
+unsafe fn win8_best(short_name: *const wchar_t, full_name: *const wchar_t, data: &mut VersionData) {
+    let string = U16CStr::from_ptr(short_name, wcslen(short_name))
+        .unwrap()
+        .to_string()
+        .unwrap();
 
-    //     // Find the Windows 8 subdirectory with the highest version number.
+    let parts = string
+        .trim_start_matches("winv")
+        .split('.')
+        .map(|part| part.parse::<i32>().unwrap())
+        .collect::<Vec<_>>();
 
-    //     int i0, i1;
-    //     auto success = swscanf_s(short_name, L"winv%d.%d", &i0, &i1);
-    //     if (success < 2) return;
+    if let [i0, i1] = &parts[..] {
+        let (i0, i1) = (*i0, *i1);
 
-    //     if (i0 < data->best_version[0]) return;
-    //     else if (i0 == data->best_version[0]) {
-    //         if (i1 < data->best_version[1]) return;
-    //     }
+        if i0 < data.best_version[0] {
+            return;
+        } else if i0 == data.best_version[0] {
+            if i1 < data.best_version[1] {
+                return;
+            }
+        }
 
-    //     // we have to copy_string and free here because visit_files free's the full_name string
-    //     // after we execute this function, so Win*_Data would contain an invalid pointer.
-    //     if (data->best_name) free(data->best_name);
-    //     data->best_name = _wcsdup(full_name);
+        // we have to copy_string and free here because visit_files free's the full_name string
+        // after we execute this function, so Win*_Data would contain an invalid pointer.
+        data.best_name = U16String::from_ptr(full_name, wcslen(full_name));
 
-    //     if (data->best_name) {
-    //         data->best_version[0] = i0;
-    //         data->best_version[1] = i1;
-    //     }
+        data.best_version[0] = i0;
+        data.best_version[1] = i1;
+    }
 }
 
-// void find_windows_kit_root(Find_Result *result) {
-//     // Information about the Windows 10 and Windows 8 development kits
-//     // is stored in the same place in the registry. We open a key
-//     // to that place, first checking preferntially for a Windows 10 kit,
-//     // then, if that's not found, a Windows 8 kit.
+struct SafeHKey {
+    inner: HKEY,
+}
 
-//     HKEY main_key;
+impl SafeHKey {
+    fn new() -> Self {
+        Self {
+            inner: ptr::null_mut::<HKEY__>(),
+        }
+    }
+}
 
-//     auto rc = RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots",
-//                             0, KEY_QUERY_VALUE | KEY_WOW64_32KEY | KEY_ENUMERATE_SUB_KEYS, &main_key);
-//     if (rc != S_OK) return;
-//     defer { RegCloseKey(main_key); };
+impl Drop for SafeHKey {
+    fn drop(&mut self) {
+        if !self.inner.is_null() {
+            unsafe {
+                RegCloseKey(self.inner);
+            }
+        }
+    }
+}
 
-//     // Look for a Windows 10 entry.
-//     auto windows10_root = read_from_the_registry(main_key, L"KitsRoot10");
-//     if (windows10_root) {
-//         defer { free(windows10_root); };
-//         Version_Data data = {0};
-//         auto windows10_lib = concat(windows10_root, L"Lib");
-//         defer { free(windows10_lib); };
+unsafe fn find_windows_kit_root(result: &mut FindResult) {
+    // Information about the Windows 10 and Windows 8 development kits
+    // is stored in the same place in the registry. We open a key
+    // to that place, first checking preferntially for a Windows 10 kit,
+    // then, if that's not found, a Windows 8 kit.
 
-//         visit_files_w(windows10_lib, &data, win10_best);
-//         if (data.best_name) {
-//             result->windows_sdk_version = 10;
-//             result->windows_sdk_root = data.best_name;
-//             return;
-//         }
-//     }
+    let mut main_key = SafeHKey::new();
 
-//     // Look for a Windows 8 entry.
-//     auto windows8_root = read_from_the_registry(main_key, L"KitsRoot81");
+    let rc = RegOpenKeyExA(
+        HKEY_LOCAL_MACHINE,
+        "SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots".as_ptr() as _,
+        0,
+        KEY_QUERY_VALUE | KEY_WOW64_32KEY | KEY_ENUMERATE_SUB_KEYS,
+        &mut main_key.inner,
+    );
 
-//     if (windows8_root) {
-//         defer { free(windows8_root); };
+    if rc != S_OK {
+        return;
+    }
 
-//         auto windows8_lib = concat(windows8_root, L"Lib");
-//         defer { free(windows8_lib); };
+    // Look for a Windows 10 entry.
+    if let Some(windows10_root) = read_from_the_registry(main_key.inner, u16cstr!("KitsRoot10").as_ptr()) {
+        let mut data = VersionData {
+            best_version: [0, 0, 0, 0],
+            best_name: U16String::new(),
+        };
 
-//         Version_Data data = {0};
-//         visit_files_w(windows8_lib, &data, win8_best);
-//         if (data.best_name) {
-//             result->windows_sdk_version = 8;
-//             result->windows_sdk_root = data.best_name;
-//             return;
-//         }
-//     }
+        let mut windows10_lib = concat2(windows10_root.as_ref() as _, u16cstr!("Lib").as_ptr());
 
-//     // If we get here, we failed to find anything.
-// }
+        visit_files_w(windows10_lib.as_mut() as _, &mut data, win10_best);
+
+        result.windows_sdk_version = 10;
+        result.windows_sdk_root = Some(data.best_name);
+        return;
+    }
+    // Look for a Windows 8 entry.
+    else if let Some(windows8_root) = read_from_the_registry(main_key.inner, u16cstr!("KitsRoot81").as_ptr()) {
+        let mut data = VersionData {
+            best_version: [0, 0, 0, 0],
+            best_name: U16String::new(),
+        };
+
+        let mut windows8_lib = concat2(windows8_root.as_ref() as _, u16cstr!("Lib").as_ptr());
+
+        visit_files_w(windows8_lib.as_mut() as _, &mut data, win8_best);
+
+        result.windows_sdk_version = 8;
+        result.windows_sdk_root = Some(data.best_name);
+    }
+
+    // If we get here, we failed to find anything.
+}
 
 // bool find_visual_studio_2017_by_fighting_through_microsoft_craziness(Find_Result *result) {
 //     // The name of this procedure is kind of cryptic. Its purpose is
@@ -441,21 +479,26 @@ unsafe fn win8_best(short_name: *const wchar_t, full_name: *const wchar_t) -> Ve
 //     // If we get here, we failed to find anything.
 // }
 
-// Find_Result find_visual_studio_and_windows_sdk() {
-//     Find_Result result;
+pub unsafe fn find_visual_studio_and_windows_sdk() -> FindResult {
+    let mut result = FindResult {
+        windows_sdk_version: 0,
+        windows_sdk_root: None,
+        windows_sdk_um_library_path: None,
+        windows_sdk_ucrt_library_path: None,
+        vs_exe_path: None,
+        vs_library_path: None,
+    };
 
-//     find_windows_kit_root(&result);
+    find_windows_kit_root(&mut result);
 
-//     if (result.windows_sdk_root) {
-//         result.windows_sdk_um_library_path   = concat(result.windows_sdk_root, L"\\um\\x64");
-//         result.windows_sdk_ucrt_library_path = concat(result.windows_sdk_root, L"\\ucrt\\x64");
-//     }
+    dbg!(&result);
 
-//     find_visual_studio_by_fighting_through_microsoft_craziness(&result);
+    //     if (result.windows_sdk_root) {
+    //         result.windows_sdk_um_library_path   = concat(result.windows_sdk_root, L"\\um\\x64");
+    //         result.windows_sdk_ucrt_library_path = concat(result.windows_sdk_root, L"\\ucrt\\x64");
+    //     }
 
-//     return result;
-// }
+    //     find_visual_studio_by_fighting_through_microsoft_craziness(&result);
 
-pub fn find_visual_studio_and_windows_sdk() -> Option<FindResult> {
-    None
+    result
 }
