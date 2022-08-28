@@ -164,6 +164,7 @@ dependencies = [
  "unicode-xid",
  "unindent",
  "ustr",
+ "winapi",
 ]
 
 [[package]]

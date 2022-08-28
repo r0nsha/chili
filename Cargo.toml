@@ -43,6 +43,7 @@ inkwell = { git = "https://github.com/r0nsha/inkwell", branch = "my-missing-feat
 
 [target.'cfg(windows)'.dependencies]
 libffi = { git = "https://github.com/r0nsha/libffi-rs" }
+winapi = { version = "0.3.9", features = ["winuser"] }
 
 [target.'cfg(unix)'.dependencies]
 libffi = { git = "https://github.com/r0nsha/libffi-rs", features = ["system"] }
