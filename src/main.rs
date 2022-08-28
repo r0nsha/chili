@@ -102,16 +102,6 @@ struct Args {
     goto_def: Option<usize>,
 }
 
-fn main() {
-    std::thread::Builder::new()
-        .name("main".to_string())
-        .stack_size(8 * 1024 * 1024) // 8 MB
-        .spawn(cli)
-        .unwrap()
-        .join()
-        .unwrap();
-}
-
 fn cli() {
     let args = Args::parse();
 
@@ -233,4 +223,16 @@ fn get_include_paths(include_paths: &Option<String>) -> Vec<PathBuf> {
     include_paths
         .as_ref()
         .map_or_else(|| vec![], |i| i.split(';').map(|s| PathBuf::from(s)).collect())
+}
+
+fn main() {
+    // std::thread::Builder::new()
+    //     .name("main".to_string())
+    //     .stack_size(8 * 1024 * 1024) // 8 MB
+    //     .spawn(cli)
+    //     .unwrap()
+    //     .join()
+    //     .unwrap();
+
+    backend::microsoft_craziness::find_visual_studio_and_windows_sdk();
 }

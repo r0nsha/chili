@@ -1,223 +1,261 @@
-#![cfg(windows)]
-use winapi;
+use std::ptr;
+
+use libc::{free, malloc, memcpy, wcslen};
+use widestring::{u16cstr, u16str, U16CStr};
+use winapi::{
+    ctypes::wchar_t,
+    shared::{
+        minwindef::{DWORD, HKEY, LPFILETIME},
+        ntdef::LPCWSTR,
+        winerror::ERROR_MORE_DATA,
+        wtypes::BSTR,
+        wtypesbase::{LPCOLESTR, ULONG},
+    },
+    um::{
+        fileapi::{FindClose, FindFirstFileW, FindNextFileW, GetFileAttributesW, INVALID_FILE_ATTRIBUTES},
+        handleapi::INVALID_HANDLE_VALUE,
+        minwinbase::WIN32_FIND_DATAW,
+        winnt::{FILE_ATTRIBUTE_DIRECTORY, REG_SZ},
+        winreg::RegQueryValueExW,
+    },
+};
 
 #[derive(Debug, Clone)]
-struct FindResult {
-    windows_sdk_version: i32, // Zero if no Windows SDK found.
-    windows_sdk_root: String,
-    windows_sdk_um_library_path: String,
-    windows_sdk_ucrt_library_path: String,
-    vs_exe_path: String,
-    vs_library_path: String,
+pub struct FindResult {
+    pub windows_sdk_version: i32, // Zero if no Windows SDK found.
+    pub windows_sdk_root: String,
+    pub windows_sdk_um_library_path: String,
+    pub windows_sdk_ucrt_library_path: String,
+    pub vs_exe_path: String,
+    pub vs_library_path: String,
 }
 
-// // COM objects for the ridiculous Microsoft craziness.
-
+#[allow(non_snake_case)]
+#[repr(C)]
 struct ISetupInstance {
-    x: winapi::,
+    GetInstanceId: fn(*mut BSTR),
+    GetInstallDate: fn(LPFILETIME),
+    GetInstallationName: fn(*mut BSTR),
+    GetInstallationPath: fn(*mut BSTR),
+    GetInstallationVersion: fn(*mut BSTR),
+    GetDisplayName: fn(*mut BSTR),
+    GetDescription: fn(*mut BSTR),
+    ResolvePath: fn(LPCOLESTR, *mut BSTR),
 }
 
-// struct DECLSPEC_UUID("B41463C3-8866-43B5-BC33-2B0676F7F42E") DECLSPEC_NOVTABLE ISetupInstance : public IUnknown
-// {
-//     STDMETHOD(GetInstanceId)(_Out_ BSTR* pbstrInstanceId) = 0;
-//     STDMETHOD(GetInstallDate)(_Out_ LPFILETIME pInstallDate) = 0;
-//     STDMETHOD(GetInstallationName)(_Out_ BSTR* pbstrInstallationName) = 0;
-//     STDMETHOD(GetInstallationPath)(_Out_ BSTR* pbstrInstallationPath) = 0;
-//     STDMETHOD(GetInstallationVersion)(_Out_ BSTR* pbstrInstallationVersion) = 0;
-//     STDMETHOD(GetDisplayName)(_In_ LCID lcid, _Out_ BSTR* pbstrDisplayName) = 0;
-//     STDMETHOD(GetDescription)(_In_ LCID lcid, _Out_ BSTR* pbstrDescription) = 0;
-//     STDMETHOD(ResolvePath)(_In_opt_z_ LPCOLESTR pwszRelativePath, _Out_ BSTR* pbstrAbsolutePath) = 0;
-// };
+#[allow(non_snake_case)]
+#[repr(C)]
+struct IEnumSetupInstances {
+    Next: fn(ULONG, *mut *mut ISetupInstance, *mut ULONG),
+    Skip: fn(ULONG),
+    Reset: fn(),
+    Clone: fn(*mut *mut IEnumSetupInstances),
+}
 
-// struct DECLSPEC_UUID("6380BCFF-41D3-4B2E-8B2E-BF8A6810C848") DECLSPEC_NOVTABLE IEnumSetupInstances : public IUnknown
-// {
-//     STDMETHOD(Next)(_In_ ULONG celt, _Out_writes_to_(celt, *pceltFetched) ISetupInstance** rgelt, _Out_opt_ _Deref_out_range_(0, celt) ULONG* pceltFetched) = 0;
-//     STDMETHOD(Skip)(_In_ ULONG celt) = 0;
-//     STDMETHOD(Reset)(void) = 0;
-//     STDMETHOD(Clone)(_Deref_out_opt_ IEnumSetupInstances** ppenum) = 0;
-// };
+#[allow(non_snake_case)]
+#[repr(C)]
+struct ISetupConfiguration {
+    EnumInstances: fn(*mut *mut IEnumSetupInstances),
+    GetInstanceForCurrentProcess: fn(*mut *mut ISetupInstance),
+    GetInstanceForPath: fn(LPCWSTR, *mut *mut ISetupInstance),
+}
 
-// struct DECLSPEC_UUID("42843719-DB4C-46C2-8E7C-64F1816EFD5B") DECLSPEC_NOVTABLE ISetupConfiguration : public IUnknown
-// {
-//     STDMETHOD(EnumInstances)(_Out_ IEnumSetupInstances** ppEnumInstances) = 0;
-//     STDMETHOD(GetInstanceForCurrentProcess)(_Out_ ISetupInstance** ppInstance) = 0;
-//     STDMETHOD(GetInstanceForPath)(_In_z_ LPCWSTR wzPath, _Out_ ISetupInstance** ppInstance) = 0;
-// };
+struct VersionData {
+    best_version: [i32; 4],
+    best_name: *const wchar_t,
+}
 
-// // The beginning of the actual code that does things.
+fn os_file_exists(name: *const wchar_t) -> bool {
+    let attr = unsafe { GetFileAttributesW(name) };
+    attr != INVALID_FILE_ATTRIBUTES && attr & FILE_ATTRIBUTE_DIRECTORY == 0
+}
 
-// struct Version_Data {
-//     int32_t best_version[4];  // For Windows 8 versions, only two of these numbers are used.
-//     wchar_t *best_name;
-// };
+unsafe fn concat([a, b, c, d]: [*const wchar_t; 4]) -> Box<wchar_t> {
+    let len_a = wcslen(a);
+    let len_b = wcslen(b);
 
-// bool os_file_exists(wchar_t *name) {
-//     // @Robustness: What flags do we really want to check here?
+    let len_c = if !c.is_null() { wcslen(c) } else { 0 };
+    let len_d = if !d.is_null() { wcslen(d) } else { 0 };
 
-//     auto attrib = GetFileAttributesW(name);
-//     if (attrib == INVALID_FILE_ATTRIBUTES) return false;
-//     if (attrib & FILE_ATTRIBUTE_DIRECTORY) return false;
+    let result = malloc((len_a + len_b + len_c + len_d + 1) * 2) as *mut wchar_t;
+    memcpy(result as _, a as _, len_a * 2);
+    memcpy(result.add(len_a) as _, b as _, len_b * 2);
 
-//     return true;
-// }
+    if !c.is_null() {
+        memcpy(result.add(len_a + len_b) as _, c as _, len_c * 2);
+    }
 
-// wchar_t *concat(wchar_t *a, wchar_t *b, wchar_t *c = nullptr, wchar_t *d = nullptr) {
-//     // Concatenate up to 4 wide strings together. Allocated with malloc.
-//     // If you don't like that, use a programming language that actually
-//     // helps you with using custom allocators. Or just edit the code.
+    if !d.is_null() {
+        memcpy(result.add(len_a + len_b + len_c) as _, d as _, len_d * 2);
+    }
 
-//     auto len_a = wcslen(a);
-//     auto len_b = wcslen(b);
+    *result.add(len_a + len_b + len_c + len_d) = 0;
 
-//     auto len_c = 0;
-//     if (c) len_c = wcslen(c);
+    Box::from_raw(result)
+}
 
-//     auto len_d = 0;
-//     if (d) len_d = wcslen(d);
+unsafe fn concat2(a: *const wchar_t, b: *const wchar_t) -> Box<wchar_t> {
+    concat([a, b, ptr::null_mut(), ptr::null_mut()])
+}
 
-//     wchar_t *result = (wchar_t *)malloc((len_a + len_b + len_c + len_d + 1) * 2);
-//     memcpy(result, a, len_a*2);
-//     memcpy(result + len_a, b, len_b*2);
+unsafe fn concat3(a: *const wchar_t, b: *const wchar_t, c: *const wchar_t) -> Box<wchar_t> {
+    concat([a, b, c, ptr::null_mut()])
+}
 
-//     if (c) memcpy(result + len_a + len_b, c, len_c * 2);
-//     if (d) memcpy(result + len_a + len_b + len_c, d, len_d * 2);
+unsafe fn concat4(a: *const wchar_t, b: *const wchar_t, c: *const wchar_t, d: *const wchar_t) -> Box<wchar_t> {
+    concat([a, b, c, d])
+}
 
-//     result[len_a + len_b + len_c + len_d] = 0;
+type VisitFn = fn(*const wchar_t, *const wchar_t, &VersionData);
 
-//     return result;
-// }
+unsafe fn visit_files_w(dir_name: *mut wchar_t, data: &VersionData, f: VisitFn) -> bool {
+    let wildcard_name = concat2(dir_name, u16cstr!("\\*").as_ptr());
 
-// typedef void (*Visit_Proc_W)(wchar_t *short_name, wchar_t *full_name, Version_Data *data);
-// bool visit_files_w(wchar_t *dir_name, Version_Data *data, Visit_Proc_W proc) {
+    let mut find_data = WIN32_FIND_DATAW::default();
 
-//     // Visit everything in one folder (non-recursively). If it's a directory
-//     // that doesn't start with ".", call the visit proc on it. The visit proc
-//     // will see if the filename conforms to the expected versioning pattern.
+    let handle = FindFirstFileW(wildcard_name.as_ref() as _, &mut find_data);
 
-//     auto wildcard_name = concat(dir_name, L"\\*");
-//     defer { free(wildcard_name); };
+    let dot = u16str!(".").as_slice()[0];
 
-//     WIN32_FIND_DATAW find_data;
-//     auto handle = FindFirstFileW(wildcard_name, &find_data);
-//     if (handle == INVALID_HANDLE_VALUE) return false;
+    if handle != INVALID_HANDLE_VALUE {
+        loop {
+            if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY != 0) && (find_data.cFileName[0] != dot) {
+                let mut full_name = concat3(dir_name, u16cstr!("\\*").as_ptr(), find_data.cFileName.as_ptr());
+                f(find_data.cFileName.as_ptr(), full_name.as_mut() as _, data);
+            }
 
-//     while (true) {
-//         if ((find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && (find_data.cFileName[0] != '.')) {
-//             auto full_name = concat(dir_name, L"\\", find_data.cFileName);
-//             defer { free(full_name); };
+            if FindNextFileW(handle, &mut find_data) == 0 {
+                break;
+            }
+        }
 
-//             proc(find_data.cFileName, full_name, data);
-//         }
+        FindClose(handle);
 
-//         auto success = FindNextFileW(handle, &find_data);
-//         if (!success) break;
-//     }
+        true
+    } else {
+        false
+    }
+}
 
-//     FindClose(handle);
+unsafe fn read_from_the_registry(key: HKEY, value_name: *const wchar_t) -> Option<Box<wchar_t>> {
+    let mut required_length: DWORD = 0;
 
-//     return true;
-// }
+    if RegQueryValueExW(
+        key,
+        value_name,
+        ptr::null_mut(),
+        ptr::null_mut(),
+        ptr::null_mut(),
+        &mut required_length,
+    ) == 0
+    {
+        #[allow(unused_assignments)]
+        let mut value = ptr::null_mut::<wchar_t>();
 
-// wchar_t *read_from_the_registry(HKEY key, wchar_t *value_name) {
-//     // Returns NULL if read failed.
-//     // Otherwise returns a wide string allocated via 'malloc'.
+        #[allow(unused_assignments)]
+        let mut length: DWORD = 0;
 
-//     //
-//     // If the registry data changes between the first and second calls to RegQueryValueExW,
-//     // we may fail to get the entire key, even though it told us initially that our buffer length
-//     // would be big enough. The only solution is to keep looping until we don't fail.
-//     //
+        loop {
+            length = required_length + 2; // The +2 is for the maybe optional zero later on. Probably we are over-allocating.
+            value = malloc(length as usize + 2) as _; // This second +2 is for crazy situations where there are race conditions or the API doesn't do what we want!
 
-//     DWORD required_length;
-//     auto rc = RegQueryValueExW(key, value_name, NULL, NULL, NULL, &required_length);
-//     if (rc != 0)  return NULL;
+            if value.is_null() {
+                return None;
+            }
 
-//     wchar_t *value;
-//     DWORD length;
-//     while (1) {
-//         length = required_length + 2;  // The +2 is for the maybe optional zero later on. Probably we are over-allocating.
-//         value = (wchar_t *)malloc(length + 2);  // This second +2 is for crazy situations where there are race conditions or the API doesn't do what we want!
-//         if (!value) return NULL;
+            let mut type_: DWORD = 0;
 
-//         DWORD type;
-//         rc = RegQueryValueExW(key, value_name, NULL, &type, (LPBYTE)value, &length);  // We know that version is zero-terminated...
-//         if (rc == ERROR_MORE_DATA) {
-//             free(value);
-//             required_length = length;
-//             continue;
-//         }
+            // We know that version is zero-terminated...
+            let rc = RegQueryValueExW(key, value_name, ptr::null_mut(), &mut type_, value as _, &mut length);
+            if rc == ERROR_MORE_DATA as i32 {
+                free(value as _);
+                required_length = length;
+                continue;
+            }
 
-//         if ((rc != 0) || (type != REG_SZ)) {
-//             // REG_SZ because we only accept strings here!
-//             free(value);
-//             return NULL;
-//         }
+            if rc != 0 || type_ != REG_SZ {
+                // REG_SZ because we only accept strings here!
+                free(value as _);
+                return None;
+            }
 
-//         break;
-//     }
+            break;
+        }
 
-//     // The documentation says that if the string for some reason was not stored
-//     // with zero-termination, we need to manually terminate it. Sigh!!
+        // If the string was already zero-terminated, this just puts an extra 0 after (since that 0 was counted in 'length').
+        // If it wasn't, this puts a 0 after the nonzero characters we got.
+        let num_wchars = length / 2;
+        *value.add(num_wchars as _) = 0;
 
-//     auto num_wchars = length / 2;
-//     value[num_wchars] = 0;  // If the string was already zero-terminated, this just puts an extra 0 after (since that 0 was counted in 'length'). If it wasn't, this puts a 0 after the nonzero characters we got.
+        if value.is_null() {
+            None
+        } else {
+            Some(Box::from_raw(value))
+        }
+    } else {
+        return None;
+    }
+}
 
-//     return value;
-// }
+unsafe fn win10_best(short_name: *const wchar_t, full_name: *const wchar_t) -> VersionData {
+    let c = U16CStr::from_ptr(short_name, wcslen(short_name)).unwrap();
 
-// void win10_best(wchar_t *short_name, wchar_t *full_name, Version_Data *data) {
-//     // Find the Windows 10 subdirectory with the highest version number.
+    c.to_string().unwrap().split('.').take(4).map(|part| dbg!(part));
 
-//     int i0, i1, i2, i3;
-//     auto success = swscanf_s(short_name, L"%d.%d.%d.%d", &i0, &i1, &i2, &i3);
-//     if (success < 4) return;
+    todo!()
 
-//     if (i0 < data->best_version[0]) return;
-//     else if (i0 == data->best_version[0]) {
-//         if (i1 < data->best_version[1]) return;
-//         else if (i1 == data->best_version[1]) {
-//             if (i2 < data->best_version[2]) return;
-//             else if (i2 == data->best_version[2]) {
-//                 if (i3 < data->best_version[3]) return;
-//             }
-//         }
-//     }
+    //     int i0, i1, i2, i3;
+    //     auto success = swscanf_s(short_name, L"%d.%d.%d.%d", &i0, &i1, &i2, &i3);
+    //     if (success < 4) return;
 
-//     // we have to copy_string and free here because visit_files free's the full_name string
-//     // after we execute this function, so Win*_Data would contain an invalid pointer.
-//     if (data->best_name) free(data->best_name);
-//     data->best_name = _wcsdup(full_name);
+    //     if (i0 < data->best_version[0]) return;
+    //     else if (i0 == data->best_version[0]) {
+    //         if (i1 < data->best_version[1]) return;
+    //         else if (i1 == data->best_version[1]) {
+    //             if (i2 < data->best_version[2]) return;
+    //             else if (i2 == data->best_version[2]) {
+    //                 if (i3 < data->best_version[3]) return;
+    //             }
+    //         }
+    //     }
 
-//     if (data->best_name) {
-//         data->best_version[0] = i0;
-//         data->best_version[1] = i1;
-//         data->best_version[2] = i2;
-//         data->best_version[3] = i3;
-//     }
-// }
+    //     // we have to copy_string and free here because visit_files free's the full_name string
+    //     // after we execute this function, so Win*_Data would contain an invalid pointer.
+    //     if (data->best_name) free(data->best_name);
+    //     data->best_name = _wcsdup(full_name);
 
-// void win8_best(wchar_t *short_name, wchar_t *full_name, Version_Data *data) {
-//     // Find the Windows 8 subdirectory with the highest version number.
+    //     if (data->best_name) {
+    //         data->best_version[0] = i0;
+    //         data->best_version[1] = i1;
+    //         data->best_version[2] = i2;
+    //         data->best_version[3] = i3;
+    //     }
+}
 
-//     int i0, i1;
-//     auto success = swscanf_s(short_name, L"winv%d.%d", &i0, &i1);
-//     if (success < 2) return;
+unsafe fn win8_best(short_name: *const wchar_t, full_name: *const wchar_t) -> VersionData {
+    todo!()
 
-//     if (i0 < data->best_version[0]) return;
-//     else if (i0 == data->best_version[0]) {
-//         if (i1 < data->best_version[1]) return;
-//     }
+    //     // Find the Windows 8 subdirectory with the highest version number.
 
-//     // we have to copy_string and free here because visit_files free's the full_name string
-//     // after we execute this function, so Win*_Data would contain an invalid pointer.
-//     if (data->best_name) free(data->best_name);
-//     data->best_name = _wcsdup(full_name);
+    //     int i0, i1;
+    //     auto success = swscanf_s(short_name, L"winv%d.%d", &i0, &i1);
+    //     if (success < 2) return;
 
-//     if (data->best_name) {
-//         data->best_version[0] = i0;
-//         data->best_version[1] = i1;
-//     }
-// }
+    //     if (i0 < data->best_version[0]) return;
+    //     else if (i0 == data->best_version[0]) {
+    //         if (i1 < data->best_version[1]) return;
+    //     }
+
+    //     // we have to copy_string and free here because visit_files free's the full_name string
+    //     // after we execute this function, so Win*_Data would contain an invalid pointer.
+    //     if (data->best_name) free(data->best_name);
+    //     data->best_name = _wcsdup(full_name);
+
+    //     if (data->best_name) {
+    //         data->best_version[0] = i0;
+    //         data->best_version[1] = i1;
+    //     }
+}
 
 // void find_windows_kit_root(Find_Result *result) {
 //     // Information about the Windows 10 and Windows 8 development kits
@@ -417,3 +455,7 @@ struct ISetupInstance {
 
 //     return result;
 // }
+
+pub fn find_visual_studio_and_windows_sdk() -> Option<FindResult> {
+    None
+}

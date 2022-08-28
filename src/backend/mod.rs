@@ -1,2 +1,4 @@
 pub mod llvm;
-mod microsoft_craziness;
+
+#[cfg(windows)]
+pub mod microsoft_craziness;
