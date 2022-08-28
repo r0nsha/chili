@@ -1,24 +1,43 @@
-use std::ptr;
+#![allow(non_snake_case)]
 
-use libc::{free, malloc, memcpy, wcslen};
+use libc::{free, malloc, wcslen};
+use std::{fs, ptr};
 use widestring::{u16cstr, u16str, U16CStr, U16CString, U16String};
 use winapi::{
     ctypes::wchar_t,
     shared::{
+        guiddef::GUID,
         minwindef::{DWORD, HKEY, HKEY__, LPFILETIME},
-        ntdef::LPCWSTR,
-        winerror::{ERROR_MORE_DATA, S_OK},
+        ntdef::{LCID, LPCWSTR},
+        winerror::{ERROR_MORE_DATA, HRESULT, S_OK},
         wtypes::BSTR,
-        wtypesbase::{LPCOLESTR, ULONG},
+        wtypesbase::{CLSCTX_INPROC_SERVER, LPCOLESTR, ULONG},
     },
     um::{
+        combaseapi::{CoCreateInstance, CoInitializeEx},
         fileapi::{FindClose, FindFirstFileW, FindNextFileW, GetFileAttributesW, INVALID_FILE_ATTRIBUTES},
         handleapi::INVALID_HANDLE_VALUE,
         minwinbase::WIN32_FIND_DATAW,
+        objbase::COINIT_MULTITHREADED,
+        oleauto::SysFreeString,
+        unknwnbase::{IUnknown, IUnknownVtbl},
         winnt::{FILE_ATTRIBUTE_DIRECTORY, KEY_ENUMERATE_SUB_KEYS, KEY_QUERY_VALUE, KEY_WOW64_32KEY, REG_SZ},
         winreg::{RegCloseKey, RegOpenKeyExA, RegQueryValueExW, HKEY_LOCAL_MACHINE},
     },
+    RIDL,
 };
+
+struct Defer<R, F: FnOnce() -> R>(Option<F>);
+
+impl<R, F: FnOnce() -> R> Drop for Defer<R, F> {
+    fn drop(&mut self) {
+        self.0.take().map(|f| f());
+    }
+}
+
+pub fn defer<R, F: FnOnce() -> R>(f: F) -> impl Drop {
+    Defer(Some(f))
+}
 
 #[derive(Debug, Clone)]
 pub struct FindResult {
@@ -30,35 +49,66 @@ pub struct FindResult {
     pub vs_library_path: Option<U16String>,
 }
 
-#[allow(non_snake_case)]
-#[repr(C)]
-struct ISetupInstance {
-    GetInstanceId: fn(*mut BSTR),
-    GetInstallDate: fn(LPFILETIME),
-    GetInstallationName: fn(*mut BSTR),
-    GetInstallationPath: fn(*mut BSTR),
-    GetInstallationVersion: fn(*mut BSTR),
-    GetDisplayName: fn(*mut BSTR),
-    GetDescription: fn(*mut BSTR),
-    ResolvePath: fn(LPCOLESTR, *mut BSTR),
-}
+RIDL! {#[uuid(0xb41463c3, 0x8866, 0x43b5, 0xbc, 0x33, 0x2b, 0x06, 0x76, 0xf7, 0xf4, 0x2e)]
+interface ISetupInstance(ISetupInstanceVtbl): IUnknown(IUnknownVtbl) {
+    fn GetInstanceId(
+        pbstrInstanceId: *mut BSTR,
+    ) -> HRESULT,
+    fn GetInstallDate(
+        pInstallDate: LPFILETIME,
+    ) -> HRESULT,
+    fn GetInstallationName(
+        pbstrInstallationName: *mut BSTR,
+    ) -> HRESULT,
+    fn GetInstallationPath(
+        pbstrInstallationPath: *mut BSTR,
+    ) -> HRESULT,
+    fn GetInstallationVersion(
+        pbstrInstallationVersion: *mut BSTR,
+    ) -> HRESULT,
+    fn GetDisplayName(
+        lcid: LCID,
+        pbstrDisplayName: *mut BSTR,
+    ) -> HRESULT,
+    fn GetDescription(
+        lcid: LCID,
+        pbstrDescription: *mut BSTR,
+    ) -> HRESULT,
+    fn ResolvePath(
+        pwszRelativePath: LPCOLESTR,
+        pbstrAbsolutePath: *mut BSTR,
+    ) -> HRESULT,
+}}
 
-#[allow(non_snake_case)]
-#[repr(C)]
-struct IEnumSetupInstances {
-    Next: fn(ULONG, *mut *mut ISetupInstance, *mut ULONG),
-    Skip: fn(ULONG),
-    Reset: fn(),
-    Clone: fn(*mut *mut IEnumSetupInstances),
-}
+RIDL! {#[uuid(0x6380bcff, 0x41d3, 0x4b2e, 0x8b, 0x2e, 0xbf, 0x8a, 0x68, 0x10, 0xc8, 0x48)]
+interface IEnumSetupInstances(IEnumSetupInstancesVtbl) : IUnknown(IUnknownVtbl) {
+    fn Next(
+        celt: ULONG,
+        rgelt: *mut *mut ISetupInstance,
+        pceltFetched: *mut ULONG,
+    ) -> HRESULT,
+    fn Skip(
+        celt: ULONG,
+    ) -> HRESULT,
+    fn Reset() -> HRESULT,
+    fn Clone(
+        ppenum: *mut *mut IEnumSetupInstances,
+    ) -> HRESULT,
+}}
 
-#[allow(non_snake_case)]
-#[repr(C)]
-struct ISetupConfiguration {
-    EnumInstances: fn(*mut *mut IEnumSetupInstances),
-    GetInstanceForCurrentProcess: fn(*mut *mut ISetupInstance),
-    GetInstanceForPath: fn(LPCWSTR, *mut *mut ISetupInstance),
-}
+RIDL! {#[uuid(0x42843719, 0xdb4c, 0x46c2, 0x8e, 0x7c, 0x64, 0xf1, 0x81, 0x6e, 0xfd, 0x5b)]
+interface ISetupConfiguration(ISetupConfigurationVtbl): IUnknown(IUnknownVtbl) {
+    fn EnumInstances(
+        ppEnumInstances: *mut *mut IEnumSetupInstances,
+    ) -> HRESULT,
+    fn GetInstanceForCurrentProcess(
+        ppInstance: *mut *mut ISetupInstance,
+    ) -> HRESULT,
+    fn GetInstanceForPath(
+        wzPath: LPCWSTR,
+        ppInstance: *mut *mut ISetupInstance,
+    ) -> HRESULT,
+}}
 
 struct VersionData {
     best_version: [i32; 4],
@@ -68,42 +118,6 @@ struct VersionData {
 fn os_file_exists(name: *const wchar_t) -> bool {
     let attr = unsafe { GetFileAttributesW(name) };
     attr != INVALID_FILE_ATTRIBUTES && attr & FILE_ATTRIBUTE_DIRECTORY == 0
-}
-
-unsafe fn concat([a, b, c, d]: [*const wchar_t; 4]) -> Box<wchar_t> {
-    let len_a = wcslen(a);
-    let len_b = wcslen(b);
-
-    let len_c = if !c.is_null() { wcslen(c) } else { 0 };
-    let len_d = if !d.is_null() { wcslen(d) } else { 0 };
-
-    let result = malloc((len_a + len_b + len_c + len_d + 1) * 2) as *mut wchar_t;
-    memcpy(result as _, a as _, len_a * 2);
-    memcpy(result.add(len_a) as _, b as _, len_b * 2);
-
-    if !c.is_null() {
-        memcpy(result.add(len_a + len_b) as _, c as _, len_c * 2);
-    }
-
-    if !d.is_null() {
-        memcpy(result.add(len_a + len_b + len_c) as _, d as _, len_d * 2);
-    }
-
-    *result.add(len_a + len_b + len_c + len_d) = 0;
-
-    Box::from_raw(result)
-}
-
-unsafe fn concat2(a: *const wchar_t, b: *const wchar_t) -> Box<wchar_t> {
-    concat([a, b, ptr::null_mut(), ptr::null_mut()])
-}
-
-unsafe fn concat3(a: *const wchar_t, b: *const wchar_t, c: *const wchar_t) -> Box<wchar_t> {
-    concat([a, b, c, ptr::null_mut()])
-}
-
-unsafe fn concat4(a: *const wchar_t, b: *const wchar_t, c: *const wchar_t, d: *const wchar_t) -> Box<wchar_t> {
-    concat([a, b, c, d])
 }
 
 type VisitFn = unsafe fn(&U16CStr, U16String, &mut VersionData);
@@ -181,7 +195,7 @@ unsafe fn read_from_the_registry(key: HKEY, value_name: *const wchar_t) -> Optio
                 continue;
             }
 
-            if rc != 0 || type_ != REG_SZ {
+            if rc != S_OK || type_ != REG_SZ {
                 // REG_SZ because we only accept strings here!
                 free(value as _);
                 return None;
@@ -353,139 +367,181 @@ unsafe fn find_windows_kit_root(result: &mut FindResult) {
     // If we get here, we failed to find anything.
 }
 
-// bool find_visual_studio_2017_by_fighting_through_microsoft_craziness(Find_Result *result) {
-//     // The name of this procedure is kind of cryptic. Its purpose is
-//     // to fight through Microsoft craziness. The things that the fine
-//     // Visual Studio team want you to do, JUST TO FIND A SINGLE FOLDER
-//     // THAT EVERYONE NEEDS TO FIND, are ridiculous garbage.
+unsafe fn find_visual_studio_2017_by_fighting_through_microsoft_craziness(result: &mut FindResult) -> bool {
+    // The name of this procedure is kind of cryptic. Its purpose is
+    // to fight through Microsoft craziness. The things that the fine
+    // Visual Studio team want you to do, JUST TO FIND A SINGLE FOLDER
+    // THAT EVERYONE NEEDS TO FIND, are ridiculous garbage.
 
-//     // For earlier versions of Visual Studio, you'd find this information in the registry,
-//     // similarly to the Windows Kits above. But no, now it's the future, so to ask the
-//     // question "Where is the Visual Studio folder?" you have to do a bunch of COM object
-//     // instantiation, enumeration, and querying. (For extra bonus points, try doing this in
-//     // a new, underdeveloped programming language where you don't have COM routines up
-//     // and running yet. So fun.)
-//     //
-//     // If all this COM object instantiation, enumeration, and querying doesn't give us
-//     // a useful result, we drop back to the registry-checking method.
+    // For earlier versions of Visual Studio, you'd find this information in the registry,
+    // similarly to the Windows Kits above. But no, now it's the future, so to ask the
+    // question "Where is the Visual Studio folder?" you have to do a bunch of COM object
+    // instantiation, enumeration, and querying. (For extra bonus points, try doing this in
+    // a new, underdeveloped programming language where you don't have COM routines up
+    // and running yet. So fun.)
+    //
+    // If all this COM object instantiation, enumeration, and querying doesn't give us
+    // a useful result, we drop back to the registry-checking method.
 
-//     auto rc = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-//     // "Subsequent valid calls return false." So ignore false.
-//     // if rc != S_OK  return false;
+    let rc = CoInitializeEx(ptr::null_mut(), COINIT_MULTITHREADED);
 
-//     GUID my_uid                   = {0x42843719, 0xDB4C, 0x46C2, {0x8E, 0x7C, 0x64, 0xF1, 0x81, 0x6E, 0xFD, 0x5B}};
-//     GUID CLSID_SetupConfiguration = {0x177F0C4A, 0x1CD3, 0x4DE7, {0xA3, 0x2C, 0x71, 0xDB, 0xBB, 0x9F, 0xA3, 0x6D}};
+    if rc != S_OK {
+        return false;
+    }
 
-//     ISetupConfiguration *config = NULL;
-//     auto hr = CoCreateInstance(CLSID_SetupConfiguration, NULL, CLSCTX_INPROC_SERVER, my_uid, (void **)&config);
-//     if (hr != 0)  return false;
-//     defer { config->Release(); };
+    const MY_UID: GUID = GUID {
+        Data1: 0x42843719,
+        Data2: 0xDB4C,
+        Data3: 0x46C2,
+        Data4: [0x8E, 0x7C, 0x64, 0xF1, 0x81, 0x6E, 0xFD, 0x5B],
+    };
 
-//     IEnumSetupInstances *instances = NULL;
-//     hr = config->EnumInstances(&instances);
-//     if (hr != 0)     return false;
-//     if (!instances)  return false;
-//     defer { instances->Release(); };
+    const CLSID_SETUP_CONFIGURATION: GUID = GUID {
+        Data1: 0x177F0C4A,
+        Data2: 0x1CD3,
+        Data3: 0x4DE7,
+        Data4: [0xA3, 0x2C, 0x71, 0xDB, 0xBB, 0x9F, 0xA3, 0x6D],
+    };
 
-//     while (1) {
-//         ULONG found = 0;
-//         ISetupInstance *instance = NULL;
-//         auto hr = instances->Next(1, &instance, &found);
-//         if (hr != S_OK) break;
+    let mut config = ptr::null_mut::<ISetupConfiguration>();
+    let hr = CoCreateInstance(
+        &CLSID_SETUP_CONFIGURATION,
+        ptr::null_mut(),
+        CLSCTX_INPROC_SERVER,
+        &MY_UID,
+        &mut config as *mut *mut ISetupConfiguration as _,
+    );
 
-//         defer { instance->Release(); };
+    if hr != S_OK {
+        return false;
+    }
 
-//         BSTR bstr_inst_path;
-//         hr = instance->GetInstallationPath(&bstr_inst_path);
-//         if (hr != S_OK)  continue;
-//         defer { SysFreeString(bstr_inst_path); };
+    let _d0 = defer(|| (*config).Release());
 
-//         auto tools_filename = concat(bstr_inst_path, L"\\VC\\Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt");
-//         defer { free(tools_filename); };
+    let mut instances = ptr::null_mut::<IEnumSetupInstances>();
+    let hr = (*config).EnumInstances(&mut instances);
 
-//         FILE *f = nullptr;
-//         auto open_result = _wfopen_s(&f, tools_filename, L"rt");
-//         if (open_result != 0) continue;
-//         if (!f) continue;
-//         defer { fclose(f); };
+    if hr != S_OK || instances.is_null() {
+        return false;
+    }
 
-//         LARGE_INTEGER tools_file_size;
-//         auto file_handle = (HANDLE)_get_osfhandle(_fileno(f));
-//         BOOL success = GetFileSizeEx(file_handle, &tools_file_size);
-//         if (!success) continue;
+    let _d1 = defer(|| (*instances).Release());
 
-//         auto version_bytes = (tools_file_size.QuadPart + 1) * 2;  // Warning: This multiplication by 2 presumes there is no variable-length encoding in the wchars (wacky characters in the file could betray this expectation).
-//         wchar_t *version = (wchar_t *)malloc(version_bytes);
-//         defer { free(version); };
+    loop {
+        let mut found: ULONG = 0;
+        let mut instance = ptr::null_mut::<ISetupInstance>();
 
-//         auto read_result = fgetws(version, version_bytes, f);
-//         if (!read_result) continue;
+        let hr = (*instances).Next(1, &mut instance, &mut found);
 
-//         auto version_tail = wcschr(version, '\n');
-//         if (version_tail)  *version_tail = 0;  // Stomp the data, because nobody cares about it.
+        if hr != S_OK {
+            break;
+        }
 
-//         auto library_path = concat(bstr_inst_path, L"\\VC\\Tools\\MSVC\\", version, L"\\lib\\x64");
-//         auto library_file = concat(library_path, L"\\vcruntime.lib");  // @Speed: Could have library_path point to this string, with a smaller count, to save on memory flailing!
+        let _d2 = defer(|| (*instance).Release());
 
-//         if (os_file_exists(library_file)) {
-//             auto link_exe_path = concat(bstr_inst_path, L"\\VC\\Tools\\MSVC\\", version, L"\\bin\\Hostx64\\x64");
-//             result->vs_exe_path     = link_exe_path;
-//             result->vs_library_path = library_path;
-//             return true;
-//         }
+        let mut bstr_inst_path: BSTR = ptr::null_mut();
+        let hr = (*instance).GetInstallationPath(&mut bstr_inst_path);
 
-//         /*
-//            Ryan Saunderson said:
-//            "Clang uses the 'SetupInstance->GetInstallationVersion' / ISetupHelper->ParseVersion to find the newest version
-//            and then reads the tools file to define the tools path - which is definitely better than what i did."
+        if hr != S_OK {
+            continue;
+        }
 
-//            So... @Incomplete: Should probably pick the newest version...
-//         */
-//     }
+        let _d3 = defer(|| SysFreeString(bstr_inst_path));
 
-//     // If we get here, we didn't find Visual Studio 2017. Try earlier versions.
-//     return false;
-// }
+        let inst_path = U16String::from_ptr(bstr_inst_path, wcslen(bstr_inst_path));
+        let mut tools_filename = inst_path.clone();
+        tools_filename.push(u16str!("\\VC\\Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt"));
 
-// void find_visual_studio_by_fighting_through_microsoft_craziness(Find_Result *result) {
-//     bool found_visual_studio_2017 = find_visual_studio_2017_by_fighting_through_microsoft_craziness(result);
-//     if (found_visual_studio_2017) return;
+        match fs::read_to_string(tools_filename.to_string().unwrap()) {
+            Ok(mut version) => {
+                if version.ends_with('\n') {
+                    version.pop();
+                }
 
-//     HKEY vs7_key;
-//     auto rc = RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\VisualStudio\\SxS\\VS7", 0, KEY_QUERY_VALUE | KEY_WOW64_32KEY, &vs7_key);
+                if version.ends_with('\r') {
+                    version.pop();
+                }
 
-//     if (rc != S_OK)  return;
-//     defer { RegCloseKey(vs7_key); };
+                let mut library_path = inst_path.clone();
+                library_path.push(u16str!("\\VC\\Tools\\MSVC\\"));
+                library_path.push(U16String::from_str(&version));
+                library_path.push(u16str!("\\lib\\x64"));
 
-//     // Hardcoded search for 4 prior Visual Studio versions. Is there something better to do here?
-//     wchar_t *versions[] = { L"14.0", L"12.0", L"11.0", L"10.0" };
-//     const int NUM_VERSIONS = sizeof(versions) / sizeof(versions[0]);
+                let mut library_file = library_path.clone();
+                library_file.push(u16str!("\\vcruntime.lib"));
 
-//     for (int i = 0; i < NUM_VERSIONS; i++) {
-//         auto v = versions[i];
+                if os_file_exists(U16CString::from_ustr(library_file).unwrap().as_ptr()) {
+                    let mut link_exe_path = inst_path.clone();
+                    link_exe_path.push(u16str!("\\VC\\Tools\\MSVC\\"));
+                    link_exe_path.push(U16String::from_str(&version));
+                    link_exe_path.push(u16str!("\\bin\\Hostx64\\x64"));
 
-//         auto buffer = read_from_the_registry(vs7_key, v);
-//         if (!buffer) continue;
+                    result.vs_exe_path = Some(link_exe_path);
+                    result.vs_library_path = Some(library_path);
 
-//         defer { free(buffer); };
+                    return true;
+                }
+            }
+            Err(_) => continue,
+        }
 
-//         auto lib_path = concat(buffer, L"VC\\Lib\\amd64");
+        /*
+           Ryan Saunderson said:
+           "Clang uses the 'SetupInstance->GetInstallationVersion' / ISetupHelper->ParseVersion to find the newest version
+           and then reads the tools file to define the tools path - which is definitely better than what i did."
 
-//         // Check to see whether a vcruntime.lib actually exists here.
-//         auto vcruntime_filename = concat(lib_path, L"\\vcruntime.lib");
-//         defer { free(vcruntime_filename); };
+           So... @Incomplete: Should probably pick the newest version...
+        */
+    }
 
-//         if (os_file_exists(vcruntime_filename)) {
-//             result->vs_exe_path     = concat(buffer, L"VC\\bin\\amd64");
-//             result->vs_library_path = lib_path;
-//             return;
-//         }
+    false
+}
 
-//         free(lib_path);
-//     }
+unsafe fn find_visual_studio_by_fighting_through_microsoft_craziness(result: &mut FindResult) {
+    if find_visual_studio_2017_by_fighting_through_microsoft_craziness(result) {
+        return;
+    }
 
-//     // If we get here, we failed to find anything.
-// }
+    let mut vs7_key = SafeHKey::new();
+    let rc = RegOpenKeyExA(
+        HKEY_LOCAL_MACHINE,
+        "SOFTWARE\\Microsoft\\VisualStudio\\SxS\\VS7".as_ptr() as _,
+        0,
+        KEY_QUERY_VALUE | KEY_WOW64_32KEY,
+        &mut vs7_key.inner,
+    );
+
+    if rc != S_OK {
+        return;
+    }
+
+    // Hardcoded search for 4 prior Visual Studio versions. Is there something better to do here?
+    let versions = [u16cstr!("14.0"), u16cstr!("12.0"), u16cstr!("11.0"), u16cstr!("10.0")];
+
+    for version in versions {
+        if let Some(buffer) = read_from_the_registry(vs7_key.inner, version.as_ptr()) {
+            let root = buffer.as_ref() as *const u16;
+            let root_path = U16String::from_ptr(root, wcslen(root));
+
+            let mut lib_path = root_path.clone();
+            lib_path.push(u16str!("VC\\Lib\\amd64"));
+
+            // Check to see whether a vcruntime.lib actually exists here.
+            let mut vcruntime_filename = lib_path.clone();
+            vcruntime_filename.push(u16str!("\\vcruntime.lib"));
+
+            if os_file_exists(vcruntime_filename.as_ptr()) {
+                let mut vs_exe_path = root_path.clone();
+                vs_exe_path.push(u16str!("VC\\bin"));
+
+                result.vs_exe_path = Some(vs_exe_path);
+                result.vs_library_path = Some(lib_path);
+            }
+        }
+    }
+
+    // If we get here, we failed to find anything.
+}
 
 pub unsafe fn find_visual_studio_and_windows_sdk() -> FindResult {
     let mut result = FindResult {
@@ -509,9 +565,7 @@ pub unsafe fn find_visual_studio_and_windows_sdk() -> FindResult {
         result.windows_sdk_ucrt_library_path = Some(windows_sdk_ucrt_library_path);
     }
 
-    //     find_visual_studio_by_fighting_through_microsoft_craziness(&result);
-
-    dbg!(&result);
+    find_visual_studio_by_fighting_through_microsoft_craziness(&mut result);
 
     result
 }

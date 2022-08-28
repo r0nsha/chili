@@ -226,13 +226,11 @@ fn get_include_paths(include_paths: &Option<String>) -> Vec<PathBuf> {
 }
 
 fn main() {
-    // std::thread::Builder::new()
-    //     .name("main".to_string())
-    //     .stack_size(8 * 1024 * 1024) // 8 MB
-    //     .spawn(cli)
-    //     .unwrap()
-    //     .join()
-    //     .unwrap();
-
-    backend::microsoft_craziness::find_visual_studio_and_windows_sdk();
+    std::thread::Builder::new()
+        .name("main".to_string())
+        .stack_size(8 * 1024 * 1024) // 8 MB
+        .spawn(cli)
+        .unwrap()
+        .join()
+        .unwrap();
 }
