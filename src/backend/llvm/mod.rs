@@ -43,6 +43,7 @@ use std::{
 };
 use ustr::UstrMap;
 
+#[cfg(windows)]
 use super::microsoft_craziness;
 
 pub fn codegen<'w>(workspace: &Workspace, tcx: &TypeCtx, cache: &hir::Cache) -> PathBuf {
