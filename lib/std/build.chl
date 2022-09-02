@@ -10,7 +10,7 @@ pub type BuildOptions = struct {
     optimization_level: OptimizationLevel
 }
 
-@intrinsic
+![intrinsic]
 pub extern fn start_workspace(workspace: Workspace) -> (*str, bool)
 
 // TODO: turn into enum

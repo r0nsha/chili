@@ -225,7 +225,12 @@ impl Parser {
 
     #[inline]
     pub fn peek(&self) -> &Token {
-        self.tokens.get(self.current).unwrap()
+        self.peek_offset(0)
+    }
+
+    #[inline]
+    pub fn peek_offset(&self, offset: usize) -> &Token {
+        self.tokens.get(self.current + offset).unwrap()
     }
 
     #[inline]

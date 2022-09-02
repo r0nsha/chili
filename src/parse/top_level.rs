@@ -22,8 +22,7 @@ impl Parser {
     }
 
     pub fn parse_top_level(&mut self, module: &mut ast::Module) -> DiagnosticResult<()> {
-        let attrs = if is!(self, At) { self.parse_attrs()? } else { vec![] };
-
+        let attrs = self.parse_attrs()?;
         let has_attrs = !attrs.is_empty();
 
         let visibility = if eat!(self, Pub) {

@@ -13,7 +13,7 @@ use std::vec;
 
 impl Parser {
     pub fn parse_statement(&mut self) -> DiagnosticResult<Ast> {
-        let attrs = if is!(self, At) { self.parse_attrs()? } else { vec![] };
+        let attrs = self.parse_attrs()?;
         let has_attrs = !attrs.is_empty();
 
         let parse_binding_result = self.try_parse_any_binding(attrs, ast::Visibility::Private, false)?;

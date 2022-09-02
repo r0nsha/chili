@@ -66,79 +66,79 @@
 // let CHAR_BIT = 8
 
 // Functions
-let LIB = "c"
+let c = "c"
 
-@lib(LIB)
+![lib = c]
 pub extern fn putchar(char: int) -> int
 
-@lib(LIB)
+![lib = c]
 pub extern fn getchar() -> int
 
-@lib(LIB)
+![lib = c]
 pub extern fn printf(input: *u8, args...) -> int
 
-@lib(LIB)
+![lib = c]
 pub extern fn sprintf_s(buffer: *u8, sizeOfBuffer: uint, format: *u8, args...) -> int
 
-@lib(LIB)
+![lib = c]
 pub extern fn strcpy(dest: *u8, src: *u8) -> *u8
 
-@lib(LIB)
+![lib = c]
 pub extern fn malloc(size: uint) -> *mut i8
 
-@lib(LIB)
+![lib = c]
 pub extern fn calloc(nitems: uint, size: uint) -> *mut i8
 
-@lib(LIB)
+![lib = c]
 pub extern fn realloc(ptr: *i8, size: uint) -> *mut i8
 
-@lib(LIB)
+![lib = c]
 pub extern fn free(memblock: *i8)
 
-@lib(LIB)
+![lib = c]
 pub extern fn abs(x: i32) -> i32
 
-@lib(LIB)
+![lib = c]
 pub extern fn sinf(arg: f32) -> f32
 
-@lib(LIB)
+![lib = c]
 pub extern fn sin(arg: f64) -> f64
 
-@lib(LIB)
+![lib = c]
 pub extern fn cosf(arg: f32) -> f32
 
-@lib(LIB)
+![lib = c]
 pub extern fn cos(arg: f64) -> f64
 
-@lib(LIB)
+![lib = c]
 pub extern fn atan2f(y: f32, x: f32) -> f32
 
-@lib(LIB)
+![lib = c]
 pub extern fn atan2(y: f64, x: f64) -> f64
 
-@lib(LIB)
+![lib = c]
 pub extern fn pow(x: f64, y: f64) -> f64
 
-@lib(LIB)
+![lib = c]
 pub extern fn srand(seed: uint)
 
-@lib(LIB)
+![lib = c]
 pub extern fn rand() -> uint
 
-@lib(LIB)
+![lib = c]
 pub extern fn time(some: *i8) -> uint
 
-@lib(LIB)
+![lib = c]
 pub extern fn fork() -> int
 
-@lib(LIB)
+![lib = c]
 pub extern fn waitpid(pid: int, status: *mut int, options: int) -> int
 
-@lib(LIB)
+![lib = c]
 pub extern fn execl(path: *u8, args...) -> int
 
-@lib(LIB)
+![lib = c]
 pub extern fn abort() -> never
 
-@lib(LIB)
+![lib = c]
 pub extern fn exit(status: int) -> never
