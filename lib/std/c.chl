@@ -1,69 +1,71 @@
 // TODO (ICE): this stack overflows
-// let { os, Os_windows } = import intrinsics
+let { os, Os_windows } = import intrinsics
 
-// // Types
-// type char = u8
+// Types
+pub type char = u8
 
-// type schar = i8
-// type short = i16
-// type int = i32
-// type long = i64
-// // TODO (ICE): this stack overflows
-// // type long = if os == Os_windows || size_of!(uint) == 4 { i32 } else { i64 }
-// type longlong = i64
+pub type schar = i8
+pub type short = i16
+pub type int = i32
+pub type long = i64
+// TODO (ICE): this stack overflows
+// pub type long = if os == Os_windows || size_of!(uint) == 4 { i32 } else { i64 }
+pub type longlong = i64
 
-// type uchar = u8
-// type ushort = u16
-// type uint = u32
-// type ulong = u64
-// // TODO (ICE): this stack overflows
-// // type ulong = if os == Os_windows || size_of!(uint) == 4 { u32 } else { u64 }
-// type ulonglong = u64
+pub type uchar = u8
+pub type ushort = u16
+pub type uint = u32
+pub type ulong = u64
+// TODO (ICE): this stack overflows
+// pub type ulong = if os == Os_windows || size_of!(uint) == 4 { u32 } else { u64 }
+pub type ulonglong = u64
 
-// type bool = bool
+pub type bool = bool
 
-// type size_t = uint
-// type ssize_t = int
-// // TODO (ICE): this stack overflows
-// type wchar_t = if os == Os_windows { u16 } else { u32 }
+pub type size_t = uint
+pub type ssize_t = int
+// TODO (ICE): this stack overflows
+// pub type wchar_t = if os == Os_windows { u16 } else { u32 }
 
-// type float = f32
-// type double = f64
+pub type float = f32
+pub type double = f64
 
-// type int8_t = i8
-// type uint8_t = u8
-// type int16_t = i16
-// type uint16_t = u16
-// type int32_t = i32
-// type uint32_t = u32
-// type int64_t = i64
-// type uint64_t = u64
+pub type int8_t = i8
+pub type uint8_t = u8
+pub type int16_t = i16
+pub type uint16_t = u16
+pub type int32_t = i32
+pub type uint32_t = u32
+pub type int64_t = i64
+pub type uint64_t = u64
 
-// type intptr_t = int
-// type uintptr_t = uint
+pub type intptr_t = int
+pub type uintptr_t = uint
 
-// type intmax_t = i64
-// type uintmax_t = u64
+pub type intmax_t = i64
+pub type uintmax_t = u64
 
-// // Constants
-// let INT8_MAX: int = 0x7f
-// let INT16_MAX: int = 0x7fff
-// let INT32_MAX: int = 0x7fffffff
-// let INT64_MAX: longlong = 0x7fffffffffffffff
+pub type pid_t = int
 
-// let UINT8_MAX: int = 0xff
-// let UINT16_MAX: int = 0xffff
-// let UINT32_MAX: uint = 0xffffffff
-// let UINT64_MAX: ulonglong = 0xffffffffffffffff
+pub type void = ()
 
-// let INT8_MIN = !INT8_MAX
-// let INT16_MIN = !INT16_MAX
-// let INT32_MIN = !INT32_MAX
-// let INT64_MIN = !INT64_MAX
+// Constants
+pub let INT8_MAX: int = 0x7f
+pub let INT16_MAX: int = 0x7fff
+pub let INT32_MAX: int = 0x7fffffff
+pub let INT64_MAX: longlong = 0x7fffffffffffffff
 
-// let NULL: *u8 = 0 as _
+pub let UINT8_MAX: int = 0xff
+pub let UINT16_MAX: int = 0xffff
+pub let UINT32_MAX: uint = 0xffffffff
+pub let UINT64_MAX: ulonglong = 0xffffffffffffffff
 
-// let CHAR_BIT = 8
+pub let INT8_MIN = !INT8_MAX
+pub let INT16_MIN = !INT16_MAX
+pub let INT32_MIN = !INT32_MAX
+pub let INT64_MIN = !INT64_MAX
+
+pub let CHAR_BIT = 8
 
 // Functions
 let c = "c"
@@ -75,67 +77,61 @@ pub extern fn putchar(char: int) -> int
 pub extern fn getchar() -> int
 
 ![lib = c]
-pub extern fn printf(input: *u8, args...) -> int
+pub extern fn printf(input: *char, args...) -> int
 
 ![lib = c]
-pub extern fn sprintf_s(buffer: *u8, sizeOfBuffer: uint, format: *u8, args...) -> int
+pub extern fn strcpy(dest: *mut char, src: *char) -> *char
 
 ![lib = c]
-pub extern fn strcpy(dest: *u8, src: *u8) -> *u8
+pub extern fn malloc(size: size_t) -> *mut void
 
 ![lib = c]
-pub extern fn malloc(size: uint) -> *mut i8
+pub extern fn calloc(nitems: size_t, size: size_t) -> *mut void
 
 ![lib = c]
-pub extern fn calloc(nitems: uint, size: uint) -> *mut i8
+pub extern fn realloc(ptr: *void, size: size_t) -> *mut void
 
 ![lib = c]
-pub extern fn realloc(ptr: *i8, size: uint) -> *mut i8
+pub extern fn free(memblock: *void)
 
 ![lib = c]
-pub extern fn free(memblock: *i8)
+pub extern fn abs(x: int) -> int
 
 ![lib = c]
-pub extern fn abs(x: i32) -> i32
+pub extern fn sinf(arg: float) -> float
 
 ![lib = c]
-pub extern fn sinf(arg: f32) -> f32
+pub extern fn sin(arg: double) -> double
 
 ![lib = c]
-pub extern fn sin(arg: f64) -> f64
+pub extern fn cosf(arg: float) -> float
 
 ![lib = c]
-pub extern fn cosf(arg: f32) -> f32
+pub extern fn cos(arg: double) -> double
 
 ![lib = c]
-pub extern fn cos(arg: f64) -> f64
+pub extern fn atan2f(y: float, x: float) -> float
 
 ![lib = c]
-pub extern fn atan2f(y: f32, x: f32) -> f32
+pub extern fn atan2(y: double, x: double) -> double
 
 ![lib = c]
-pub extern fn atan2(y: f64, x: f64) -> f64
-
-![lib = c]
-pub extern fn pow(x: f64, y: f64) -> f64
+pub extern fn pow(x: double, y: double) -> double
 
 ![lib = c]
 pub extern fn srand(seed: uint)
 
 ![lib = c]
-pub extern fn rand() -> uint
+pub extern fn rand() -> int
 
 ![lib = c]
-pub extern fn time(some: *i8) -> uint
+pub extern fn fork() -> pid_t
 
 ![lib = c]
-pub extern fn fork() -> int
+pub extern fn waitpid(pid: pid_t, status: *mut int, options: int) -> pid_t
 
 ![lib = c]
-pub extern fn waitpid(pid: int, status: *mut int, options: int) -> int
-
-![lib = c]
-pub extern fn execl(path: *u8, args...) -> int
+pub extern fn execl(path: *char, args...) -> int
 
 ![lib = c]
 pub extern fn abort() -> never

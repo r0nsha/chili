@@ -82,25 +82,29 @@ impl<'s> CheckSess<'s> {
                 .find(|m| m.id == module_id)
                 .unwrap_or_else(|| panic!("{:?}", module_id));
 
-            if let Some((index, binding)) = module.find_binding(name) {
-                self.queued_modules
-                    .get_mut(&module.id)
-                    .unwrap()
-                    .complete_bindings
-                    .insert(index);
+            let queued_module = self.queued_modules.get_mut(&module.id).unwrap();
 
-                let bound_names = binding.check_top_level(self)?;
-                let desired_id = *bound_names.get(&name).unwrap();
+            match module.find_binding(name) {
+                Some((index, binding))
+                    if !(queued_module.queued_bindings.contains(&index) && self.builtin_types.contains_key(&name)) =>
+                {
+                    queued_module.queued_bindings.insert(index);
 
-                self.workspace.add_binding_info_use(desired_id, caller_info.span);
-                self.validate_item_visibility(desired_id, caller_info)?;
+                    let bound_names = binding.check_top_level(self)?;
+                    let desired_id = *bound_names.get(&name).unwrap();
 
-                Ok(desired_id)
-            } else if let Some(&builtin_id) = self.builtin_types.get(&name) {
-                self.workspace.add_binding_info_use(builtin_id, caller_info.span);
-                Ok(builtin_id)
-            } else {
-                Err(self.name_not_found_error(module_id, name, caller_info))
+                    self.workspace.add_binding_info_use(desired_id, caller_info.span);
+                    self.validate_item_visibility(desired_id, caller_info)?;
+
+                    Ok(desired_id)
+                }
+                _ => match self.builtin_types.get(&name) {
+                    Some(&builtin_id) => {
+                        self.workspace.add_binding_info_use(builtin_id, caller_info.span);
+                        Ok(builtin_id)
+                    }
+                    None => Err(self.name_not_found_error(module_id, name, caller_info)),
+                },
             }
         }
     }
@@ -167,7 +171,7 @@ impl<'s> CheckSess<'s> {
                         QueuedModule {
                             module_type,
                             all_complete: false,
-                            complete_bindings: HashSet::new(),
+                            queued_bindings: HashSet::new(),
                         },
                     );
 
@@ -230,7 +234,7 @@ impl<'s> CheckSess<'s> {
                     .queued_modules
                     .get_mut(&module.id)
                     .unwrap()
-                    .complete_bindings
+                    .queued_bindings
                     .insert(index)
                 {
                     binding.check_top_level(self)?;
