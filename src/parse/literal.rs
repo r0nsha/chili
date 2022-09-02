@@ -122,12 +122,16 @@ impl Parser {
         let last_index = self.current;
         let start_span = require!(self, OpenCurly, "{")?.span;
 
+        self.skip_newlines();
+
         if eat!(self, CloseCurly) {
             Ok(Ast::Block(ast::Block {
                 statements: vec![],
                 span: start_span.to(self.previous_span()),
             }))
         } else if eat!(self, Ident(_)) {
+            self.skip_newlines();
+
             if is!(self, Colon | Comma) {
                 self.current = last_index;
                 self.parse_struct_literal(None)
@@ -136,7 +140,7 @@ impl Parser {
                 Ok(Ast::Block(self.parse_block()?))
             }
         } else {
-            self.revert(1);
+            self.current = last_index;
             Ok(Ast::Block(self.parse_block()?))
         }
     }
