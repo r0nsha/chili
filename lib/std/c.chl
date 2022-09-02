@@ -32,10 +32,13 @@ pub type double = f64
 
 pub type int8_t = i8
 pub type uint8_t = u8
+
 pub type int16_t = i16
 pub type uint16_t = u16
+
 pub type int32_t = i32
 pub type uint32_t = u32
+
 pub type int64_t = i64
 pub type uint64_t = u64
 
@@ -50,20 +53,20 @@ pub type pid_t = int
 pub type void = ()
 
 // Constants
-pub let INT8_MAX: int = 0x7f
-pub let INT16_MAX: int = 0x7fff
-pub let INT32_MAX: int = 0x7fffffff
+pub let INT8_MAX: int8_t = 0x7f
+pub let INT16_MAX: int16_t = 0x7fff
+pub let INT32_MAX: int32_t = 0x7fffffff
 pub let INT64_MAX: longlong = 0x7fffffffffffffff
 
-pub let UINT8_MAX: int = 0xff
-pub let UINT16_MAX: int = 0xffff
-pub let UINT32_MAX: uint = 0xffffffff
+pub let UINT8_MAX: uint8_t = 0xff
+pub let UINT16_MAX: uint16_t = 0xffff
+pub let UINT32_MAX: uint32_t = 0xffffffff
 pub let UINT64_MAX: ulonglong = 0xffffffffffffffff
 
-pub let INT8_MIN = !INT8_MAX
-pub let INT16_MIN = !INT16_MAX
-pub let INT32_MIN = !INT32_MAX
-pub let INT64_MIN = !INT64_MAX
+pub let INT8_MIN: int8_t = !INT8_MAX
+pub let INT16_MIN: int16_t = !INT16_MAX
+pub let INT32_MIN: int32_t = !INT32_MAX
+pub let INT64_MIN: longlong = !INT64_MAX
 
 pub let CHAR_BIT = 8
 

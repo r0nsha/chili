@@ -60,7 +60,7 @@ impl From<ast::LiteralKind> for ConstValue {
         match lit {
             ast::LiteralKind::Nil => panic!("nil is deprecated"),
             ast::LiteralKind::Bool(v) => ConstValue::Bool(v),
-            ast::LiteralKind::Int(v) => ConstValue::Int(v as _),
+            ast::LiteralKind::Int(v) => ConstValue::Uint(v),
             ast::LiteralKind::Float(v) => ConstValue::Float(v),
             ast::LiteralKind::Str(v) => ConstValue::Str(v),
             ast::LiteralKind::Char(v) => ConstValue::Uint(v as u64),
@@ -118,7 +118,7 @@ impl ConstValue {
         match self {
             ConstValue::Bool(v) => ConstValue::Bool(!v),
             ConstValue::Int(v) => ConstValue::Int(!v),
-            ConstValue::Uint(v) => ConstValue::Uint(!v),
+            ConstValue::Uint(v) => ConstValue::Int(!(*v as i64)),
             _ => panic!("got {:?}", self),
         }
     }
