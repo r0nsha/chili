@@ -1,3 +1,5 @@
+pub let { start_workspace } = import intrinsics
+
 pub type Workspace = struct {
     name: *str
     build_options: BuildOptions
@@ -20,6 +22,3 @@ pub let BuildTarget_windows: BuildTarget = 2
 pub type OptimizationLevel = uint
 pub let OptimizationLevel_debug: OptimizationLevel = 0
 pub let OptimizationLevel_release: OptimizationLevel = 1
-
-![intrinsic]
-pub extern fn start_workspace(workspace: Workspace) -> (*str, bool)
