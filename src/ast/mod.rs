@@ -317,6 +317,7 @@ pub struct CallArg {
 pub struct MemberAccess {
     pub expr: Box<Ast>,
     pub member: Ustr,
+    pub member_span: Span,
     pub span: Span,
 }
 

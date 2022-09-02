@@ -1209,7 +1209,7 @@ impl Check for ast::Ast {
                         let id = sess.check_top_level_binding(
                             CallerInfo {
                                 module_id: env.module_id(),
-                                span: access.span,
+                                span: access.member_span,
                             },
                             *module_id,
                             access.member,

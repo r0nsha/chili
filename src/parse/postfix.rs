@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     ast::{self, Ast, Call, Cast, UnaryOp},
     error::*,
-    span::EndPosition,
+    span::{EndPosition, Position},
     token::TokenKind::*,
     types::FunctionTypeKind,
 };
@@ -98,12 +98,14 @@ impl Parser {
             Ident(id) => Ast::MemberAccess(ast::MemberAccess {
                 expr: Box::new(expr),
                 member: id,
+                member_span: token.span,
                 span: start_span.to(token.span),
             }),
 
             Int(i) => Ast::MemberAccess(ast::MemberAccess {
                 expr: Box::new(expr),
                 member: ustr(&i.to_string()),
+                member_span: token.span,
                 span: start_span.to(token.span),
             }),
 
@@ -111,17 +113,27 @@ impl Parser {
                 // this is for chained tuple access like `tuple.0.1`
                 let components = token.lexeme.split('.').collect::<Vec<&str>>();
 
+                let first_component_span = token.span.with_end(EndPosition {
+                    index: token.span.end.index - components[0].len() - 1,
+                });
+
                 let first_access = Ast::MemberAccess(ast::MemberAccess {
                     expr: Box::new(expr),
                     member: ustr(components[0]),
-                    span: start_span.to(token.span.with_end(EndPosition {
-                        index: token.span.end.index - components[0].len() + 1,
-                    })),
+                    member_span: first_component_span,
+                    span: start_span.to(first_component_span),
+                });
+
+                let second_component_span = token.span.with_start(Position {
+                    index: token.span.start.index + components[0].len() + 1,
+                    line: token.span.start.line,
+                    column: token.span.start.column,
                 });
 
                 Ast::MemberAccess(ast::MemberAccess {
                     expr: Box::new(first_access),
                     member: ustr(components[0]),
+                    member_span: second_component_span,
                     span: start_span.to(token.span),
                 })
             }
@@ -132,8 +144,7 @@ impl Parser {
                 span: start_span.to(token.span),
             }),
 
-            OpenParen => self.parse_call(expr)?,
-
+            // OpenParen => self.parse_call(expr)?,
             _ => return Err(SyntaxError::expected(self.span(), "an identifier, number or *")),
         };
 
