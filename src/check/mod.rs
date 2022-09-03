@@ -108,6 +108,9 @@ pub(super) struct CheckSess<'s> {
     pub unique_name_indices: UstrMap<usize>,
 
     pub in_lvalue_context: bool,
+
+    // A stack of encountered items. Used to detect global bindings that refer themselves
+    pub encountered_items: HashSet<(ModuleId, usize)>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -137,6 +140,7 @@ impl<'s> CheckSess<'s> {
             loop_depth: 0,
             unique_name_indices: UstrMap::default(),
             in_lvalue_context: false,
+            encountered_items: HashSet::new(),
         }
     }
 
@@ -3164,12 +3168,16 @@ impl Check for ast::Block {
 
                 let ty = statements.last().unwrap().ty();
 
-                Ok(hir::Node::Sequence(hir::Sequence {
-                    statements,
-                    ty,
-                    span: self.span,
-                    is_scope: true,
-                }))
+                if statements.iter().all(|stmt| stmt.is_const()) {
+                    Ok(statements.pop().unwrap())
+                } else {
+                    Ok(hir::Node::Sequence(hir::Sequence {
+                        statements,
+                        ty,
+                        span: self.span,
+                        is_scope: true,
+                    }))
+                }
             }
         }
     }

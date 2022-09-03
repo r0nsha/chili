@@ -546,6 +546,28 @@ impl Binding {
             | BindingKind::Type { name, .. } => name.name.to_string(),
         }
     }
+
+    pub fn pattern_span(&self) -> Span {
+        match &self.kind {
+            BindingKind::Orphan { pattern, .. } => pattern.span(),
+            BindingKind::Function {
+                name: NameAndSpan { span, .. },
+                ..
+            }
+            | BindingKind::ExternFunction {
+                name: NameAndSpan { span, .. },
+                ..
+            }
+            | BindingKind::ExternVariable {
+                name: NameAndSpan { span, .. },
+                ..
+            }
+            | BindingKind::Type {
+                name: NameAndSpan { span, .. },
+                ..
+            } => *span,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

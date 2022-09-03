@@ -26,7 +26,7 @@ impl<'s> CheckSess<'s> {
     pub fn get_global_binding_id(&self, module_id: ModuleId, name: Ustr) -> Option<BindingId> {
         self.global_scopes
             .get(&module_id)
-            .and_then(|scope| scope.bindings.get(&name).cloned())
+            .and_then(|scope| scope.bindings.get(&name).copied())
     }
 
     pub fn insert_global_binding_id(&mut self, module_id: ModuleId, name: Ustr, id: BindingId) {

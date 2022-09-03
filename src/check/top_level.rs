@@ -88,6 +88,19 @@ impl<'s> CheckSess<'s> {
                 Some((index, binding))
                     if !(queued_module.queued_bindings.contains(&index) && self.builtin_types.contains_key(&name)) =>
                 {
+                    if !self.encountered_items.insert((module_id, index)) {
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
+                                "cycle detected while checking `{}` in module `{}`",
+                                name, module.info.name
+                            ))
+                            .with_label(Label::primary(caller_info.span, format!("`{}` refers to itself", name)))
+                            .with_label(Label::secondary(
+                                binding.pattern_span(),
+                                format!("`{}` is defined here", name),
+                            )));
+                    }
+
                     queued_module.queued_bindings.insert(index);
 
                     let bound_names = binding.check_top_level(self)?;
@@ -95,6 +108,8 @@ impl<'s> CheckSess<'s> {
 
                     self.workspace.add_binding_info_use(desired_id, caller_info.span);
                     self.validate_item_visibility(desired_id, caller_info)?;
+
+                    self.encountered_items.remove(&(module_id, index));
 
                     Ok(desired_id)
                 }
