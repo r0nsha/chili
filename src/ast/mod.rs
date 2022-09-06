@@ -25,7 +25,7 @@ pub struct Module {
     pub info: ModuleInfo,
     pub file_id: FileId,
     pub bindings: Vec<Binding>,
-    pub statics: Vec<StaticEval>,
+    pub static_blocks: Vec<StaticBlock>,
 }
 
 impl Module {
@@ -35,7 +35,7 @@ impl Module {
             id: Default::default(),
             info: module_info,
             bindings: vec![],
-            statics: vec![],
+            static_blocks: vec![],
         }
     }
 
@@ -73,7 +73,7 @@ pub enum Ast {
     Cast(Cast),
     Import(Import),
     Builtin(Builtin),
-    StaticEval(StaticEval),
+    StaticEval(StaticBlock),
     Function(Function),
     While(While),
     For(For),
@@ -369,7 +369,7 @@ pub struct Builtin {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct StaticEval {
+pub struct StaticBlock {
     pub expr: Box<Ast>,
     pub span: Span,
 }

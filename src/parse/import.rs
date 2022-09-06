@@ -4,7 +4,7 @@ use crate::{
         diagnostic::{Diagnostic, Label},
         DiagnosticResult, SyntaxError,
     },
-    workspace::LibraryId,
+    workspace::{LibraryId, ModuleId},
 };
 
 impl Parser {
@@ -45,7 +45,8 @@ impl Parser {
                 if module_path.library().is_main {
                     let cache = self.cache.lock();
 
-                    // This is used for LSP integration, because it creates temp files that could be outside this library's root
+                    // TODO: This is a HACK, and should be removed!
+                    // TODO: This is used for LSP integration, because it creates temp files that could be outside this library's root
                     for include_path in cache.include_paths.iter() {
                         let path = ModulePath::build_path(include_path, module_path.components());
 
@@ -54,6 +55,7 @@ impl Parser {
                                 id: LibraryId::unknown(),
                                 name: ustr("tmp"),
                                 root_file: path,
+                                root_module_id: ModuleId::unknown(),
                                 is_main: false,
                             };
 

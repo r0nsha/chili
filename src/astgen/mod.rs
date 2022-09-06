@@ -2,7 +2,7 @@ use crate::{
     ast,
     common::path::{try_resolve_relative_path, RelativeTo},
     parse::{spawn_parser, ParserCache, ParserResult},
-    workspace::Workspace,
+    workspace::{ModuleId, Workspace},
 };
 use parking_lot::Mutex;
 use std::{
@@ -36,6 +36,18 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
         module.bindings.iter_mut().for_each(|binding| {
             binding.module_id = module.id;
         });
+    }
+
+    // Set the root module id for all libraries
+    for (_, library) in workspace.libraries.iter_mut() {
+        let root_file = library.root_file.to_str().unwrap();
+
+        library.root_module_id = workspace
+            .module_infos
+            .iter()
+            .position(|(_, module)| module.file_path == root_file)
+            .map(ModuleId::from)
+            .unwrap();
     }
 
     Some((modules, stats))

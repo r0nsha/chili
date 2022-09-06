@@ -6,15 +6,16 @@ use ustr::{ustr, Ustr};
 
 use crate::common::id_cache::WithId;
 
-use super::{LibraryId, ModulePath};
+use super::{LibraryId, ModuleId, ModulePath};
 
 pub const LIB_NAME_STD: &str = "std";
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Hash)]
 pub struct Library {
-    pub id: LibraryId,
+    pub id: LibraryId, // Populated when inserted to the workspace's libraries cache
     pub name: Ustr,
     pub root_file: PathBuf,
+    pub root_module_id: ModuleId, // Populated after parsing finishes
     pub is_main: bool,
 }
 
@@ -42,6 +43,7 @@ impl Library {
             id: LibraryId::unknown(),
             name: ustr(NAME),
             root_file,
+            root_module_id: ModuleId::unknown(),
             is_main: false,
         }
     }

@@ -192,8 +192,8 @@ impl Workspace {
     pub fn new(name: String, build_options: BuildOptions, main_library: Library) -> Self {
         let mut libraries = IdCache::new();
 
-        libraries.insert_with_id(main_library);
         libraries.insert_with_id(Library::std());
+        libraries.insert_with_id(main_library);
 
         Self {
             name,
@@ -240,15 +240,15 @@ impl Workspace {
         self.module_infos.get(self.root_module_id).unwrap()
     }
 
+    pub fn add_binding_info_use(&mut self, id: BindingId, span: Span) {
+        self.binding_infos.get_mut(id).unwrap().add_use(span);
+    }
+
     pub fn find_module_id_by_file_id(&self, file_id: FileId) -> Option<ModuleId> {
         self.module_infos
             .iter()
             .position(|(_, module)| module.file_id == file_id)
             .map(ModuleId::from)
-    }
-
-    pub fn add_binding_info_use(&mut self, id: BindingId, span: Span) {
-        self.binding_infos.get_mut(id).unwrap().add_use(span);
     }
 }
 
@@ -265,6 +265,7 @@ pub struct ModuleInfo {
     pub name: Ustr,
     pub file_path: Ustr,
     pub file_id: FileId,
+    pub library_id: LibraryId,
 }
 
 impl ModuleInfo {
@@ -335,6 +336,7 @@ impl From<&ModulePath> for ModuleInfo {
             name: ustr(&p.name()),
             file_path: ustr(&p.path().to_str().unwrap()),
             file_id: FileId::MAX,
+            library_id: p.library.id,
         }
     }
 }

@@ -1,18 +1,15 @@
-use super::{Check, CheckSess, QueuedModule};
+use super::{Check, CheckResult, CheckSess, QueuedModule};
 use crate::{
     ast::{
         self,
         pattern::{HybridPattern, NamePattern, Pattern, StructUnpackPattern, UnpackPatternKind, Wildcard},
     },
-    error::{
-        diagnostic::{Diagnostic, Label},
-        DiagnosticResult,
-    },
+    error::diagnostic::{Diagnostic, Label},
     hir,
     infer::substitute::substitute_node,
     span::Span,
     types::{Type, TypeId},
-    workspace::{library::LIB_NAME_STD, BindingId, BindingInfoFlags, BindingInfoKind, ModuleId},
+    workspace::{library::LIB_NAME_STD, BindingId, BindingInfoFlags, BindingInfoKind, LibraryId, ModuleId},
 };
 use std::collections::HashSet;
 use ustr::{ustr, Ustr, UstrMap};
@@ -21,11 +18,11 @@ pub(super) trait CheckTopLevel
 where
     Self: Sized,
 {
-    fn check_top_level(&self, sess: &mut CheckSess) -> DiagnosticResult<UstrMap<BindingId>>;
+    fn check_top_level(&self, sess: &mut CheckSess) -> CheckResult<UstrMap<BindingId>>;
 }
 
 impl CheckTopLevel for ast::Binding {
-    fn check_top_level(&self, sess: &mut CheckSess) -> DiagnosticResult<UstrMap<BindingId>> {
+    fn check_top_level(&self, sess: &mut CheckSess) -> CheckResult<UstrMap<BindingId>> {
         let node = sess.with_env(self.module_id, |sess, mut env| self.check(sess, &mut env, None))?;
 
         if let Err(mut diagnostics) = substitute_node(&node, &mut sess.tcx) {
@@ -69,7 +66,7 @@ impl<'s> CheckSess<'s> {
         caller_info: CallerInfo,
         module_id: ModuleId,
         name: Ustr,
-    ) -> DiagnosticResult<BindingId> {
+    ) -> CheckResult<BindingId> {
         if let Some(id) = self.get_global_binding_id(module_id, name) {
             self.workspace.add_binding_info_use(id, caller_info.span);
             self.validate_item_visibility(id, caller_info)?;
@@ -149,7 +146,7 @@ impl<'s> CheckSess<'s> {
             .with_label(Label::primary(caller_info.span, label_message))
     }
 
-    pub fn validate_item_visibility(&self, id: BindingId, caller_info: CallerInfo) -> DiagnosticResult<()> {
+    pub fn validate_item_visibility(&self, id: BindingId, caller_info: CallerInfo) -> CheckResult<()> {
         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
         if binding_info.visibility == ast::Visibility::Private && binding_info.module_id != caller_info.module_id {
@@ -162,7 +159,7 @@ impl<'s> CheckSess<'s> {
         }
     }
 
-    pub fn check_module_by_id(&mut self, id: ModuleId) -> DiagnosticResult<TypeId> {
+    pub fn check_module_by_id(&mut self, id: ModuleId) -> CheckResult<TypeId> {
         let module = self
             .modules
             .iter()
@@ -172,7 +169,7 @@ impl<'s> CheckSess<'s> {
         self.check_module(module)
     }
 
-    pub fn check_module(&mut self, module: &ast::Module) -> DiagnosticResult<TypeId> {
+    pub fn check_module(&mut self, module: &ast::Module) -> CheckResult<TypeId> {
         self.get_completed_module_type(module.id).map(Ok).unwrap_or_else(|| {
             let module_type = match self.queued_modules.get(&module.id) {
                 Some(queued) => queued.module_type,
@@ -258,7 +255,7 @@ impl<'s> CheckSess<'s> {
 
             self.queued_modules.get_mut(&module.id).unwrap().all_complete = true;
 
-            for r#static in module.statics.iter() {
+            for r#static in module.static_blocks.iter() {
                 let node = self.with_env(module.id, |sess, mut env| r#static.check(sess, &mut env, None))?;
 
                 if !self.workspace.build_options.check_mode {
@@ -279,5 +276,12 @@ impl<'s> CheckSess<'s> {
             }) => Some(*module_type),
             _ => None,
         }
+    }
+
+    pub fn check_library(&mut self, library_id: LibraryId) -> CheckResult<()> {
+        self.modules
+            .iter()
+            .filter(|module| module.info.library_id == library_id)
+            .try_for_each(|module| self.check_module(module).map(|_| ()))
     }
 }

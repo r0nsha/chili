@@ -612,7 +612,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_static_eval(&mut self) -> DiagnosticResult<ast::StaticEval> {
+    pub fn parse_static_eval(&mut self) -> DiagnosticResult<ast::StaticBlock> {
         let start_span = self.previous_span();
 
         require!(self, Static, "static")?;
@@ -621,7 +621,7 @@ impl Parser {
 
         let expr = self.parse_block_expr()?;
 
-        Ok(ast::StaticEval {
+        Ok(ast::StaticBlock {
             expr: Box::new(expr),
             span: start_span.to(self.previous_span()),
         })

@@ -86,7 +86,7 @@ pub(super) struct CheckSess<'s> {
     pub tcx: TypeCtx,
 
     // The ast's being processed
-    pub modules: &'s Vec<ast::Module>,
+    pub modules: &'s [ast::Module],
 
     pub cache: hir::Cache,
     pub queued_modules: HashMap<ModuleId, QueuedModule>,
@@ -144,18 +144,28 @@ impl<'s> CheckSess<'s> {
         }
     }
 
-    pub fn start(&mut self) -> DiagnosticResult<()> {
+    pub fn start(&mut self) -> CheckResult<()> {
         self.init_builtin_types();
+        self.check_all_libraries()?;
+        self.perform_final_substitution()?;
+        Ok(())
+    }
 
-        for module in self.modules.iter() {
-            self.check_module(module)?;
-        }
-
+    fn perform_final_substitution(&mut self) -> CheckResult<()> {
         substitute_cache(&self.cache, &mut self.tcx).map_err(|mut diagnostics| {
             let last = diagnostics.pop().unwrap();
             self.workspace.diagnostics.extend(diagnostics);
             last
         })
+    }
+
+    fn check_all_libraries(&mut self) -> CheckResult<()> {
+        self.workspace
+            .libraries
+            .ids()
+            .into_iter()
+            .try_for_each(|library_id| self.check_library(library_id))?;
+        Ok(())
     }
 
     fn init_builtin_types(&mut self) {
@@ -2044,7 +2054,7 @@ impl Check for ast::For {
     }
 }
 
-impl Check for ast::StaticEval {
+impl Check for ast::StaticBlock {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
         // Notes (Ron 02/07/2022):
         // The inner expression of `static` isn't allowed to capture its outer environment yet.
