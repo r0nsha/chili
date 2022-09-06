@@ -1227,16 +1227,14 @@ impl Check for ast::Ast {
                         _ => (),
                     },
                     Type::Module(module_id) => {
-                        let id = sess.check_top_level_binding(
+                        return sess.check_top_level_binding(
                             CallerInfo {
                                 module_id: env.module_id(),
                                 span: access.member_span,
                             },
                             *module_id,
                             access.member,
-                        )?;
-
-                        return Ok(sess.id_or_const_by_id(id, access.span));
+                        )
                     }
                     _ => (),
                 }
@@ -1377,16 +1375,14 @@ impl Check for ast::Ast {
                         }
                         None => {
                             // this is either a top level binding, a builtin binding, or it doesn't exist
-                            let id = sess.check_top_level_binding(
+                            sess.check_top_level_binding(
                                 CallerInfo {
                                     module_id: env.module_id(),
                                     span: ident.span,
                                 },
                                 env.module_id(),
                                 ident.name,
-                            )?;
-
-                            Ok(sess.id_or_const_by_id(id, ident.span))
+                            )
                         }
                     }
                 }

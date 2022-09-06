@@ -5,11 +5,11 @@ use crate::{
         pattern::{HybridPattern, NamePattern, Pattern, StructUnpackPattern, UnpackPatternKind, Wildcard},
     },
     error::diagnostic::{Diagnostic, Label},
-    hir,
+    hir::{self, const_value::ConstValue},
     infer::substitute::substitute_node,
     span::Span,
     types::{Type, TypeId},
-    workspace::{library::LIB_NAME_STD, BindingId, BindingInfoFlags, BindingInfoKind, LibraryId, ModuleId},
+    workspace::{library::LIB_NAME_STD, BindingId, BindingInfoFlags, BindingInfoKind, ModuleId},
 };
 use std::collections::HashSet;
 use ustr::{ustr, Ustr, UstrMap};
@@ -61,12 +61,7 @@ pub struct CallerInfo {
 }
 
 impl<'s> CheckSess<'s> {
-    pub fn check_top_level_binding(
-        &mut self,
-        caller_info: CallerInfo,
-        module_id: ModuleId,
-        name: Ustr,
-    ) -> CheckResult<BindingId> {
+    pub fn check_top_level_binding(&mut self, caller_info: CallerInfo, module_id: ModuleId, name: Ustr) -> CheckResult {
         // In general, top level names are search in this order:
         // 1. Current module
         // 2. Extern library
@@ -77,8 +72,7 @@ impl<'s> CheckSess<'s> {
         if let Some(id) = self.get_global_binding_id(module_id, name) {
             self.workspace.add_binding_info_use(id, caller_info.span);
             self.validate_item_visibility(id, caller_info)?;
-
-            Ok(id)
+            Ok(self.id_or_const_by_id(id, caller_info.span))
         } else {
             let module = self
                 .modules
@@ -117,7 +111,7 @@ impl<'s> CheckSess<'s> {
 
                     self.encountered_items.remove(&(module_id, index));
 
-                    Ok(desired_id)
+                    Ok(self.id_or_const_by_id(desired_id, caller_info.span))
                 }
                 // Check if this is a library name
                 _ => match self
@@ -126,12 +120,22 @@ impl<'s> CheckSess<'s> {
                     .iter()
                     .find(|(_, library)| library.name == name)
                 {
-                    Some((_, library)) => {}
+                    Some((_, library)) => {
+                        let module_type = self.check_module_by_id(library.root_module_id)?;
+
+                        Ok(hir::Node::Const(hir::Const {
+                            value: ConstValue::Unit(()),
+                            ty: module_type,
+                            span: caller_info.span,
+                        }))
+                    }
                     // Check if this is a built-in type
                     None => match self.builtin_types.get(&name).copied() {
                         Some(builtin_id) => {
+                            // TODO: There's no need for binding types to names as bindings!
+                            // TODO: We can just return their const value...
                             self.workspace.add_binding_info_use(builtin_id, caller_info.span);
-                            Ok(builtin_id)
+                            Ok(self.id_or_const_by_id(builtin_id, caller_info.span))
                         }
                         // We reach here if we couldn't find a binding with this name
                         None => Err(self.name_not_found_error(module_id, name, caller_info)),
