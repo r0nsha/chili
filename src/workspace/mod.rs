@@ -254,8 +254,8 @@ impl Workspace {
 
 define_id_type!(LibraryId);
 
-const LIBRARY_ID_MAIN: LibraryId = LibraryId(0);
-const LIBRARY_ID_STD: LibraryId = LibraryId(1);
+const LIBRARY_ID_STD: LibraryId = LibraryId(0);
+const LIBRARY_ID_MAIN: LibraryId = LibraryId(1);
 
 define_id_type!(ModuleId);
 define_id_type!(BindingId);

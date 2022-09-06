@@ -213,15 +213,7 @@ impl<'s> CheckSess<'s> {
                                 span,
                             });
 
-                            let std_root_module_name = sess.workspace.std_library().root_module_name();
-                            let std_module_id = sess
-                                .workspace
-                                .module_infos
-                                .iter()
-                                .position(|(_, module)| module.name == std_root_module_name)
-                                .map(ModuleId::from)
-                                .unwrap();
-
+                            let std_module_id = sess.workspace.std_library().root_module_id;
                             let std_module_type = sess.check_module_by_id(std_module_id)?;
 
                             sess.bind_pattern(

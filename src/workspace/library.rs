@@ -52,6 +52,7 @@ impl Library {
         ModulePath::new(self.clone(), vec![ustr(self.root_file_name())])
     }
 
+    #[allow(unused)]
     pub fn root_module_name(&self) -> Ustr {
         ustr(&format!("{}.{}", self.name, self.root_file_name()))
     }
