@@ -254,6 +254,7 @@ impl Workspace {
 
 define_id_type!(LibraryId);
 
+// * This needs to be synchronized with the order of insertion
 const LIBRARY_ID_STD: LibraryId = LibraryId(0);
 const LIBRARY_ID_MAIN: LibraryId = LibraryId(1);
 

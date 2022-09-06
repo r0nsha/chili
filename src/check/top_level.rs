@@ -67,6 +67,11 @@ impl<'s> CheckSess<'s> {
         module_id: ModuleId,
         name: Ustr,
     ) -> CheckResult<BindingId> {
+        // In general, top level names are search in this order:
+        // 1. Current module
+        // 2. Extern library
+        // 3. Std prelude
+        // 4. Built-in names
         if let Some(id) = self.get_global_binding_id(module_id, name) {
             self.workspace.add_binding_info_use(id, caller_info.span);
             self.validate_item_visibility(id, caller_info)?;
@@ -79,12 +84,8 @@ impl<'s> CheckSess<'s> {
                 .find(|m| m.id == module_id)
                 .unwrap_or_else(|| panic!("{:?}", module_id));
 
-            let queued_module = self.queued_modules.get_mut(&module.id).unwrap();
-
             match module.find_binding(name) {
-                Some((index, binding))
-                    if !(queued_module.queued_bindings.contains(&index) && self.builtin_types.contains_key(&name)) =>
-                {
+                Some((index, binding)) => {
                     if !self.encountered_items.insert((module_id, index)) {
                         return Err(Diagnostic::error()
                             .with_message(format!(
@@ -98,7 +99,11 @@ impl<'s> CheckSess<'s> {
                             )));
                     }
 
-                    queued_module.queued_bindings.insert(index);
+                    self.queued_modules
+                        .get_mut(&module.id)
+                        .unwrap()
+                        .queued_bindings
+                        .insert(index);
 
                     let bound_names = binding.check_top_level(self)?;
                     let desired_id = *bound_names.get(&name).unwrap();
@@ -110,8 +115,8 @@ impl<'s> CheckSess<'s> {
 
                     Ok(desired_id)
                 }
-                _ => match self.builtin_types.get(&name) {
-                    Some(&builtin_id) => {
+                _ => match self.builtin_types.get(&name).copied() {
+                    Some(builtin_id) => {
                         self.workspace.add_binding_info_use(builtin_id, caller_info.span);
                         Ok(builtin_id)
                     }
@@ -170,7 +175,9 @@ impl<'s> CheckSess<'s> {
     }
 
     pub fn check_module(&mut self, module: &ast::Module) -> CheckResult<TypeId> {
-        self.get_completed_module_type(module.id).map(Ok).unwrap_or_else(|| {
+        if let Some(ty) = self.get_completed_module_type(module.id) {
+            Ok(ty)
+        } else {
             let module_type = match self.queued_modules.get(&module.id) {
                 Some(queued) => queued.module_type,
                 None => {
@@ -256,7 +263,7 @@ impl<'s> CheckSess<'s> {
             }
 
             Ok(module_type)
-        })
+        }
     }
 
     fn get_completed_module_type(&self, id: ModuleId) -> Option<TypeId> {
