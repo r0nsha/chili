@@ -40,7 +40,8 @@ use crate::{
         FunctionTypeVarargs, StructType, StructTypeField, StructTypeKind, Type, TypeId,
     },
     workspace::{
-        BindingId, BindingInfo, BindingInfoFlags, BindingInfoKind, ModuleId, PartialBindingInfo, ScopeLevel, Workspace,
+        BindingId, BindingInfo, BindingInfoFlags, BindingInfoKind, LibraryId, ModuleId, PartialBindingInfo, ScopeLevel,
+        Workspace,
     },
 };
 use env::{Env, Scope, ScopeKind};
@@ -151,21 +152,27 @@ impl<'s> CheckSess<'s> {
         Ok(())
     }
 
+    fn check_all_libraries(&mut self) -> CheckResult<()> {
+        self.workspace
+            .libraries
+            .ids()
+            .into_iter()
+            .try_for_each(|library_id| self.check_library(library_id))
+    }
+
+    fn check_library(&mut self, library_id: LibraryId) -> CheckResult<()> {
+        self.modules
+            .iter()
+            .filter(|module| module.info.library_id == library_id)
+            .try_for_each(|module| self.check_module(module).map(|_| ()))
+    }
+
     fn perform_final_substitution(&mut self) -> CheckResult<()> {
         substitute_cache(&self.cache, &mut self.tcx).map_err(|mut diagnostics| {
             let last = diagnostics.pop().unwrap();
             self.workspace.diagnostics.extend(diagnostics);
             last
         })
-    }
-
-    fn check_all_libraries(&mut self) -> CheckResult<()> {
-        self.workspace
-            .libraries
-            .ids()
-            .into_iter()
-            .try_for_each(|library_id| self.check_library(library_id))?;
-        Ok(())
     }
 
     fn init_builtin_types(&mut self) {

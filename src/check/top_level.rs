@@ -89,6 +89,7 @@ impl<'s> CheckSess<'s> {
             // Check if the binding exists in the current module, but hasn't been checked yet
             match module.find_binding(name) {
                 Some((index, binding)) => {
+                    // Check that this binding isn't cyclic
                     if !self.encountered_items.insert((module_id, index)) {
                         return Err(Diagnostic::error()
                             .with_message(format!(
@@ -118,14 +119,23 @@ impl<'s> CheckSess<'s> {
 
                     Ok(desired_id)
                 }
-                // Maybe this is a built-in type
-                _ => match self.builtin_types.get(&name).copied() {
-                    Some(builtin_id) => {
-                        self.workspace.add_binding_info_use(builtin_id, caller_info.span);
-                        Ok(builtin_id)
-                    }
-                    // We reach here if we couldn't find a binding with this name
-                    None => Err(self.name_not_found_error(module_id, name, caller_info)),
+                // Check if this is a library name
+                _ => match self
+                    .workspace
+                    .libraries
+                    .iter()
+                    .find(|(_, library)| library.name == name)
+                {
+                    Some((_, library)) => {}
+                    // Check if this is a built-in type
+                    None => match self.builtin_types.get(&name).copied() {
+                        Some(builtin_id) => {
+                            self.workspace.add_binding_info_use(builtin_id, caller_info.span);
+                            Ok(builtin_id)
+                        }
+                        // We reach here if we couldn't find a binding with this name
+                        None => Err(self.name_not_found_error(module_id, name, caller_info)),
+                    },
                 },
             }
         }
@@ -280,12 +290,5 @@ impl<'s> CheckSess<'s> {
             }) => Some(*module_type),
             _ => None,
         }
-    }
-
-    pub fn check_library(&mut self, library_id: LibraryId) -> CheckResult<()> {
-        self.modules
-            .iter()
-            .filter(|module| module.info.library_id == library_id)
-            .try_for_each(|module| self.check_module(module).map(|_| ()))
     }
 }
