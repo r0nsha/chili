@@ -71,7 +71,9 @@ impl<'s> CheckSess<'s> {
         // 1. Current module
         // 2. Extern library
         // 3. Std prelude
-        // 4. Built-in names
+        // 4. Built-in type names
+
+        // Maybe the binding is in the current module, and has already been checked
         if let Some(id) = self.get_global_binding_id(module_id, name) {
             self.workspace.add_binding_info_use(id, caller_info.span);
             self.validate_item_visibility(id, caller_info)?;
@@ -84,6 +86,7 @@ impl<'s> CheckSess<'s> {
                 .find(|m| m.id == module_id)
                 .unwrap_or_else(|| panic!("{:?}", module_id));
 
+            // Check if the binding exists in the current module, but hasn't been checked yet
             match module.find_binding(name) {
                 Some((index, binding)) => {
                     if !self.encountered_items.insert((module_id, index)) {
@@ -115,11 +118,13 @@ impl<'s> CheckSess<'s> {
 
                     Ok(desired_id)
                 }
+                // Maybe this is a built-in type
                 _ => match self.builtin_types.get(&name).copied() {
                     Some(builtin_id) => {
                         self.workspace.add_binding_info_use(builtin_id, caller_info.span);
                         Ok(builtin_id)
                     }
+                    // We reach here if we couldn't find a binding with this name
                     None => Err(self.name_not_found_error(module_id, name, caller_info)),
                 },
             }
