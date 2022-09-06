@@ -129,17 +129,26 @@ impl<'s> CheckSess<'s> {
                             span: caller_info.span,
                         }))
                     }
-                    // Check if this is a built-in type
-                    None => match self.builtin_types.get(&name).copied() {
-                        Some(builtin_id) => {
-                            // TODO: There's no need for binding types to names as bindings!
-                            // TODO: We can just return their const value...
-                            self.workspace.add_binding_info_use(builtin_id, caller_info.span);
-                            Ok(self.id_or_const_by_id(builtin_id, caller_info.span))
+
+                    None => {
+                        // TODO: Check std prelude explicitly
+                        // TODO: enum CheckBindingInModuleErr { BindingNotFound, Err(Diagnostic), }
+                        // TODO: Prepend all modules to the global modules map
+                        // Check if this is a binding in the standard library
+                        // self.check_module_by_id(self.workspace.std_library().root_module_id)?;
+
+                        // Check if this is a built-in type
+                        match self.builtin_types.get(&name).copied() {
+                            Some(builtin_id) => {
+                                // TODO: There's no need for binding types to names as bindings!
+                                // TODO: We can just return their const value...
+                                self.workspace.add_binding_info_use(builtin_id, caller_info.span);
+                                Ok(self.id_or_const_by_id(builtin_id, caller_info.span))
+                            }
+                            // We reach here if we couldn't find a binding with this name
+                            None => Err(self.name_not_found_error(module_id, name, caller_info)),
                         }
-                        // We reach here if we couldn't find a binding with this name
-                        None => Err(self.name_not_found_error(module_id, name, caller_info)),
-                    },
+                    }
                 },
             }
         }
