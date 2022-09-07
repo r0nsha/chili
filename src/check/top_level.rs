@@ -1,4 +1,4 @@
-use super::{Check, CheckResult, CheckSess, QueuedModule};
+use super::{symbols, Check, CheckResult, CheckSess, QueuedModule};
 use crate::{
     ast::{self},
     error::diagnostic::{Diagnostic, Label},
@@ -93,11 +93,15 @@ impl<'s> CheckSess<'s> {
                             ty: module_type,
                             span: caller_info.span,
                         }))
-                    } else if let Some(builtin_id) = self.builtin_types.get(&name).copied() {
-                        // TODO: There's no need for binding types to names as bindings!
-                        // TODO: We can just return their const value...
-                        self.workspace.add_binding_info_use(builtin_id, caller_info.span);
-                        Ok(self.id_or_const_by_id(builtin_id, caller_info.span))
+                    } else if let Some(ty) = self.get_builtin_type(&name) {
+                        let value = ConstValue::Type(ty);
+                        let ty = self.tcx.bound_maybe_spanned(ty.as_kind().create_type(), None);
+
+                        Ok(hir::Node::Const(hir::Const {
+                            value,
+                            ty,
+                            span: caller_info.span,
+                        }))
                     } else if let Some(result) = self.check_binding_in_std_prelude(name, caller_info) {
                         result
                     } else {
@@ -294,6 +298,36 @@ impl<'s> CheckSess<'s> {
                 all_complete: true,
                 ..
             }) => Some(*module_type),
+            _ => None,
+        }
+    }
+
+    fn get_builtin_type(&self, name: &str) -> Option<TypeId> {
+        match name {
+            symbols::SYM_UNIT => Some(self.tcx.common_types.unit),
+            symbols::SYM_BOOL => Some(self.tcx.common_types.bool),
+
+            symbols::SYM_I8 => Some(self.tcx.common_types.i8),
+            symbols::SYM_I16 => Some(self.tcx.common_types.i16),
+            symbols::SYM_I32 => Some(self.tcx.common_types.i32),
+            symbols::SYM_I64 => Some(self.tcx.common_types.i64),
+            symbols::SYM_INT => Some(self.tcx.common_types.int),
+
+            symbols::SYM_U8 => Some(self.tcx.common_types.u8),
+            symbols::SYM_U16 => Some(self.tcx.common_types.u16),
+            symbols::SYM_U32 => Some(self.tcx.common_types.u32),
+            symbols::SYM_U64 => Some(self.tcx.common_types.u64),
+            symbols::SYM_UINT => Some(self.tcx.common_types.uint),
+
+            symbols::SYM_F16 => Some(self.tcx.common_types.f16),
+            symbols::SYM_F32 => Some(self.tcx.common_types.f32),
+            symbols::SYM_F64 => Some(self.tcx.common_types.f64),
+            symbols::SYM_FLOAT => Some(self.tcx.common_types.float),
+
+            symbols::SYM_NEVER => Some(self.tcx.common_types.never),
+
+            symbols::SYM_STR => Some(self.tcx.common_types.str),
+
             _ => None,
         }
     }

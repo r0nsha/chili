@@ -40,8 +40,7 @@ use crate::{
         FunctionTypeVarargs, StructType, StructTypeField, StructTypeKind, Type, TypeId,
     },
     workspace::{
-        BindingId, BindingInfo, BindingInfoFlags, BindingInfoKind, LibraryId, ModuleId, PartialBindingInfo, ScopeLevel,
-        Workspace,
+        BindingId, BindingInfo, BindingInfoFlags, BindingInfoKind, LibraryId, ModuleId, ScopeLevel, Workspace,
     },
 };
 use env::{Env, Scope, ScopeKind};
@@ -94,7 +93,6 @@ pub(super) struct CheckSess<'s> {
 
     // Information that's relevant for the global context
     pub global_scopes: HashMap<ModuleId, Scope>,
-    pub builtin_types: UstrMap<BindingId>,
 
     // Stack of function frames, each ast::Function creates its own frame
     pub function_frames: Vec<FunctionFrame>,
@@ -135,7 +133,6 @@ impl<'s> CheckSess<'s> {
             cache: hir::Cache::new(),
             queued_modules: HashMap::new(),
             global_scopes: HashMap::new(),
-            builtin_types: UstrMap::default(),
             function_frames: vec![],
             self_types: vec![],
             loop_depth: 0,
@@ -147,7 +144,6 @@ impl<'s> CheckSess<'s> {
 
     pub fn start(&mut self) -> CheckResult<()> {
         self.set_libraries_root_module_id();
-        self.init_builtin_types();
         self.check_all_libraries()?;
         self.perform_final_substitution()?;
         Ok(())
@@ -188,57 +184,6 @@ impl<'s> CheckSess<'s> {
             self.workspace.diagnostics.extend(diagnostics);
             last
         })
-    }
-
-    fn init_builtin_types(&mut self) {
-        let mk = |sess: &mut CheckSess, name: &str, ty: TypeId| {
-            let name = ustr(name);
-
-            let partial_binding_info = PartialBindingInfo {
-                module_id: Default::default(),
-                name,
-                visibility: ast::Visibility::Public,
-                ty: sess.tcx.bound_maybe_spanned(ty.as_kind().create_type(), None),
-                const_value: Some(ConstValue::Type(ty)),
-                is_mutable: false,
-                kind: BindingInfoKind::Orphan,
-                scope_level: ScopeLevel::Global,
-                qualified_name: name,
-                span: Span::unknown(),
-                flags: BindingInfoFlags::BUILTIN_TYPE,
-            };
-
-            let id = sess
-                .workspace
-                .binding_infos
-                .insert_with_id(partial_binding_info.into_binding_info());
-
-            sess.builtin_types.insert(name, id);
-        };
-
-        mk(self, symbols::SYM_UNIT, self.tcx.common_types.unit);
-        mk(self, symbols::SYM_BOOL, self.tcx.common_types.bool);
-
-        mk(self, symbols::SYM_I8, self.tcx.common_types.i8);
-        mk(self, symbols::SYM_I16, self.tcx.common_types.i16);
-        mk(self, symbols::SYM_I32, self.tcx.common_types.i32);
-        mk(self, symbols::SYM_I64, self.tcx.common_types.i64);
-        mk(self, symbols::SYM_INT, self.tcx.common_types.int);
-
-        mk(self, symbols::SYM_U8, self.tcx.common_types.u8);
-        mk(self, symbols::SYM_U16, self.tcx.common_types.u16);
-        mk(self, symbols::SYM_U32, self.tcx.common_types.u32);
-        mk(self, symbols::SYM_U64, self.tcx.common_types.u64);
-        mk(self, symbols::SYM_UINT, self.tcx.common_types.uint);
-
-        mk(self, symbols::SYM_F16, self.tcx.common_types.f16);
-        mk(self, symbols::SYM_F32, self.tcx.common_types.f32);
-        mk(self, symbols::SYM_F64, self.tcx.common_types.f64);
-        mk(self, symbols::SYM_FLOAT, self.tcx.common_types.float);
-
-        mk(self, symbols::SYM_NEVER, self.tcx.common_types.never);
-
-        mk(self, symbols::SYM_STR, self.tcx.common_types.str);
     }
 
     fn into_data(self) -> CheckData {
