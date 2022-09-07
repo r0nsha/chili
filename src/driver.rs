@@ -59,7 +59,7 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
     let main_library = Library {
         id: LibraryId::unknown(),
         name: ustr(&name),
-        root_file: build_options.source_file.clone(),
+        root_file: source_file.clone(),
         root_module_id: ModuleId::unknown(),
         is_main: true,
     };

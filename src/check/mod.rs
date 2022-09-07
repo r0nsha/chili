@@ -146,10 +146,25 @@ impl<'s> CheckSess<'s> {
     }
 
     pub fn start(&mut self) -> CheckResult<()> {
+        self.set_libraries_root_module_id();
         self.init_builtin_types();
         self.check_all_libraries()?;
         self.perform_final_substitution()?;
         Ok(())
+    }
+
+    fn set_libraries_root_module_id(&mut self) {
+        self.workspace.libraries.iter_mut().for_each(|(_, library)| {
+            let root_file = library.root_file.to_str().unwrap();
+
+            library.root_module_id = self
+                .workspace
+                .module_infos
+                .iter()
+                .position(|(_, module)| module.file_path == root_file)
+                .map(ModuleId::from)
+                .unwrap();
+        });
     }
 
     fn check_all_libraries(&mut self) -> CheckResult<()> {
