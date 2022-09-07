@@ -89,12 +89,7 @@ impl<'s> CheckSess<'s> {
                 if let Some(defined_id) = self.get_global_binding_id(module_id, name) {
                     let defined_binding_info = self.workspace.binding_infos.get(defined_id).unwrap();
 
-                    if flags.contains(BindingInfoFlags::SHADOWABLE) {
-                        // Do nothing, this is shadowed by the already defined binding
-                    } else if defined_binding_info.is_shadowable() {
-                        // The defined binding can be shadowed, so this is Ok
-                        self.insert_global_binding_id(module_id, name, id);
-                    } else if defined_binding_info.span != span {
+                    if defined_binding_info.span != span {
                         return Err(SyntaxError::duplicate_binding(
                             defined_binding_info.name,
                             span,

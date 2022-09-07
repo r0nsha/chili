@@ -126,12 +126,6 @@ impl BindingInfo {
     pub fn is_no_const_fold(&self) -> bool {
         self.flags.contains(BindingInfoFlags::NO_CONST_FOLD)
     }
-
-    #[inline]
-    #[allow(unused)]
-    pub fn is_shadowable(&self) -> bool {
-        self.flags.contains(BindingInfoFlags::SHADOWABLE)
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -181,10 +175,8 @@ bitflags! {
         const IMPLICIT_IT_FUNCTION_PARAM = 1 << 3;
         // Whether this binding should store a constant value
         const NO_CONST_FOLD = 1 << 4;
-        // Whether this binding should store a constant value
-        const SHADOWABLE = 1 << 5;
         // Whether this binding was ignored using `_`
-        const IGNORE = 1 << 6;
+        const IGNORE = 1 << 5;
     }
 }
 
