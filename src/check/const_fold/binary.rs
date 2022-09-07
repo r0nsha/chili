@@ -40,6 +40,17 @@ pub fn binary(
     span: Span,
     tcx: &TypeCtx,
 ) -> DiagnosticResult<ConstValue> {
+    fn int_overflow(action: &str, lhs: &ConstValue, rhs: &ConstValue, span: Span, tcx: &TypeCtx) -> Diagnostic {
+        Diagnostic::error()
+            .with_message(format!(
+                "integer overflowed while {} {} and {} at compile-time",
+                action,
+                lhs.display(tcx),
+                rhs.display(tcx)
+            ))
+            .with_label(Label::primary(span, "integer overflow"))
+    }
+
     let int_overflow = |action: &str| int_overflow(action, lhs, rhs, span, tcx);
 
     match op {
@@ -69,15 +80,4 @@ pub fn binary(
         ast::BinaryOp::BitXor => Ok(lhs.bitxor(rhs)),
         _ => unreachable!("{}", op),
     }
-}
-
-fn int_overflow(action: &str, lhs: &ConstValue, rhs: &ConstValue, span: Span, tcx: &TypeCtx) -> Diagnostic {
-    Diagnostic::error()
-        .with_message(format!(
-            "integer overflowed while {} {} and {} at compile-time",
-            action,
-            lhs.display(tcx),
-            rhs.display(tcx)
-        ))
-        .with_label(Label::primary(span, "integer overflow"))
 }
