@@ -350,7 +350,7 @@ pub struct Literal {
 pub enum LiteralKind {
     Nil,
     Bool(bool),
-    Int(u64),
+    Int(i128),
     Float(f64),
     Str(Ustr),
     Char(char),

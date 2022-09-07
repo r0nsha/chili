@@ -64,16 +64,6 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                     ty.llvm_type(self).into_float_type().const_float(*v as f64).into()
                 }
             }
-            ConstValue::Uint(v) => {
-                if ty.is_any_integer() {
-                    ty.llvm_type(self)
-                        .into_int_type()
-                        .const_int(*v, ty.is_signed_int())
-                        .into()
-                } else {
-                    ty.llvm_type(self).into_float_type().const_float(*v as f64).into()
-                }
-            }
             ConstValue::Float(v) => ty.llvm_type(self).into_float_type().const_float(*v as f64).into(),
             ConstValue::Str(v) => self.const_str_slice("", *v).into(),
             ConstValue::Array(array) => {

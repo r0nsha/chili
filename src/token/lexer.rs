@@ -331,7 +331,7 @@ impl<'lx> Lexer<'lx> {
             Ok(Float(float))
         } else {
             let literal = self.source.range(self.cursor);
-            match literal.replace('_', "").parse::<u64>() {
+            match literal.replace('_', "").parse::<u128>() {
                 Ok(i) => Ok(Int(i)),
                 Err(_) => Err(LexerError::integer_too_large(self.cursor.span())),
             }
@@ -354,7 +354,7 @@ impl<'lx> Lexer<'lx> {
             }
         }
 
-        match u64::from_str_radix(&hex_value, 16) {
+        match u128::from_str_radix(&hex_value, 16) {
             Ok(n) => Ok(Int(n)),
             Err(_) => Err(LexerError::integer_too_large(self.cursor.span())),
         }
@@ -376,12 +376,12 @@ impl<'lx> Lexer<'lx> {
             }
         }
 
-        let mut base: u64 = 1;
-        let mut decimal_value: u64 = 0;
+        let mut base: u128 = 1;
+        let mut decimal_value: u128 = 0;
 
         for char in octal_value.chars().rev() {
             let digit = char.to_digit(10).unwrap();
-            decimal_value = match decimal_value.checked_add(digit as u64 * base) {
+            decimal_value = match decimal_value.checked_add(digit as u128 * base) {
                 Some(v) => v,
                 None => return Err(LexerError::integer_too_large(self.cursor.span())),
             };
@@ -407,12 +407,12 @@ impl<'lx> Lexer<'lx> {
             }
         }
 
-        let mut base: u64 = 1;
-        let mut decimal_value: u64 = 0;
+        let mut base: u128 = 1;
+        let mut decimal_value: u128 = 0;
 
         for char in binary_value.chars().rev() {
             let digit = char.to_digit(10).unwrap();
-            decimal_value = match decimal_value.checked_add(digit as u64 * base) {
+            decimal_value = match decimal_value.checked_add(digit as u128 * base) {
                 Some(v) => v,
                 None => return Err(LexerError::integer_too_large(self.cursor.span())),
             };

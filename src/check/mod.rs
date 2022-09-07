@@ -213,7 +213,7 @@ impl<'s> CheckSess<'s> {
         }
     }
 
-    pub fn require_const_int(&self, node: &hir::Node) -> DiagnosticResult<i64> {
+    pub fn require_const_int(&self, node: &hir::Node) -> DiagnosticResult<i128> {
         match node.as_const_value() {
             Some(ConstValue::Int(v)) => Ok(*v),
             _ => Err(TypeError::expected(
@@ -337,11 +337,11 @@ impl<'s> CheckSess<'s> {
                 ty: self.tcx.common_types.str_pointer
             },
             line_field.name => ConstElement {
-                value: ConstValue::Uint(span.start.line as _),
+                value: ConstValue::Int(span.start.line as _),
                 ty: self.tcx.common_types.u32
             },
             column_field.name => ConstElement {
-                value: ConstValue::Uint(span.start.column as _),
+                value: ConstValue::Int(span.start.column as _),
                 ty: self.tcx.common_types.u32
             }
         }))
@@ -916,7 +916,7 @@ impl Check for ast::Ast {
                         let size = ty.size_of(sess.target_metrics.word_size);
 
                         Ok(hir::Node::Const(hir::Const {
-                            value: ConstValue::Uint(size as _),
+                            value: ConstValue::Int(size as _),
                             ty: sess.tcx.common_types.uint,
                             span: expr.span(),
                         }))
@@ -932,7 +932,7 @@ impl Check for ast::Ast {
                         let align = ty.align_of(sess.target_metrics.word_size);
 
                         Ok(hir::Node::Const(hir::Const {
-                            value: ConstValue::Uint(align as _),
+                            value: ConstValue::Int(align as _),
                             ty: sess.tcx.common_types.uint,
                             span: expr.span(),
                         }))
@@ -1064,7 +1064,7 @@ impl Check for ast::Ast {
                     low_node
                 } else {
                     hir::Node::Const(hir::Const {
-                        value: ConstValue::Uint(0),
+                        value: ConstValue::Int(0),
                         ty: uint,
                         span: slice.span,
                     })
@@ -1089,7 +1089,7 @@ impl Check for ast::Ast {
                 } else {
                     match &node_type {
                         Type::Array(_, size) => hir::Node::Const(hir::Const {
-                            value: ConstValue::Uint(*size as _),
+                            value: ConstValue::Int(*size as _),
                             ty: uint,
                             span: slice.span,
                         }),
@@ -1161,7 +1161,7 @@ impl Check for ast::Ast {
 
                                 if let Some(ConstValue::Str(s)) = node.as_const_value() {
                                     return Ok(hir::Node::Const(hir::Const {
-                                        value: ConstValue::Uint(s.len() as _),
+                                        value: ConstValue::Int(s.len() as _),
                                         ty,
                                         span: access.span,
                                     }));
@@ -1279,7 +1279,7 @@ impl Check for ast::Ast {
                     },
                     Type::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
                         Ok(hir::Node::Const(hir::Const {
-                            value: ConstValue::Uint(*size as _),
+                            value: ConstValue::Int(*size as _),
                             ty: sess.tcx.common_types.uint,
                             span: access.span,
                         }))
@@ -1711,7 +1711,7 @@ impl Check for ast::For {
                     ast::Visibility::Private,
                     index_type,
                     Some(hir::Node::Const(hir::Const {
-                        value: ConstValue::Uint(0),
+                        value: ConstValue::Int(0),
                         ty: index_type,
                         span: index_binding.span,
                     })),
@@ -1779,7 +1779,7 @@ impl Check for ast::For {
                         span: self.span,
                         lhs: Box::new(index_id_node),
                         rhs: Box::new(hir::Node::Const(hir::Const {
-                            value: ConstValue::Uint(1),
+                            value: ConstValue::Int(1),
                             ty: index_type,
                             span: self.span,
                         })),
@@ -1796,7 +1796,7 @@ impl Check for ast::For {
                         span: self.span,
                         lhs: Box::new(iter_id_node),
                         rhs: Box::new(hir::Node::Const(hir::Const {
-                            value: ConstValue::Uint(1),
+                            value: ConstValue::Int(1),
                             ty: iter_type,
                             span: self.span,
                         })),
@@ -1903,7 +1903,7 @@ impl Check for ast::For {
                     ast::Visibility::Private,
                     index_type,
                     Some(hir::Node::Const(hir::Const {
-                        value: ConstValue::Uint(0),
+                        value: ConstValue::Int(0),
                         ty: index_type,
                         span: index_binding.span,
                     })),
@@ -1930,7 +1930,7 @@ impl Check for ast::For {
                 // index <= value.len
                 let value_len_node = match &value_node_type.maybe_deref_once() {
                     Type::Array(_, size) => hir::Node::Const(hir::Const {
-                        value: ConstValue::Uint(*size as _),
+                        value: ConstValue::Int(*size as _),
                         ty: index_type,
                         span: self.span,
                     }),
@@ -1987,7 +1987,7 @@ impl Check for ast::For {
                         span: self.span,
                         lhs: Box::new(index_id_node),
                         rhs: Box::new(hir::Node::Const(hir::Const {
-                            value: ConstValue::Uint(1),
+                            value: ConstValue::Int(1),
                             ty: index_type,
                             span: self.span,
                         })),

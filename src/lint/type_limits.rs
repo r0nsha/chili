@@ -15,7 +15,7 @@ impl<'s> LintSess<'s> {
                 Type::Int(int_type) => {
                     let (min, max) = int_type_range(*int_type);
 
-                    if value < min || value > max {
+                    if value < min as i128 || value > max as i128 {
                         self.push_overflow_err(value, &const_.ty.display(self.tcx), min, max, const_.span);
                     }
                 }
@@ -24,23 +24,6 @@ impl<'s> LintSess<'s> {
 
                     if value < 0 || value as u64 > max {
                         self.push_overflow_err(value, &const_.ty.display(self.tcx), 0, max, const_.span);
-                    }
-                }
-                _ => (),
-            },
-            &ConstValue::Uint(value) => match &const_.ty.normalize(self.tcx) {
-                Type::Int(int_type) => {
-                    let (min, max) = int_type_range(*int_type);
-
-                    if value > max as u64 {
-                        self.push_overflow_err(value, &const_.ty.display(self.tcx), min, max, const_.span);
-                    }
-                }
-                Type::Uint(uint_type) => {
-                    let (min, max) = uint_type_range(*uint_type);
-
-                    if value < min || value > max {
-                        self.push_overflow_err(value, &const_.ty.display(self.tcx), min, max, const_.span);
                     }
                 }
                 _ => (),

@@ -58,11 +58,11 @@ pub fn binary(
         ast::BinaryOp::Sub => lhs.sub(rhs).ok_or_else(|| int_overflow("subtracting")),
         ast::BinaryOp::Mul => lhs.mul(rhs).ok_or_else(|| int_overflow("multiplying")),
         ast::BinaryOp::Div => match rhs {
-            ConstValue::Int(0) | ConstValue::Uint(0) => Err(TypeError::divide_by_zero(span)),
+            ConstValue::Int(0) => Err(TypeError::divide_by_zero(span)),
             _ => lhs.div(rhs).ok_or_else(|| int_overflow("dividing")),
         },
         ast::BinaryOp::Rem => match rhs {
-            ConstValue::Int(0) | ConstValue::Uint(0) => Err(TypeError::divide_by_zero(span)),
+            ConstValue::Int(0) => Err(TypeError::divide_by_zero(span)),
             _ => lhs.rem(rhs).ok_or_else(|| int_overflow("taking the remainder of")),
         },
         ast::BinaryOp::Eq => Ok(lhs.eq(rhs)),

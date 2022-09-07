@@ -146,7 +146,7 @@ impl TypeError {
             ))
     }
 
-    pub fn negative_array_len(span: Span, len: i64) -> Diagnostic {
+    pub fn negative_array_len(span: Span, len: i128) -> Diagnostic {
         Diagnostic::error()
             .with_message(format!("array length cannot be negative, found {}", len))
             .with_label(Label::primary(span, ""))

@@ -15,7 +15,7 @@ impl Parser {
             Nil => LiteralKind::Nil,
             True => LiteralKind::Bool(true),
             False => LiteralKind::Bool(false),
-            Int(value) => LiteralKind::Int(*value),
+            Int(value) => LiteralKind::Int(*value as i128),
             Float(value) => LiteralKind::Float(*value),
             Str(value) => LiteralKind::Str(*value),
             Char(value) => LiteralKind::Char(*value),

@@ -52,20 +52,16 @@ pub fn can_cast_type(from: &Type, to: &Type) -> bool {
 pub fn try_cast_const_value(const_value: &ConstValue, to: &Type) -> Option<ConstValue> {
     match (const_value, to) {
         (ConstValue::Bool(_), Type::Bool) => Some(const_value.clone()),
-        (ConstValue::Bool(v), Type::Int(_)) => Some(ConstValue::Int(*v as i64)),
-        (ConstValue::Bool(v), Type::Uint(_)) => Some(ConstValue::Uint(*v as u64)),
+        (ConstValue::Bool(v), Type::Int(_)) => Some(ConstValue::Int(*v as i128)),
+        (ConstValue::Bool(v), Type::Uint(_)) => Some(ConstValue::Int(*v as i128)),
 
         (ConstValue::Int(_), Type::Int(_)) => Some(const_value.clone()),
-        (ConstValue::Int(v), Type::Uint(_)) => Some(ConstValue::Uint(*v as u64)),
+        (ConstValue::Int(v), Type::Uint(_)) => Some(ConstValue::Int(*v as i128)),
         (ConstValue::Int(v), Type::Float(_)) => Some(ConstValue::Float(*v as f64)),
 
-        (ConstValue::Uint(_), Type::Uint(_)) => Some(const_value.clone()),
-        (ConstValue::Uint(v), Type::Int(_)) => Some(ConstValue::Int(*v as i64)),
-        (ConstValue::Uint(v), Type::Float(_)) => Some(ConstValue::Float(*v as f64)),
-
         (ConstValue::Float(_), Type::Float(_)) => Some(const_value.clone()),
-        (ConstValue::Float(v), Type::Int(_)) => Some(ConstValue::Int(*v as i64)),
-        (ConstValue::Float(v), Type::Uint(_)) => Some(ConstValue::Uint(*v as u64)),
+        (ConstValue::Float(v), Type::Int(_)) => Some(ConstValue::Int(*v as i128)),
+        (ConstValue::Float(v), Type::Uint(_)) => Some(ConstValue::Int(*v as i128)),
 
         _ => None,
     }

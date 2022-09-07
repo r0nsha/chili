@@ -807,42 +807,6 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
             }
             _ => panic!("invalid ty {:?}", ty),
         },
-        ConstValue::Uint(v) => match ty {
-            Type::Int(int_ty) => match int_ty {
-                IntType::I8 => Value::I8(*v as _),
-                IntType::I16 => Value::I16(*v as _),
-                IntType::I32 => Value::I32(*v as _),
-                IntType::I64 => Value::I64(*v as _),
-                IntType::Int => Value::Int(*v as _),
-            },
-            Type::Uint(ty) => match ty {
-                UintType::U8 => Value::U8(*v as _),
-                UintType::U16 => Value::U16(*v as _),
-                UintType::U32 => Value::U32(*v as _),
-                UintType::U64 => Value::U64(*v as _),
-                UintType::Uint => Value::Uint(*v as _),
-            },
-            Type::Float(ty) => match ty {
-                FloatType::F16 | FloatType::F32 => Value::F32(*v as _),
-                FloatType::F64 => Value::F64(*v as _),
-                FloatType::Float => {
-                    if IS_64BIT {
-                        Value::F64(*v as _)
-                    } else {
-                        Value::F32(*v as _)
-                    }
-                }
-            },
-            Type::Infer(_, InferType::AnyInt) => Value::Int(*v as _),
-            Type::Infer(_, InferType::AnyFloat) => {
-                if IS_64BIT {
-                    Value::F64(*v as _)
-                } else {
-                    Value::F32(*v as _)
-                }
-            }
-            _ => panic!("invalid ty {:?}", ty),
-        },
         ConstValue::Float(v) => match ty {
             Type::Float(float_ty) => match float_ty {
                 FloatType::F16 | FloatType::F32 => Value::F32(*v as _),

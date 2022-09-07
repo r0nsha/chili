@@ -1,6 +1,6 @@
 use super::{symbols, Check, CheckResult, CheckSess, QueuedModule};
 use crate::{
-    ast::{self},
+    ast,
     error::diagnostic::{Diagnostic, Label},
     hir::{self, const_value::ConstValue},
     infer::substitute::substitute_node,
