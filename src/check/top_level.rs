@@ -1,18 +1,15 @@
 use super::{Check, CheckResult, CheckSess, QueuedModule};
 use crate::{
-    ast::{
-        self,
-        pattern::{HybridPattern, NamePattern, Pattern, StructUnpackPattern, UnpackPatternKind, Wildcard},
-    },
+    ast::{self},
     error::diagnostic::{Diagnostic, Label},
     hir::{self, const_value::ConstValue},
     infer::substitute::substitute_node,
     span::Span,
     types::{Type, TypeId},
-    workspace::{library::LIB_NAME_STD, BindingId, BindingInfoFlags, BindingInfoKind, ModuleId},
+    workspace::{BindingId, ModuleId},
 };
 use std::collections::HashSet;
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::{Ustr, UstrMap};
 
 pub(super) trait CheckTopLevel
 where
@@ -61,18 +58,15 @@ pub struct CallerInfo {
 }
 
 impl<'s> CheckSess<'s> {
-    pub fn check_top_level_binding(&mut self, caller_info: CallerInfo, module_id: ModuleId, name: Ustr) -> CheckResult {
-        // In general, top level names are search in this order:
-        // 1. Current module
-        // 2. Extern library
-        // 3. Std prelude
-        // 4. Built-in type names
+    pub fn check_top_level_binding(&mut self, name: Ustr, module_id: ModuleId, caller_info: CallerInfo) -> CheckResult {
+        // In general, top level names are searched in this order:
+        // 1. A binding in current module
+        // 2. An extern library name
+        // 3. A built-in type name
+        // 4. A binding in `std` prelude
 
-        // Maybe the binding is in the current module, and has already been checked
-        if let Some(id) = self.get_global_binding_id(module_id, name) {
-            self.workspace.add_binding_info_use(id, caller_info.span);
-            self.validate_item_visibility(id, caller_info)?;
-            Ok(self.id_or_const_by_id(id, caller_info.span))
+        if let Some(result) = self.find_checked_top_level_binding(name, module_id, caller_info) {
+            result
         } else {
             let module = self
                 .modules
@@ -80,47 +74,18 @@ impl<'s> CheckSess<'s> {
                 .find(|m| m.id == module_id)
                 .unwrap_or_else(|| panic!("{:?}", module_id));
 
-            // Check if the binding exists in the current module, but hasn't been checked yet
-            match module.find_binding(name) {
-                Some((index, binding)) => {
-                    // Check that this binding isn't cyclic
-                    if !self.encountered_items.insert((module_id, index)) {
-                        return Err(Diagnostic::error()
-                            .with_message(format!(
-                                "cycle detected while checking `{}` in module `{}`",
-                                name, module.info.name
-                            ))
-                            .with_label(Label::primary(caller_info.span, format!("`{}` refers to itself", name)))
-                            .with_label(Label::secondary(
-                                binding.pattern_span(),
-                                format!("`{}` is defined here", name),
-                            )));
-                    }
+            // Check if the binding exists in the current module
+            match self.check_binding_in_module(name, module, caller_info) {
+                Some(Ok(node)) => Ok(node),
+                Some(Err(diag)) => Err(diag),
+                None => {
+                    let find_library_result = self
+                        .workspace
+                        .libraries
+                        .iter()
+                        .find(|(_, library)| library.name == name);
 
-                    self.queued_modules
-                        .get_mut(&module.id)
-                        .unwrap()
-                        .queued_bindings
-                        .insert(index);
-
-                    let bound_names = binding.check_top_level(self)?;
-                    let desired_id = *bound_names.get(&name).unwrap();
-
-                    self.workspace.add_binding_info_use(desired_id, caller_info.span);
-                    self.validate_item_visibility(desired_id, caller_info)?;
-
-                    self.encountered_items.remove(&(module_id, index));
-
-                    Ok(self.id_or_const_by_id(desired_id, caller_info.span))
-                }
-                // Check if this is a library name
-                _ => match self
-                    .workspace
-                    .libraries
-                    .iter()
-                    .find(|(_, library)| library.name == name)
-                {
-                    Some((_, library)) => {
+                    if let Some((_, library)) = find_library_result {
                         let module_type = self.check_module_by_id(library.root_module_id)?;
 
                         Ok(hir::Node::Const(hir::Const {
@@ -128,29 +93,99 @@ impl<'s> CheckSess<'s> {
                             ty: module_type,
                             span: caller_info.span,
                         }))
+                    } else if let Some(builtin_id) = self.builtin_types.get(&name).copied() {
+                        // TODO: There's no need for binding types to names as bindings!
+                        // TODO: We can just return their const value...
+                        self.workspace.add_binding_info_use(builtin_id, caller_info.span);
+                        Ok(self.id_or_const_by_id(builtin_id, caller_info.span))
+                    } else if let Some(result) = self.check_binding_in_std_prelude(name, caller_info) {
+                        result
+                    } else {
+                        Err(self.name_not_found_error(module_id, name, caller_info))
                     }
-
-                    None => {
-                        // TODO: Check std prelude explicitly
-                        // TODO: enum CheckBindingInModuleErr { BindingNotFound, Err(Diagnostic), }
-                        // TODO: Prepend all modules to the global modules map
-                        // Check if this is a binding in the standard library
-                        // self.check_module_by_id(self.workspace.std_library().root_module_id)?;
-
-                        // Check if this is a built-in type
-                        match self.builtin_types.get(&name).copied() {
-                            Some(builtin_id) => {
-                                // TODO: There's no need for binding types to names as bindings!
-                                // TODO: We can just return their const value...
-                                self.workspace.add_binding_info_use(builtin_id, caller_info.span);
-                                Ok(self.id_or_const_by_id(builtin_id, caller_info.span))
-                            }
-                            // We reach here if we couldn't find a binding with this name
-                            None => Err(self.name_not_found_error(module_id, name, caller_info)),
-                        }
-                    }
-                },
+                }
             }
+        }
+    }
+
+    // Note(Ron): This function is pretty weird, maybe we should yeet it?
+    fn find_checked_top_level_binding(
+        &mut self,
+        name: Ustr,
+        module_id: ModuleId,
+        caller_info: CallerInfo,
+    ) -> Option<CheckResult<hir::Node>> {
+        if let Some(id) = self.get_global_binding_id(module_id, name) {
+            self.workspace.add_binding_info_use(id, caller_info.span);
+
+            if let Err(diag) = self.validate_item_visibility(id, caller_info) {
+                Some(Err(diag))
+            } else {
+                Some(Ok(self.id_or_const_by_id(id, caller_info.span)))
+            }
+        } else {
+            None
+        }
+    }
+
+    fn check_binding_in_module(
+        &mut self,
+        name: Ustr,
+        module: &ast::Module,
+        caller_info: CallerInfo,
+    ) -> Option<CheckResult<hir::Node>> {
+        let (index, binding) = module.find_binding(name)?;
+
+        // Check that this binding isn't cyclic
+        if !self.encountered_items.insert((module.id, index)) {
+            return Some(Err(Diagnostic::error()
+                .with_message(format!(
+                    "cycle detected while checking `{}` in module `{}`",
+                    name, module.info.name
+                ))
+                .with_label(Label::primary(caller_info.span, format!("`{}` refers to itself", name)))
+                .with_label(Label::secondary(
+                    binding.pattern_span(),
+                    format!("`{}` is defined here", name),
+                ))));
+        }
+
+        self.queued_modules
+            .get_mut(&module.id)
+            .unwrap()
+            .queued_bindings
+            .insert(index);
+
+        match binding.check_top_level(self) {
+            Ok(bound_names) => {
+                let desired_id = *bound_names.get(&name).unwrap();
+
+                self.workspace.add_binding_info_use(desired_id, caller_info.span);
+                match self.validate_item_visibility(desired_id, caller_info) {
+                    Ok(_) => {
+                        self.encountered_items.remove(&(module.id, index));
+                        Some(Ok(self.id_or_const_by_id(desired_id, caller_info.span)))
+                    }
+                    Err(diag) => Some(Err(diag)),
+                }
+            }
+            Err(diag) => Some(Err(diag)),
+        }
+    }
+
+    fn check_binding_in_std_prelude(&mut self, name: Ustr, caller_info: CallerInfo) -> Option<CheckResult> {
+        let std_root_module_id = self.workspace.std_library().root_module_id;
+
+        if let Some(result) = self.find_checked_top_level_binding(name, std_root_module_id, caller_info) {
+            Some(result)
+        } else {
+            let std_root_module = self
+                .modules
+                .iter()
+                .find(|m| m.id == std_root_module_id)
+                .unwrap_or_else(|| panic!("{:?}", std_root_module_id));
+
+            self.check_binding_in_module(name, std_root_module, caller_info)
         }
     }
 
@@ -221,48 +256,6 @@ impl<'s> CheckSess<'s> {
                             queued_bindings: HashSet::new(),
                         },
                     );
-
-                    // Auto import std
-                    // TODO: Because of circular import conflicts, we *don't* import the
-                    // TODO: prelude automatically for std files. This should be fixed after we create
-                    // TODO: a proper dependency graph of all entities/bindings.
-                    if !module
-                        .info
-                        .file_path
-                        .starts_with(self.workspace.std_library().root_dir().to_str().unwrap())
-                    {
-                        self.with_env(module.id, |sess, mut env| {
-                            let auto_import_std_pattern = Pattern::Hybrid(HybridPattern {
-                                name_pattern: NamePattern {
-                                    id: BindingId::unknown(),
-                                    name: ustr(LIB_NAME_STD),
-                                    span,
-                                    is_mutable: false,
-                                    ignore: false,
-                                },
-                                unpack_pattern: UnpackPatternKind::Struct(StructUnpackPattern {
-                                    sub_patterns: vec![],
-                                    span,
-                                    wildcard: Some(Wildcard { span }),
-                                }),
-                                span,
-                            });
-
-                            let std_module_id = sess.workspace.std_library().root_module_id;
-                            let std_module_type = sess.check_module_by_id(std_module_id)?;
-
-                            sess.bind_pattern(
-                                &mut env,
-                                &auto_import_std_pattern,
-                                ast::Visibility::Private,
-                                std_module_type,
-                                None,
-                                BindingInfoKind::Orphan,
-                                span,
-                                BindingInfoFlags::SHADOWABLE,
-                            )
-                        })?;
-                    }
 
                     module_type
                 }

@@ -1,5 +1,4 @@
 let { 
-    panic, 
     intrinsics: { os, Os_linux, Os_windows },
     c: { printf },
 } = import lib
