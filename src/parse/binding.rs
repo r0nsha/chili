@@ -1,5 +1,5 @@
 use super::*;
-use crate::{ast::pattern::Pattern, types::FunctionTypeKind, workspace::ModuleId};
+use crate::{ast::pattern::Pattern, types::FunctionTypeKind};
 
 impl Parser {
     pub fn try_parse_any_binding(
@@ -67,7 +67,6 @@ impl Parser {
         }
 
         Ok(ast::Binding {
-            module_id: Default::default(),
             attrs,
             visibility,
             kind: ast::BindingKind::Orphan {
@@ -99,7 +98,6 @@ impl Parser {
         let body = Box::new(self.parse_expression(false, true)?);
 
         Ok(ast::Binding {
-            module_id: Default::default(),
             attrs,
             visibility,
             kind: ast::BindingKind::Function {
@@ -127,7 +125,6 @@ impl Parser {
             let (sig, _) = self.parse_function_sig(Some(name), FunctionTypeKind::Extern, true)?;
 
             Ok(ast::Binding {
-                module_id: ModuleId::unknown(),
                 attrs,
                 visibility,
                 kind: ast::BindingKind::ExternFunction {
@@ -149,7 +146,6 @@ impl Parser {
             let type_expr = self.parse_expression(false, true)?;
 
             Ok(ast::Binding {
-                module_id: ModuleId::unknown(),
                 attrs,
                 visibility,
                 kind: ast::BindingKind::ExternVariable {
@@ -180,7 +176,6 @@ impl Parser {
         Self::assign_expr_name_if_needed(&mut type_expr, name);
 
         Ok(ast::Binding {
-            module_id: ModuleId::unknown(),
             attrs,
             visibility,
             kind: ast::BindingKind::Type {

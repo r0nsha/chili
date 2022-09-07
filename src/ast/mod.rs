@@ -528,7 +528,6 @@ impl ExternLibrary {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Binding {
-    pub module_id: ModuleId,
     pub attrs: Vec<Attr>,
     pub visibility: Visibility,
     pub kind: BindingKind,

@@ -11,16 +11,16 @@ use crate::{
 use std::collections::HashSet;
 use ustr::{Ustr, UstrMap};
 
-pub(super) trait CheckTopLevel
+trait CheckTopLevel
 where
     Self: Sized,
 {
-    fn check_top_level(&self, sess: &mut CheckSess) -> CheckResult<UstrMap<BindingId>>;
+    fn check_top_level(&self, sess: &mut CheckSess, module_id: ModuleId) -> CheckResult<UstrMap<BindingId>>;
 }
 
 impl CheckTopLevel for ast::Binding {
-    fn check_top_level(&self, sess: &mut CheckSess) -> CheckResult<UstrMap<BindingId>> {
-        let node = sess.with_env(self.module_id, |sess, mut env| self.check(sess, &mut env, None))?;
+    fn check_top_level(&self, sess: &mut CheckSess, module_id: ModuleId) -> CheckResult<UstrMap<BindingId>> {
+        let node = sess.with_env(module_id, |sess, mut env| self.check(sess, &mut env, None))?;
 
         if let Err(mut diagnostics) = substitute_node(&node, &mut sess.tcx) {
             let last = diagnostics.pop().unwrap();
@@ -156,7 +156,7 @@ impl<'s> CheckSess<'s> {
             .queued_bindings
             .insert(index);
 
-        match binding.check_top_level(self) {
+        match binding.check_top_level(self, module.id) {
             Ok(bound_names) => {
                 let desired_id = *bound_names.get(&name).unwrap();
 
@@ -269,7 +269,7 @@ impl<'s> CheckSess<'s> {
                     .queued_bindings
                     .insert(index)
                 {
-                    binding.check_top_level(self)?;
+                    binding.check_top_level(self, module.id)?;
                 }
             }
 

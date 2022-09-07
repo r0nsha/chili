@@ -32,10 +32,6 @@ pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
         if module.info.file_path.as_str() == root_file_path.to_str().unwrap() {
             workspace.root_module_id = module.id;
         }
-
-        module.bindings.iter_mut().for_each(|binding| {
-            binding.module_id = module.id;
-        });
     }
 
     // Set the root module id for all libraries
