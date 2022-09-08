@@ -634,8 +634,6 @@ impl Check for ast::Binding {
 
                 let sig_node = sig.check(sess, env, Some(sess.tcx.common_types.anytype))?;
 
-                let ty = sig_node.into_const_value().unwrap().into_type().unwrap();
-
                 let (qualified_name, function_kind, binding_kind) = if attrs.has(AttrKind::Intrinsic) {
                     match hir::Intrinsic::try_from(name.as_str()) {
                         Ok(intrinsic) => {
@@ -677,6 +675,8 @@ impl Check for ast::Binding {
                         BindingInfoKind::ExternFunction,
                     )
                 };
+
+                let ty = sig_node.into_const_value().unwrap().into_type().unwrap();
 
                 let function_id = sess.cache.functions.insert_with_id(hir::Function {
                     module_id: env.module_id(),

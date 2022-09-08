@@ -515,7 +515,7 @@ fn builtin_functions() = {
 fn extern_functions() = {
     // To use a function or variable declared externally of our program,
     // likely in some static/dynamic library, we declare an `extern` function.
-    extern fn printf(fmt: *u8, args...) -> int
+    extern fn printf(fmt: *u8, args...) -> i32
     printf("Hello from my '%s'\n".data, "printf".data)
 
     // Extern variables are declared like so:
