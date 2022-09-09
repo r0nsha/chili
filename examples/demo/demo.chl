@@ -377,14 +377,12 @@ fn structs() = {
     print_point(my_point)
 
     // Anonymous initialization
-    let my_point = { x: 1, y: 2 }
-    print_point(my_point)
+    print_point({ x: 1, y: 2 })
 
     // If a value is the same name as an identifer, you can omit the value as a shorthand
     let x = 3
     let y = 4
-    let my_point = { x, y }
-    print_point(my_point)
+    print_point({ x, y })
 }
 
 fn tuples() = {
@@ -523,22 +521,22 @@ fn extern_functions() = {
 }
 
 fn running_code_at_compile_time() = {
-    // Use a static block to run arbitrary code to return at compile time!
-    // Static blocks translate to a no-op at runtime
+    // Use a comptime block to run arbitrary code to return at compile time!
+    // Comptime blocks translate to a no-op at runtime
     println("running_code_at_compile_time")
-    static { println("Compile time: I appear first") }
+    comptime { println("Compile time: I appear first") }
 }
 
 fn starting_a_workspace() = {
     println("starting_a_workspace:")
-    static { println("Compile time: I appear second") }
+    comptime { println("Compile time: I appear second") }
 
-    static {
+    comptime {
         let * = import std/build
 
         let build_options = BuildOptions {
-            input_file: "static.chl",
-            output_file: "static",
+            input_file: "comptime.chl",
+            output_file: "comptime",
             target: BuildTarget_auto,
             optimization_level: OptimizationLevel_debug,
         }

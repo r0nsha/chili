@@ -328,8 +328,8 @@ impl Parser {
             }))
         } else if eat!(self, Import) {
             self.parse_import()
-        } else if is!(self, Static) {
-            Ok(Ast::StaticEval(self.parse_static_eval()?))
+        } else if is!(self, Comptime) {
+            Ok(Ast::Comptime(self.parse_comptime()?))
         } else if eat!(self, Star) {
             let start_span = self.previous_span();
             let is_mutable = eat!(self, Mut);
@@ -613,16 +613,16 @@ impl Parser {
         }
     }
 
-    pub fn parse_static_eval(&mut self) -> DiagnosticResult<ast::StaticBlock> {
+    pub fn parse_comptime(&mut self) -> DiagnosticResult<ast::Comptime> {
         let start_span = self.previous_span();
 
-        require!(self, Static, "static")?;
+        require!(self, Comptime, "comptime")?;
 
         self.skip_newlines();
 
         let expr = self.parse_block_expr()?;
 
-        Ok(ast::StaticBlock {
+        Ok(ast::Comptime {
             expr: Box::new(expr),
             span: start_span.to(self.previous_span()),
         })

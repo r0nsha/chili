@@ -923,7 +923,7 @@ impl Check for ast::Ast {
                     }
                 }
             },
-            ast::Ast::StaticEval(const_) => const_.check(sess, env, expected_type),
+            ast::Ast::Comptime(const_) => const_.check(sess, env, expected_type),
             ast::Ast::Function(function) => function.check(sess, env, expected_type),
             ast::Ast::While(while_) => while_.check(sess, env, expected_type),
             ast::Ast::For(for_) => for_.check(sess, env, expected_type),
@@ -2001,7 +2001,7 @@ impl Check for ast::For {
     }
 }
 
-impl Check for ast::StaticBlock {
+impl Check for ast::Comptime {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, expected_type: Option<TypeId>) -> CheckResult {
         // Notes (Ron 02/07/2022):
         // The inner expression of `static` isn't allowed to capture its outer environment yet.

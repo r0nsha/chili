@@ -20,4 +20,4 @@ fn build() = {
 	}
 }
 
-static { build() }
+comptime { build() }

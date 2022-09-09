@@ -38,9 +38,8 @@ impl Parser {
             }
             None => {
                 if !has_attrs {
-                    if is!(self, Static) {
-                        let static_eval = self.parse_static_eval()?;
-                        module.static_blocks.push(static_eval);
+                    if is!(self, Comptime) {
+                        module.comptime_blocks.push(self.parse_comptime()?);
                         Ok(())
                     } else if eat!(self, Semicolon | Newline) {
                         // Ignore

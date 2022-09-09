@@ -279,7 +279,7 @@ impl<'s> CheckSess<'s> {
 
             self.queued_modules.get_mut(&module.id).unwrap().all_complete = true;
 
-            for r#static in module.static_blocks.iter() {
+            for r#static in module.comptime_blocks.iter() {
                 let node = self.with_env(module.id, |sess, mut env| r#static.check(sess, &mut env, None))?;
 
                 if !self.workspace.build_options.check_mode {

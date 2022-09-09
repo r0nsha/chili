@@ -95,7 +95,6 @@ pub enum TokenKind {
     Return,
     Let,
     Type,
-    Static,
     Fn,
     Import,
     Extern,
@@ -106,6 +105,7 @@ pub enum TokenKind {
     Struct,
     Union,
     Match,
+    Comptime,
 
     // Accessors
     Placeholder,
@@ -138,7 +138,6 @@ impl From<&str> for TokenKind {
             "return" => Return,
             "let" => Let,
             "type" => Type,
-            "static" => Static,
             "fn" => Fn,
             "import" => Import,
             "extern" => Extern,
@@ -149,6 +148,7 @@ impl From<&str> for TokenKind {
             "struct" => Struct,
             "union" => Union,
             "match" => Match,
+            "comptime" => Comptime,
             "_" => Placeholder,
             s => Ident(ustr(s)),
         }
@@ -217,7 +217,6 @@ impl TokenKind {
             Return => "return",
             Let => "let",
             Type => "type",
-            Static => "static",
             Fn => "fn",
             Import => "import",
             Extern => "extern",
@@ -226,6 +225,7 @@ impl TokenKind {
             In => "in",
             As => "as",
             Struct => "struct",
+            Comptime => "comptime",
             Union => "union",
             Match => "match",
             Placeholder => "_",
