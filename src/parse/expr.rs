@@ -378,7 +378,8 @@ impl Parser {
             self.parse_function_expr(None, FunctionTypeKind::Orphan)
         } else if eat!(self, Struct) {
             self.parse_struct_type()
-        } else if eat!(self, Union) {
+        } else if eat!(self, Extern) {
+            require!(self, Union, "union")?;
             self.parse_struct_union_type()
         } else {
             Err(SyntaxError::expected(
