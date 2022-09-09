@@ -3267,10 +3267,12 @@ impl Check for ast::TupleLiteral {
 }
 impl Check for ast::StructType {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
-        let name = if self.name.is_empty() {
-            get_anonymous_struct_name(self.span)
-        } else {
+        let is_named = !self.name.is_empty();
+
+        let name = if is_named {
             self.name
+        } else {
+            get_anonymous_struct_name(self.span)
         };
 
         // the struct's main type variable
@@ -3282,28 +3284,35 @@ impl Check for ast::StructType {
         let struct_type_type_var = sess.tcx.bound(struct_type_var.as_kind().create_type(), self.span);
 
         env.push_scope(ScopeKind::Block);
-        sess.self_types.push(struct_type_var);
 
-        let (binding_id, _) = sess.bind_name(
-            env,
-            name,
-            ast::Visibility::Private,
-            struct_type_type_var,
-            Some(hir::Node::Const(hir::Const {
-                value: ConstValue::Type(struct_type_var),
-                ty: sess.tcx.common_types.anytype,
-                span: self.span,
-            })),
-            false,
-            BindingInfoKind::Orphan,
-            self.span,
-            BindingInfoFlags::empty(),
-        )?;
+        let binding_id = if is_named {
+            sess.self_types.push(struct_type_var);
 
-        sess.tcx.bind_ty(
-            struct_type_var,
-            Type::Struct(StructType::empty(name, Some(binding_id), self.kind)),
-        );
+            let (binding_id, _) = sess.bind_name(
+                env,
+                name,
+                ast::Visibility::Private,
+                struct_type_type_var,
+                Some(hir::Node::Const(hir::Const {
+                    value: ConstValue::Type(struct_type_var),
+                    ty: sess.tcx.common_types.anytype,
+                    span: self.span,
+                })),
+                false,
+                BindingInfoKind::Orphan,
+                self.span,
+                BindingInfoFlags::empty(),
+            )?;
+
+            sess.tcx.bind_ty(
+                struct_type_var,
+                Type::Struct(StructType::empty(name, Some(binding_id), self.kind)),
+            );
+
+            Some(binding_id)
+        } else {
+            None
+        };
 
         let mut field_map = UstrMap::<Span>::default();
         let mut struct_type_fields = vec![];
@@ -3327,7 +3336,10 @@ impl Check for ast::StructType {
             });
         }
 
-        sess.self_types.pop();
+        if is_named {
+            sess.self_types.pop();
+        }
+
         env.pop_scope();
 
         for field in struct_type_fields.iter() {
@@ -3346,20 +3358,26 @@ impl Check for ast::StructType {
 
         let struct_type = Type::Struct(StructType {
             name,
-            binding_id: Some(binding_id),
+            binding_id,
             kind: self.kind,
             fields: struct_type_fields,
         });
 
         if occurs(struct_type_var, &struct_type, &sess.tcx) {
-            Err(UnifyTypeErr::Occurs.into_diagnostic(&sess.tcx, &struct_type, None, &struct_type_var, self.span))
-        } else {
-            Ok(hir::Node::Const(hir::Const {
-                ty: sess.tcx.bound(struct_type.clone().create_type(), self.span),
-                span: self.span,
-                value: ConstValue::Type(sess.tcx.bound(struct_type, self.span)),
-            }))
+            return Err(UnifyTypeErr::Occurs.into_diagnostic(
+                &sess.tcx,
+                &struct_type,
+                None,
+                &struct_type_var,
+                self.span,
+            ));
         }
+
+        Ok(hir::Node::Const(hir::Const {
+            ty: sess.tcx.bound(struct_type.clone().create_type(), self.span),
+            span: self.span,
+            value: ConstValue::Type(sess.tcx.bound(struct_type, self.span)),
+        }))
     }
 }
 
