@@ -246,15 +246,13 @@ impl TokenKind {
 
         matches!(
             self,
-            At | OpenParen
+            OpenParen
                 | OpenCurly
                 | OpenBracket
                 | Plus
                 | Minus
                 | Star
-                | QuestionMark
                 | Amp
-                | Bar
                 | Bang
                 | If
                 | While
@@ -280,30 +278,4 @@ impl TokenKind {
                 | Char(_)
         )
     }
-
-    // pub fn is_expr_end(&self) -> bool {
-    //     use TokenKind::*;
-
-    //     matches!(
-    //         self,
-    //         Semicolon
-    //             | CloseParen
-    //             | CloseCurly
-    //             | CloseBracket
-    //             | QuestionMark
-    //             | Break
-    //             | Continue
-    //             | Return
-    //             | Placeholder
-    //             | Ident(_)
-    //             | Nil
-    //             | True
-    //             | False
-    //             | Int(_)
-    //             | Float(_)
-    //             | Str(_)
-    //             | Char(_)
-    //             | Eof
-    //     )
-    // }
 }

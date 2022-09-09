@@ -10,13 +10,13 @@ pub fn start(output_file: *str) -> () = {
         let pid = fork()
 
         if pid == 0 {
-            // child process
+            # child process
             execl(output_file.data, 0)
         } else if pid > 0 {
-            // parent process
+            # parent process
             waitpid(pid, (0 as int) as _, 0)
         } else {
-            // error
+            # error
             panic("fork failed")
         }
     } else if os == Os_windows {
@@ -52,13 +52,13 @@ pub fn start(output_file: *str) -> () = {
 
 		if w.kernel32.CreateProcessA(
 			output_file.data,
-			0 as uint as _, // null
-			0 as uint as _, // null
-			0 as uint as _, // null
+			0 as uint as _, # null
+			0 as uint as _, # null
+			0 as uint as _, # null
 			w.types.FALSE,
 			0,
-			0 as uint as _, // null
-			0 as uint as _, // null
+			0 as uint as _, # null
+			0 as uint as _, # null
 			&si,
 			&mut pi,
 		) != 0 {

@@ -54,6 +54,11 @@ impl<'lx> Lexer<'lx> {
         } else {
             match ch {
                 '@' => At,
+                '#' => {
+                    // This is a comment, eat the rest of the line and then eat the next token.
+                    self.eat_line();
+                    self.eat_token()?
+                }
                 ';' => Semicolon,
                 ':' => Colon,
                 '(' => OpenParen,
@@ -87,11 +92,7 @@ impl<'lx> Lexer<'lx> {
                 }
                 '?' => QuestionMark,
                 '/' => {
-                    if self.eat('/') {
-                        // This is a comment, eat the rest of the line and then eat the next token.
-                        self.eat_line();
-                        self.eat_token()?
-                    } else if self.eat('=') {
+                    if self.eat('=') {
                         FwSlashEq
                     } else {
                         FwSlash

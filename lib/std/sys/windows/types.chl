@@ -1,7 +1,7 @@
-// TODO (ICE): this stack overflows
-// let c = import std/c
+# TODO (ICE): this stack overflows
+# let c = import std/c
 
-// TODO: Switch these to use types from std/c
+# TODO: Switch these to use types from std/c
 pub type BYTE = u8
 pub type CHAR = u8
 pub type WCHAR = u16
@@ -80,13 +80,13 @@ pub let TRUE: BOOL = 1
 pub let FALSE: BOOL = 0
 pub let INFINITE = 0xFFFFFFFF
 
-pub let CP_ACP = 0          // default to ANSI code page
-pub let CP_OEMCP = 1        // default to OEM code page
-pub let CP_MACCP = 2        // default to MAC code page
-pub let CP_THREAD_ACP = 3   // current thread's ANSI code page
-pub let CP_SYMBOL = 42      // SYMBOL translations
-pub let CP_UTF7 = 65000     // UTF-7 translation
-pub let CP_UTF8 = 65001     // UTF-8 translation
+pub let CP_ACP = 0          # default to ANSI code page
+pub let CP_OEMCP = 1        # default to OEM code page
+pub let CP_MACCP = 2        # default to MAC code page
+pub let CP_THREAD_ACP = 3   # current thread's ANSI code page
+pub let CP_SYMBOL = 42      # SYMBOL translations
+pub let CP_UTF7 = 65000     # UTF-7 translation
+pub let CP_UTF8 = 65001     # UTF-8 translation
 
 pub let MB_ERR_INVALID_CHARS = 8
 pub let WC_ERR_INVALID_CHARS = 128

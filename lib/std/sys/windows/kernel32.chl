@@ -7,10 +7,10 @@ pub extern fn MultiByteToWideChar(
     CodePage: UINT,
     dwFlags: DWORD,
     lpMultiByteStr: LPSTR,
-    cbMultiByte: i32, // c_int
+    cbMultiByte: i32, # c_int
     lpWideCharStr: LPWSTR,
-    cchWideChar: i32, // c_int
-) -> i32 // c_int
+    cchWideChar: i32, # c_int
+) -> i32 # c_int
 
 ![lib = kernel32]
 pub extern fn CreateProcessA(

@@ -1,6 +1,6 @@
 let { os, Os_windows } = import intrinsics
 
-// Types
+# Types
 pub type c_char = u8
 pub type wchar_t = if os == Os_windows { u16 } else { u32 }
 
@@ -47,7 +47,7 @@ pub type pid_t = int
 
 pub type c_void = ()
 
-// Constants
+# Constants
 pub let INT8_MAX: int8_t = 0x7f
 pub let INT16_MAX: int16_t = 0x7fff
 pub let INT32_MAX: int32_t = 0x7fffffff
@@ -65,7 +65,7 @@ pub let INT64_MIN: c_longlong = !INT64_MAX
 
 pub let CHAR_BIT = 8
 
-// Functions
+# Functions
 let c = "c"
 
 ![lib = c]
