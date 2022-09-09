@@ -99,12 +99,10 @@ impl<'lx> Lexer<'lx> {
                     }
                 }
                 '.' => {
-                    if self.eat('.') {
-                        if self.eat('.') {
-                            DotDotDot
-                        } else {
-                            DotDot
-                        }
+                    if self.peek() == '.' && self.peek_next() == '.' {
+                        self.bump();
+                        self.bump();
+                        DotDotDot
                     } else {
                         Dot
                     }
@@ -446,6 +444,10 @@ impl<'lx> Lexer<'lx> {
 
     pub fn peek_next(&self) -> char {
         self.source.at(self.cursor.end_index() + 1)
+    }
+
+    pub fn peek_offset(&self, offset: usize) -> char {
+        self.source.at(self.cursor.end_index() + offset)
     }
 
     pub fn eat(&mut self, expected: char) -> bool {

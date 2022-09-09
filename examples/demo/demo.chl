@@ -269,18 +269,18 @@ fn slices() = {
     }
 
     # Slicing the all elements of the array implicitly
-    print_slice(&array[..])
+    print_slice(&array[...])
     
     # Slicing the elements 1-3 of the array
-    let slice = &array[1..3]
+    let slice = &array[1...3]
     print_slice(slice)
     
     # Slicing the first 3 elements of the array
-    let slice = &array[..3]
+    let slice = &array[...3]
     print_slice(slice)
     
     # Slicing the last 3 elements of the array
-    let slice = &array[3..]
+    let slice = &array[3...]
     print_slice(slice)
 }
 

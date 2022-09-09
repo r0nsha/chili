@@ -128,7 +128,7 @@ impl Parser {
 
         match &token.kind {
             // Lib & parent dir
-            DotDot => {
+            DotDotDot => {
                 if module_path.pop().is_some() {
                     Ok(())
                 } else {
@@ -139,7 +139,7 @@ impl Parser {
                 module_path.push(*ident);
                 Ok(())
             }
-            _ => Err(SyntaxError::expected(token.span, "an identifier or ..")),
+            _ => Err(SyntaxError::expected(token.span, "an identifier or ...")),
         }
     }
 
