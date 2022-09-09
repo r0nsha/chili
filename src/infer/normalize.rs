@@ -91,33 +91,36 @@ impl NormalizeCtx {
             Type::Slice(inner) => Type::Slice(Box::new(self.normalize_kind(tcx, inner))),
             Type::Str(inner) => Type::Str(Box::new(self.normalize_kind(tcx, inner))),
             Type::Tuple(tys) => Type::Tuple(tys.iter().map(|kind| self.normalize_kind(tcx, kind)).collect()),
-            Type::Struct(st) => {
-                if st.binding_id != Default::default() && st.binding_id == self.parent_binding_id {
-                    kind.clone()
-                } else {
-                    let old_id = self.parent_binding_id;
-                    self.parent_binding_id = st.binding_id;
+            Type::Struct(struct_type) => match struct_type.binding_id {
+                Some(binding_id) if binding_id == self.parent_binding_id => kind.clone(),
+                _ => {
+                    let binding_id = struct_type.binding_id.unwrap_or(BindingId::unknown());
 
-                    let st = Type::Struct(StructType {
-                        name: st.name,
-                        binding_id: st.binding_id,
-                        fields: st
-                            .fields
-                            .iter()
-                            .map(|f| StructTypeField {
-                                name: f.name,
-                                ty: self.normalize_kind(tcx, &f.ty),
-                                span: f.span,
-                            })
-                            .collect(),
-                        kind: st.kind,
+                    let old_id = self.parent_binding_id;
+                    self.parent_binding_id = binding_id;
+
+                    let fields = struct_type
+                        .fields
+                        .iter()
+                        .map(|f| StructTypeField {
+                            name: f.name,
+                            ty: self.normalize_kind(tcx, &f.ty),
+                            span: f.span,
+                        })
+                        .collect();
+
+                    let struct_type = Type::Struct(StructType {
+                        name: struct_type.name,
+                        binding_id: struct_type.binding_id,
+                        fields,
+                        kind: struct_type.kind,
                     });
 
                     self.parent_binding_id = old_id;
 
-                    st
+                    struct_type
                 }
-            }
+            },
             Type::Type(inner) => self.normalize_kind(tcx, inner).create_type(),
             Type::Infer(ty, InferType::AnyInt) => self.normalize_anyint(*ty),
             Type::Infer(ty, InferType::AnyFloat) => self.normalize_anyfloat(*ty),

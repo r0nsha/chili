@@ -3274,10 +3274,9 @@ impl Check for ast::StructType {
         };
 
         // the struct's main type variable
-        let struct_type_var = sess.tcx.bound(
-            Type::Struct(StructType::empty(name, BindingId::unknown(), self.kind)),
-            self.span,
-        );
+        let struct_type_var = sess
+            .tcx
+            .bound(Type::Struct(StructType::empty(name, None, self.kind)), self.span);
 
         // the struct's main type variable, in its `type` variation
         let struct_type_type_var = sess.tcx.bound(struct_type_var.as_kind().create_type(), self.span);
@@ -3303,7 +3302,7 @@ impl Check for ast::StructType {
 
         sess.tcx.bind_ty(
             struct_type_var,
-            Type::Struct(StructType::empty(name, binding_id, self.kind)),
+            Type::Struct(StructType::empty(name, Some(binding_id), self.kind)),
         );
 
         let mut field_map = UstrMap::<Span>::default();
@@ -3347,7 +3346,7 @@ impl Check for ast::StructType {
 
         let struct_type = Type::Struct(StructType {
             name,
-            binding_id,
+            binding_id: Some(binding_id),
             kind: self.kind,
             fields: struct_type_fields,
         });
@@ -3456,7 +3455,7 @@ fn check_anonymous_struct_literal(
 
     let mut struct_ty = StructType {
         name,
-        binding_id: BindingId::unknown(),
+        binding_id: None,
         kind: StructTypeKind::Struct,
         fields: vec![],
     };

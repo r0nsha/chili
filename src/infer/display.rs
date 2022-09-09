@@ -1,6 +1,5 @@
 use super::{normalize::Normalize, type_ctx::TypeCtx, unify::UnifyTypeResult};
-use crate::{check::symbols, error::DiagnosticResult, types::*};
-use crate::{span::Span, workspace::BindingId};
+use crate::{check::symbols, error::DiagnosticResult, span::Span, types::*};
 
 pub trait DisplayType {
     fn display(&self, tcx: &TypeCtx) -> String;
@@ -63,7 +62,7 @@ fn display_type(ty: &Type, tcx: &TypeCtx) -> String {
 
 impl DisplayType for StructType {
     fn display(&self, tcx: &TypeCtx) -> String {
-        if self.binding_id != BindingId::unknown() {
+        if self.binding_id.is_some() {
             self.name.to_string()
         } else {
             format!(

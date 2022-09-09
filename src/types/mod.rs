@@ -144,7 +144,7 @@ impl FunctionTypeKind {
 #[derive(Debug, PartialEq, Clone)]
 pub struct StructType {
     pub name: Ustr,
-    pub binding_id: BindingId,
+    pub binding_id: Option<BindingId>,
     pub fields: Vec<StructTypeField>,
     pub kind: StructTypeKind,
 }
@@ -173,6 +173,24 @@ impl From<StructType> for Type {
 }
 
 impl StructType {
+    pub fn empty(name: Ustr, binding_id: Option<BindingId>, kind: StructTypeKind) -> Self {
+        Self {
+            name,
+            binding_id,
+            fields: vec![],
+            kind,
+        }
+    }
+
+    pub fn temp(fields: Vec<StructTypeField>, kind: StructTypeKind) -> Self {
+        Self {
+            name: ustr(""),
+            binding_id: None,
+            fields,
+            kind,
+        }
+    }
+
     #[allow(unused)]
     pub fn is_struct(&self) -> bool {
         matches!(self.kind, StructTypeKind::Struct)
@@ -185,6 +203,11 @@ impl StructType {
     pub fn is_union(&self) -> bool {
         matches!(self.kind, StructTypeKind::Union)
     }
+
+    #[allow(unused)]
+    pub fn is_anonymous(&self) -> bool {
+        self.name.is_empty()
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -192,31 +215,6 @@ pub enum StructTypeKind {
     Struct,
     PackedStruct,
     Union,
-}
-
-impl StructType {
-    pub fn empty(name: Ustr, binding_id: BindingId, kind: StructTypeKind) -> Self {
-        Self {
-            name,
-            binding_id,
-            fields: vec![],
-            kind,
-        }
-    }
-
-    pub fn temp(fields: Vec<StructTypeField>, kind: StructTypeKind) -> Self {
-        Self {
-            name: ustr(""),
-            binding_id: Default::default(),
-            fields,
-            kind,
-        }
-    }
-
-    #[allow(unused)]
-    pub fn is_anonymous(&self) -> bool {
-        self.name.is_empty()
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
