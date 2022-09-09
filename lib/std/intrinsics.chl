@@ -1,11 +1,7 @@
 let { Workspace } = import build
 
-// Workspace
-
 ![intrinsic]
 pub extern fn start_workspace(workspace: Workspace) -> (*str, bool)
-
-// Location
 
 pub type Location = struct {
     file: *str
@@ -19,8 +15,6 @@ pub extern fn location() -> Location
 ![intrinsic]
 pub extern fn caller_location() -> Location
 
-// Target
-
 pub type Os = uint
 pub let Os_linux: Os = 0
 pub let Os_windows: Os = 1
@@ -33,3 +27,9 @@ pub let Arch_amd64: Os = 0
 
 ![intrinsic]
 pub extern let arch: Arch
+
+![intrinsic]
+pub extern fn compiler_error(msg: *str) -> never
+
+![intrinsic]
+pub extern fn compiler_warning(msg: *str)

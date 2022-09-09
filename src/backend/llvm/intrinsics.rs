@@ -35,7 +35,10 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
                 function
             }),
-            hir::Intrinsic::Location | hir::Intrinsic::CallerLocation => panic!(
+            hir::Intrinsic::Location
+            | hir::Intrinsic::CallerLocation
+            | hir::Intrinsic::CompilerError
+            | hir::Intrinsic::CompilerWarning => panic!(
                 "intrinsic function '{}' should have been evaluated at compile-time",
                 intrinsic
             ),

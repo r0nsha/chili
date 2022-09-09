@@ -18,9 +18,7 @@ export function spanToRange(textDocument: TextDocument, span: Span): Range {
   };
 }
 
-export enum LspDiagnosticSeverity {
-  Error,
-}
+export type LspDiagnosticSeverity = "Error" | "Warning";
 
 export type LspObject =
   | {

@@ -73,6 +73,7 @@ impl From<DiagnosticSeverity> for Severity {
     fn from(val: DiagnosticSeverity) -> Self {
         match val {
             DiagnosticSeverity::Error => Severity::Error,
+            DiagnosticSeverity::Warning => Severity::Warning,
         }
     }
 }

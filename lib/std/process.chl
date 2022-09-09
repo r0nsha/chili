@@ -69,8 +69,6 @@ pub fn start(output_file: *str) -> () = {
 			panic("CreateProcessA failed")
 		}
     } else {
-        // TODO: when panic formatting is implemented, use it here
-        printf("os = %d\n".data, os)
-        panic("unsupported OS")
+        std.intrinsics.compiler_error("unsupported OS")
     }
 }

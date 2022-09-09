@@ -630,7 +630,9 @@ impl Check for ast::Binding {
                             match intrinsic {
                                 hir::Intrinsic::StartWorkspace
                                 | hir::Intrinsic::Location
-                                | hir::Intrinsic::CallerLocation => (
+                                | hir::Intrinsic::CallerLocation
+                                | hir::Intrinsic::CompilerError
+                                | hir::Intrinsic::CompilerWarning => (
                                     get_qualified_name(env.scope_name(), name),
                                     hir::FunctionKind::Intrinsic(intrinsic),
                                     BindingInfoKind::Intrinsic(intrinsic),
@@ -730,7 +732,9 @@ impl Check for ast::Binding {
                                 ),
                                 hir::Intrinsic::StartWorkspace
                                 | hir::Intrinsic::Location
-                                | hir::Intrinsic::CallerLocation => {
+                                | hir::Intrinsic::CallerLocation
+                                | hir::Intrinsic::CompilerError
+                                | hir::Intrinsic::CompilerWarning => {
                                     return Err(Diagnostic::error()
                                         .with_message(format!("intrinsic name `{}` is reserved for a function", name))
                                         .with_label(Label::primary(span, "intrinsic is a function")));
@@ -2631,7 +2635,10 @@ impl Check for ast::Call {
                 let function = sess.cache.functions.get(f.id).unwrap();
                 match &function.kind {
                     hir::FunctionKind::Intrinsic(intrinsic) => match intrinsic {
-                        hir::Intrinsic::Location | hir::Intrinsic::CallerLocation => Some(*intrinsic),
+                        hir::Intrinsic::Location
+                        | hir::Intrinsic::CallerLocation
+                        | hir::Intrinsic::CompilerError
+                        | hir::Intrinsic::CompilerWarning => Some(*intrinsic),
                         hir::Intrinsic::StartWorkspace | hir::Intrinsic::Os | hir::Intrinsic::Arch => None,
                     },
                     _ => None,
@@ -2981,6 +2988,40 @@ impl Check for ast::Call {
                                     span: self.span,
                                 })
                             })
+                        }
+                        hir::Intrinsic::CompilerError => {
+                            let first_arg = args.first().unwrap();
+
+                            if let Some(ConstValue::Str(msg)) = args.first().unwrap().as_const_value() {
+                                Err(Diagnostic::error()
+                                    .with_message(msg)
+                                    .with_label(Label::primary(self.span, msg)))
+                            } else {
+                                Err(Diagnostic::error()
+                                    .with_message("argument `msg` must be a string literal")
+                                    .with_label(Label::primary(first_arg.span(), "not a string literal")))
+                            }
+                        }
+                        hir::Intrinsic::CompilerWarning => {
+                            let first_arg = args.first().unwrap();
+
+                            if let Some(ConstValue::Str(msg)) = args.first().unwrap().as_const_value() {
+                                sess.workspace.diagnostics.push(
+                                    Diagnostic::warning()
+                                        .with_message(msg)
+                                        .with_label(Label::primary(self.span, msg)),
+                                );
+
+                                Ok(hir::Node::Const(hir::Const {
+                                    value: ConstValue::Unit(()),
+                                    ty: sess.tcx.common_types.unit,
+                                    span: self.span,
+                                }))
+                            } else {
+                                Err(Diagnostic::error()
+                                    .with_message("argument `msg` must be a string literal")
+                                    .with_label(Label::primary(first_arg.span(), "not a string literal")))
+                            }
                         }
                         hir::Intrinsic::StartWorkspace | hir::Intrinsic::Os | hir::Intrinsic::Arch => unreachable!(),
                     }
