@@ -90,18 +90,18 @@ For some examples of what you can do with Chili, check out the [examples folder]
 - [x] Default function arguments
 - [x] Panic function
 - [x] Varargs
-- [ ] Runtime type introspection
-- [ ] Printing and formatting
-- [ ] Parametric polymorphism - supporting both types and constant values
-- [ ] Associated functions / Methods
+- [ ] Printing
 - [ ] Memory management model (The design is still in progress)
   - [ ] Ownership (Move & Copy semantics)
   - [ ] Safe references ("Borrowing")
   - [ ] Regions
+- [ ] Parametric polymorphism - supporting both types and constant values
+- [ ] Associated functions / Methods
 - [ ] Enums & Pattern matching
   - [ ] Option & Result types
-  - [ ] Try ? operator
+  - [ ] Try operator: `?`
 - [ ] Traits / Typeclasses
+- [ ] `format` function
 - [ ] Closures
 - [ ] Built-in code testing
 
