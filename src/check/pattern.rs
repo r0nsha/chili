@@ -97,7 +97,7 @@ impl<'s> CheckSess<'s> {
                         ));
                     }
                 } else {
-                    if is_mutable && !matches!(kind, BindingInfoKind::Static) {
+                    if is_mutable && !matches!(kind, BindingInfoKind::LetStatic) {
                         self.workspace.diagnostics.push(
                             Diagnostic::error()
                                 .with_message(format!("top level let binding `{}` cannot be mutable", name))

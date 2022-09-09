@@ -55,7 +55,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
             let llvm_type = ty.llvm_type(generator);
 
             let decl = match &binding_info.kind {
-                BindingInfoKind::Static => {
+                BindingInfoKind::LetStatic => {
                     // statically initialize this binding
                     let global_value = generator.add_global(self.id, llvm_type, Linkage::Private);
                     global_value.set_initializer(&llvm_type.const_zero());
@@ -90,7 +90,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
         let llvm_type = ty.llvm_type(generator);
 
         match &binding_info.kind {
-            BindingInfoKind::Static => {
+            BindingInfoKind::LetStatic => {
                 // statically initialize this binding
                 let global_value = generator.add_global(self.id, llvm_type, Linkage::Private);
                 global_value.set_initializer(&llvm_type.const_zero());

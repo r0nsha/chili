@@ -397,7 +397,7 @@ impl<'s> CheckSess<'s> {
                     ty,
                     Some(value),
                     is_mutable,
-                    BindingInfoKind::Orphan,
+                    BindingInfoKind::LetConst,
                     span,
                     BindingInfoFlags::NO_CONST_FOLD,
                 )?;
@@ -466,11 +466,10 @@ impl Check for ast::Binding {
         sess.check_attrs_are_assigned_to_valid_binding(&attrs, self)?;
 
         match &self.kind {
-            ast::BindingKind::Orphan {
+            ast::BindingKind::Let {
                 pattern,
                 type_expr,
                 value,
-                is_static,
             } => {
                 let ty = check_optional_type_expr(type_expr, sess, env, pattern.span())?;
 
@@ -499,25 +498,10 @@ impl Check for ast::Binding {
 
                 let value_is_module = binding_type.is_module();
 
-                // Global immutable bindings must resolve to a const value, unless it is:
-                // - of type `type` or `module`
-                // - an extern binding
-                if !is_static
-                    && env.scope_level().is_global()
-                    && !value_node.is_const()
-                    && !value_is_module
-                    && !pattern.iter().any(|p| p.is_mutable)
-                {
-                    return Err(Diagnostic::error()
-                        .with_message(format!("immutable, top level variable must be constant"))
-                        .with_label(Label::primary(pattern.span(), "must be constant"))
-                        .with_label(Label::secondary(
-                            value_node.span(),
-                            "doesn't resolve to a constant value",
-                        )));
-                }
+                let is_static =
+                    env.scope_level().is_global() && !value_node.is_const() || pattern.iter().any(|p| p.is_mutable);
 
-                // Bindings of type `type` and `module` cannot be assigned to mutable bindings
+                // Bindings of type `{module}` cannot be assigned to mutable bindings
                 if value_is_module {
                     pattern.iter().filter(|pattern| pattern.is_mutable).for_each(|pattern| {
                         sess.workspace.diagnostics.push(
@@ -542,10 +526,10 @@ impl Check for ast::Binding {
                     self.visibility,
                     ty,
                     Some(value_node),
-                    if *is_static {
-                        BindingInfoKind::Static
+                    if is_static {
+                        BindingInfoKind::LetStatic
                     } else {
-                        BindingInfoKind::Orphan
+                        BindingInfoKind::LetConst
                     },
                     value_span,
                     if type_expr.is_some() {
@@ -1716,7 +1700,7 @@ impl Check for ast::For {
                         span: index_binding.span,
                     })),
                     false,
-                    BindingInfoKind::Orphan,
+                    BindingInfoKind::LetConst,
                     index_binding.span,
                     if self.index_binding.is_some() {
                         BindingInfoFlags::IS_USER_DEFINED
@@ -1739,7 +1723,7 @@ impl Check for ast::For {
                     iter_type,
                     Some(start_node),
                     false,
-                    BindingInfoKind::Orphan,
+                    BindingInfoKind::LetConst,
                     self.iter_binding.span,
                     BindingInfoFlags::IS_USER_DEFINED
                         | BindingInfoFlags::TYPE_WAS_INFERRED
@@ -1878,7 +1862,7 @@ impl Check for ast::For {
                     value_type,
                     Some(value_node),
                     false,
-                    BindingInfoKind::Orphan,
+                    BindingInfoKind::LetConst,
                     value_span,
                     BindingInfoFlags::empty(),
                 )?;
@@ -1908,7 +1892,7 @@ impl Check for ast::For {
                         span: index_binding.span,
                     })),
                     false,
-                    BindingInfoKind::Orphan,
+                    BindingInfoKind::LetConst,
                     index_binding.span,
                     if self.index_binding.is_some() {
                         BindingInfoFlags::IS_USER_DEFINED
@@ -1966,7 +1950,7 @@ impl Check for ast::For {
                         span: self.span,
                     }))),
                     false,
-                    BindingInfoKind::Orphan,
+                    BindingInfoKind::LetConst,
                     self.iter_binding.span,
                     BindingInfoFlags::IS_USER_DEFINED
                         | BindingInfoFlags::TYPE_WAS_INFERRED
@@ -3299,7 +3283,7 @@ impl Check for ast::StructType {
                     span: self.span,
                 })),
                 false,
-                BindingInfoKind::Orphan,
+                BindingInfoKind::LetConst,
                 self.span,
                 BindingInfoFlags::empty(),
             )?;
@@ -3614,7 +3598,7 @@ fn check_function<'s>(
                     ast::Visibility::Private,
                     ty,
                     None,
-                    BindingInfoKind::Orphan,
+                    BindingInfoKind::LetConst,
                     param.pattern.span(),
                     if param.type_expr.is_some() {
                         BindingInfoFlags::IS_USER_DEFINED
@@ -3644,7 +3628,7 @@ fn check_function<'s>(
                     ty,
                     None,
                     false,
-                    BindingInfoKind::Orphan,
+                    BindingInfoKind::LetConst,
                     span,
                     if param_type.name == "it" {
                         BindingInfoFlags::IMPLICIT_IT_FUNCTION_PARAM
@@ -3680,7 +3664,7 @@ fn check_function<'s>(
                     ty,
                     None,
                     false,
-                    BindingInfoKind::Orphan,
+                    BindingInfoKind::LetConst,
                     span,
                     BindingInfoFlags::empty(),
                 )?;

@@ -176,30 +176,6 @@
           "match": "\\b(pub\\s*|pub\\(dir\\)\\s*)?\\b(extern)\\b\\s*(\".+\"\\s*)?(let)\\s*(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
         },
         {
-          "comment": "static let binding",
-          "captures": {
-            "1": {
-              "name": "storage.modifier.chili"
-            },
-            "2": {
-              "name": "keyword.other.chili"
-            },
-            "3": {
-              "name": "keyword.other.chili"
-            },
-            "4": {
-              "name": "keyword.other.chili"
-            },
-            "5": {
-              "name": "keyword.other.chili"
-            },
-            "6": {
-              "name": "entity.name.function.chili"
-            }
-          },
-          "match": "\\b(pub\\s*|pub\\(dir\\)\\s*)?(\\b(static)\\b)\\s*(let)\\s*(mut\\s*)?([[:alpha:]_][[:alnum:]_]*)\\b"
-        },
-        {
           "comment": "type binding",
           "captures": {
             "1": {

@@ -73,8 +73,8 @@ pub struct BindingInfo {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BindingInfoKind {
-    Orphan,
-    Static,
+    LetConst,
+    LetStatic,
     Function,
     ExternFunction,
     ExternVariable,

@@ -44,7 +44,7 @@ impl Module {
             .iter()
             .enumerate()
             .find(|(_, binding)| match &binding.kind {
-                BindingKind::Orphan { pattern, .. } => pattern.iter().any(|pattern| pattern.name == name),
+                BindingKind::Let { pattern, .. } => pattern.iter().any(|pattern| pattern.name == name),
                 BindingKind::Function {
                     name: NameAndSpan { name: binding_name, .. },
                     ..
@@ -538,7 +538,7 @@ impl Binding {
     #[allow(unused)]
     pub fn debug_name(&self) -> String {
         match &self.kind {
-            BindingKind::Orphan { pattern, .. } => pattern.to_string(),
+            BindingKind::Let { pattern, .. } => pattern.to_string(),
             BindingKind::Function { name, .. }
             | BindingKind::ExternFunction { name, .. }
             | BindingKind::ExternVariable { name, .. }
@@ -548,7 +548,7 @@ impl Binding {
 
     pub fn pattern_span(&self) -> Span {
         match &self.kind {
-            BindingKind::Orphan { pattern, .. } => pattern.span(),
+            BindingKind::Let { pattern, .. } => pattern.span(),
             BindingKind::Function {
                 name: NameAndSpan { span, .. },
                 ..
@@ -571,11 +571,10 @@ impl Binding {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BindingKind {
-    Orphan {
+    Let {
         pattern: Pattern,
         type_expr: Option<Box<Ast>>,
         value: Box<Ast>,
-        is_static: bool,
     },
     Function {
         name: NameAndSpan,
@@ -603,7 +602,7 @@ impl Display for BindingKind {
             f,
             "{}",
             match self {
-                BindingKind::Orphan { .. } => "orphan",
+                BindingKind::Let { .. } => "orphan",
                 BindingKind::Function { .. } => "function",
                 BindingKind::ExternFunction { .. } => "extern function",
                 BindingKind::ExternVariable { .. } => "extern variable",

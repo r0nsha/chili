@@ -145,7 +145,7 @@ impl Lower for hir::Binding {
         let binding_info = sess.workspace.binding_infos.get(self.id).unwrap();
 
         match &binding_info.kind {
-            BindingInfoKind::Static => {
+            BindingInfoKind::LetStatic => {
                 lower_static_binding(self, sess);
             }
             _ => {
@@ -884,6 +884,7 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
 }
 
 fn find_and_lower_top_level_binding(id: BindingId, sess: &mut InterpSess) -> usize {
+    dbg!("{}", sess.workspace.binding_infos.get(id));
     let binding = sess
         .cache
         .bindings
