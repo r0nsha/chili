@@ -64,29 +64,7 @@ impl UnifyType<Type> for Type {
                 Ok(())
             }
 
-            (Type::Function(f1), Type::Function(f2)) => {
-                for (p1, p2) in f1.params.iter().zip(f2.params.iter()) {
-                    p1.ty.unify(&p2.ty, tcx)?;
-                }
-
-                f1.return_type.unify(f2.return_type.as_ref(), tcx)?;
-
-                match (&f1.varargs, &f2.varargs) {
-                    (Some(v1), Some(v2)) => match (&v1.ty, &v2.ty) {
-                        (Some(vt1), Some(vt2)) => vt1.unify(vt2, tcx)?,
-                        (None, None) => (),
-                        _ => return Err(UnifyTypeErr::Mismatch),
-                    },
-                    (None, None) => {
-                        if f1.params.len() != f2.params.len() {
-                            return Err(UnifyTypeErr::Mismatch);
-                        }
-                    }
-                    _ => return Err(UnifyTypeErr::Mismatch),
-                }
-
-                Ok(())
-            }
+            (Type::Function(f1), Type::Function(f2)) => f1.unify(f2, tcx),
 
             (Type::Array(t1, s1), Type::Array(t2, s2)) => {
                 if *s1 != *s2 {
@@ -108,22 +86,7 @@ impl UnifyType<Type> for Type {
                 }
             }
 
-            (Type::Struct(t1), Type::Struct(t2)) => {
-                if t1.binding_id == t2.binding_id {
-                    Ok(())
-                } else if t1.fields.len() != t2.fields.len() || t1.kind != t2.kind {
-                    Err(UnifyTypeErr::Mismatch)
-                } else {
-                    for f1 in t1.fields.iter() {
-                        if let Some(f2) = t2.field(f1.name) {
-                            f1.ty.unify(&f2.ty, tcx)?;
-                        } else {
-                            return Err(UnifyTypeErr::Mismatch);
-                        }
-                    }
-                    Ok(())
-                }
-            }
+            (Type::Struct(t1), Type::Struct(t2)) => t1.unify(t2, tcx),
 
             (Type::Type(t1), Type::Type(t2)) => t1.unify(t2.as_ref(), tcx),
             (Type::AnyType, Type::Type(_)) | (Type::Type(_), Type::AnyType) => Ok(()),
@@ -134,6 +97,61 @@ impl UnifyType<Type> for Type {
             (Type::Never, _) | (_, Type::Never) => Ok(()),
 
             _ => Err(UnifyTypeErr::Mismatch),
+        }
+    }
+}
+
+impl UnifyType<FunctionType> for FunctionType {
+    fn unify(&self, other: &FunctionType, tcx: &mut TypeCtx) -> UnifyTypeResult {
+        for (p1, p2) in self.params.iter().zip(other.params.iter()) {
+            p1.ty.unify(&p2.ty, tcx)?;
+        }
+
+        self.return_type.unify(other.return_type.as_ref(), tcx)?;
+
+        match (&self.varargs, &other.varargs) {
+            (Some(v1), Some(v2)) => match (&v1.ty, &v2.ty) {
+                (Some(vt1), Some(vt2)) => vt1.unify(vt2, tcx)?,
+                (None, None) => (),
+                _ => return Err(UnifyTypeErr::Mismatch),
+            },
+            (None, None) => {
+                if self.params.len() != other.params.len() {
+                    return Err(UnifyTypeErr::Mismatch);
+                }
+            }
+            _ => return Err(UnifyTypeErr::Mismatch),
+        }
+
+        Ok(())
+    }
+}
+
+impl UnifyType<StructType> for StructType {
+    fn unify(&self, other: &StructType, tcx: &mut TypeCtx) -> UnifyTypeResult {
+        match (self.binding_id, other.binding_id) {
+            (None, None) => {
+                if self.fields.len() != other.fields.len() || self.kind != other.kind {
+                    Err(UnifyTypeErr::Mismatch)
+                } else {
+                    for f1 in self.fields.iter() {
+                        if let Some(f2) = other.field(f1.name) {
+                            f1.ty.unify(&f2.ty, tcx)?;
+                        } else {
+                            return Err(UnifyTypeErr::Mismatch);
+                        }
+                    }
+                    Ok(())
+                }
+            }
+            (Some(_), None) | (None, Some(_)) => Err(UnifyTypeErr::Mismatch),
+            (Some(self_id), Some(other_id)) => {
+                if self_id == other_id {
+                    Ok(())
+                } else {
+                    Err(UnifyTypeErr::Mismatch)
+                }
+            }
         }
     }
 }
