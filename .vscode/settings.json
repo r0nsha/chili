@@ -1,8 +1,0 @@
-{
-  "cmake.configureOnOpen": false,
-  "files.associations": {
-    "*.arb": "json",
-    "*.chi": "chili",
-    "cinttypes": "cpp"
-  }
-}
