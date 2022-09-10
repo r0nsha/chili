@@ -43,6 +43,9 @@ use std::{
 };
 use ustr::UstrMap;
 
+#[cfg(windows)]
+use super::microsoft_craziness;
+
 pub fn codegen<'w>(workspace: &Workspace, tcx: &TypeCtx, cache: &hir::Cache) -> PathBuf {
     let context = Context::create();
     let module = context.create_module(
@@ -236,7 +239,22 @@ fn link(
         }
     }
 
-    if cfg!(windows) {
+    #[cfg(windows)]
+    {
+        let find_result = unsafe { microsoft_craziness::find_visual_studio_and_windows_sdk() };
+
+        if let Some(path) = &find_result.windows_sdk_ucrt_library_path {
+            lib_paths.push(path.to_string().unwrap());
+        }
+
+        if let Some(path) = &find_result.windows_sdk_um_library_path {
+            lib_paths.push(path.to_string().unwrap());
+        }
+
+        if let Some(path) = &find_result.vs_library_path {
+            lib_paths.push(path.to_string().unwrap());
+        }
+
         Command::new("lld-link")
             .arg(format!("/out:{}", executable_file.to_str().unwrap()))
             .arg("/entry:mainCRTStartup")
@@ -252,20 +270,21 @@ fn link(
             .args(link_flags)
             .execute_output()
             .unwrap();
-    } else {
-        Command::new("clang")
-            .arg("-Wno-unused-command-line-argument")
-            .arg(object_file.to_str().unwrap())
-            .arg(format!("-o{}", executable_file.to_str().unwrap()))
-            .args(lib_paths.iter().map(|path| format!("-L{}", path)))
-            .arg("-lc")
-            .arg("-lm")
-            .args(libs.iter().map(|path| format!("-l:{}", path)))
-            .arg("-no-pie")
-            .args(link_flags)
-            .execute_output()
-            .unwrap();
     }
+
+    #[cfg(not(windows))]
+    Command::new("clang")
+        .arg("-Wno-unused-command-line-argument")
+        .arg(object_file.to_str().unwrap())
+        .arg(format!("-o{}", executable_file.to_str().unwrap()))
+        .args(lib_paths.iter().map(|path| format!("-L{}", path)))
+        .arg("-lc")
+        .arg("-lm")
+        .args(libs.iter().map(|path| format!("-l:{}", path)))
+        .arg("-no-pie")
+        .args(link_flags)
+        .execute_output()
+        .unwrap();
 }
 
 fn is_libc(lib: &str) -> bool {

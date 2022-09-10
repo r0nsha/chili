@@ -22,7 +22,7 @@ impl DiagnosticEmitter {
             config: Config {
                 display_style: DisplayStyle::Rich,
                 tab_width: 4,
-                chars: Chars::ascii(),
+                chars: Chars::box_drawing(),
                 ..Default::default()
             },
         }
@@ -73,6 +73,7 @@ impl From<DiagnosticSeverity> for Severity {
     fn from(val: DiagnosticSeverity) -> Self {
         match val {
             DiagnosticSeverity::Error => Severity::Error,
+            DiagnosticSeverity::Warning => Severity::Warning,
         }
     }
 }

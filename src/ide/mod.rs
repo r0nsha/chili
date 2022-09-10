@@ -31,6 +31,7 @@ pub fn diagnostics(workspace: &Workspace, tcx: Option<&TypeCtx>, cache: Option<&
                     IdeObject::Diagnostic(IdeDiagnostic {
                         severity: match &diag.severity {
                             DiagnosticSeverity::Error => IdeDiagnosticSeverity::Error,
+                            DiagnosticSeverity::Warning => IdeDiagnosticSeverity::Warning,
                         },
                         span: IdeSpan::from_span_and_file(label.span, file.name()),
                         message: match &diag.message {

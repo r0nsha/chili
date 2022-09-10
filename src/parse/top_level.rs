@@ -12,8 +12,9 @@ impl Parser {
         while !self.eof() {
             if let Err(diag) = self.parse_top_level(&mut module) {
                 self.cache.lock().diagnostics.push(diag);
-                self.skip_until_recovery_point();
-                // return ParserResult::ParserFailed;
+                return ParserResult::ParserFailed;
+                // TODO: Recovery
+                // self.skip_until_recovery_point();
             }
         }
 
@@ -21,8 +22,7 @@ impl Parser {
     }
 
     pub fn parse_top_level(&mut self, module: &mut ast::Module) -> DiagnosticResult<()> {
-        let attrs = if is!(self, At) { self.parse_attrs()? } else { vec![] };
-
+        let attrs = self.parse_attrs()?;
         let has_attrs = !attrs.is_empty();
 
         let visibility = if eat!(self, Pub) {
@@ -38,9 +38,8 @@ impl Parser {
             }
             None => {
                 if !has_attrs {
-                    if is!(self, Static) {
-                        let static_eval = self.parse_static_eval()?;
-                        module.consts.push(static_eval);
+                    if is!(self, Comptime) {
+                        module.comptime_blocks.push(self.parse_comptime()?);
                         Ok(())
                     } else if eat!(self, Semicolon | Newline) {
                         // Ignore

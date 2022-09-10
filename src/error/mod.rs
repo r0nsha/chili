@@ -119,18 +119,18 @@ impl SyntaxError {
             .with_message(format!("`{}` outside of function", word))
             .with_label(Label::primary(span, ""))
     }
-
-    pub fn divide_by_zero(span: Span) -> Diagnostic {
-        Diagnostic::error()
-            .with_message("division by zero")
-            .with_label(Label::primary(span, ""))
-    }
 }
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct TypeError;
 
 impl TypeError {
+    pub fn divide_by_zero(span: Span) -> Diagnostic {
+        Diagnostic::error()
+            .with_message("division by zero")
+            .with_label(Label::primary(span, ""))
+    }
+
     pub fn type_is_unsized(ty: String, span: Span) -> Diagnostic {
         Diagnostic::error()
             .with_message(format!("the size of type `{}` cannot be known at compile-time", ty))
@@ -146,7 +146,7 @@ impl TypeError {
             ))
     }
 
-    pub fn negative_array_len(span: Span, len: i64) -> Diagnostic {
+    pub fn negative_array_len(span: Span, len: i128) -> Diagnostic {
         Diagnostic::error()
             .with_message(format!("array length cannot be negative, found {}", len))
             .with_label(Label::primary(span, ""))

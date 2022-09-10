@@ -12,26 +12,21 @@ use crate::{
     },
     error::{
         diagnostic::{Diagnostic, Label},
-        DiagnosticResult, SyntaxError,
+        DiagnosticResult, SyntaxError, TypeError,
     },
     hir,
-    infer::{
-        display::{DisplayType, OrReportErr},
-        normalize::Normalize,
-        unify::UnifyType,
-    },
+    infer::{display::DisplayType, normalize::Normalize},
     span::Span,
-    types::{InferType, PartialStructType, Type, TypeId},
+    types::{Type, TypeId},
     workspace::{BindingId, BindingInfoFlags, BindingInfoKind, ModuleId, PartialBindingInfo, ScopeLevel},
 };
-use indexmap::IndexMap;
-use ustr::{ustr, Ustr};
+use ustr::{ustr, Ustr, UstrMap};
 
 impl<'s> CheckSess<'s> {
     pub fn get_global_binding_id(&self, module_id: ModuleId, name: Ustr) -> Option<BindingId> {
         self.global_scopes
             .get(&module_id)
-            .and_then(|scope| scope.bindings.get(&name).cloned())
+            .and_then(|scope| scope.bindings.get(&name).copied())
     }
 
     pub fn insert_global_binding_id(&mut self, module_id: ModuleId, name: Ustr, id: BindingId) {
@@ -94,12 +89,7 @@ impl<'s> CheckSess<'s> {
                 if let Some(defined_id) = self.get_global_binding_id(module_id, name) {
                     let defined_binding_info = self.workspace.binding_infos.get(defined_id).unwrap();
 
-                    if flags.contains(BindingInfoFlags::SHADOWABLE) {
-                        // Do nothing, this is shadowed by the already defined binding
-                    } else if defined_binding_info.is_shadowable() {
-                        // The defined binding can be shadowed, so this is Ok
-                        self.insert_global_binding_id(module_id, name, id);
-                    } else if defined_binding_info.span != span {
+                    if defined_binding_info.span != span {
                         return Err(SyntaxError::duplicate_binding(
                             defined_binding_info.name,
                             span,
@@ -107,7 +97,7 @@ impl<'s> CheckSess<'s> {
                         ));
                     }
                 } else {
-                    if is_mutable && !matches!(kind, BindingInfoKind::Static) {
+                    if is_mutable && !matches!(kind, BindingInfoKind::LetStatic) {
                         self.workspace.diagnostics.push(
                             Diagnostic::error()
                                 .with_message(format!("top level let binding `{}` cannot be mutable", name))
@@ -354,15 +344,26 @@ impl<'s> CheckSess<'s> {
     ) -> DiagnosticResult<()> {
         match ty.normalize(&self.tcx).maybe_deref_once() {
             Type::Module(module_id) => {
-                // if let Some(b) = statements.last().map(|node| node.as_binding()).flatten() {
-                //     statements.pop();
-                // }
-
                 self.check_module_by_id(module_id)?;
+
+                // println!(
+                //     "`{}` -> `{}`",
+                //     env.module_info().name,
+                //     self.workspace.module_infos[module_id].name,
+                // );
 
                 let module_bindings = self.global_scopes.get(&module_id).unwrap().bindings.clone();
 
+                let mut unpacked_names = UstrMap::default();
+
                 for pattern in unpack_pattern.sub_patterns.iter() {
+                    if let Some(already_unpacked_span) = unpacked_names.insert(pattern.name(), pattern.span()) {
+                        return Err(Diagnostic::error()
+                            .with_message(format!("symbol `{}` has already been unpacked", pattern.name()))
+                            .with_label(Label::primary(pattern.span(), "duplicate unpack"))
+                            .with_label(Label::secondary(already_unpacked_span, "already unpacked here")));
+                    }
+
                     match pattern {
                         StructUnpackSubPattern::Name(pattern) => {
                             let caller_info = CallerInfo {
@@ -396,9 +397,10 @@ impl<'s> CheckSess<'s> {
 
                             let caller_info = CallerInfo {
                                 module_id: env.module_id(),
-                                span: span,
+                                span,
                             };
 
+                            // dbg!(module_bindings.keys().collect::<Vec<_>>());
                             let id = match module_bindings.get(&name) {
                                 Some(id) => *id,
                                 None => return Err(self.name_not_found_error(module_id, name, caller_info)),
@@ -432,13 +434,8 @@ impl<'s> CheckSess<'s> {
                             continue;
                         }
 
-                        if unpack_pattern
-                            .sub_patterns
-                            .iter()
-                            .find(|p| binding_info.name == p.name())
-                            .is_some()
-                        {
-                            // skip explicitly unpacked fields
+                        // skip explicitly unpacked bindings
+                        if unpacked_names.contains_key(&binding_info.name) {
                             continue;
                         }
 
@@ -457,138 +454,117 @@ impl<'s> CheckSess<'s> {
                         statements.push(binding);
                     }
                 }
+
+                Ok(())
             }
-            type_kind => {
-                let partial_struct = PartialStructType(IndexMap::from_iter(
-                    unpack_pattern
-                        .sub_patterns
-                        .iter()
-                        .map(|pattern| (pattern.name(), self.tcx.var(pattern.span()).as_kind())),
-                ));
-
-                let partial_struct_ty = self.tcx.partial_struct(partial_struct.clone(), unpack_pattern.span);
-
-                ty.unify(&partial_struct_ty, &mut self.tcx).or_report_err(
-                    &self.tcx,
-                    &partial_struct_ty,
-                    Some(unpack_pattern.span),
-                    &ty,
-                    ty_origin_span,
-                )?;
+            Type::Struct(struct_type) => {
+                let mut unpacked_names = UstrMap::default();
 
                 for (index, pattern) in unpack_pattern.sub_patterns.iter().enumerate() {
                     let name = pattern.name();
+                    let span = pattern.span();
 
-                    let ty = self.tcx.bound(partial_struct[&name].clone(), pattern.span());
+                    if let Some(already_unpacked_span) = unpacked_names.insert(name, span) {
+                        return Err(Diagnostic::error()
+                            .with_message(format!("field `{}` has already been unpacked", name))
+                            .with_label(Label::primary(span, "duplicate unpack"))
+                            .with_label(Label::secondary(already_unpacked_span, "already unpacked here")));
+                    } else if let Some(field) = struct_type.field(name) {
+                        let ty = self.tcx.bound(field.ty.clone(), span);
 
-                    let field_value = match value.as_const_value() {
-                        Some(const_value) if !pattern.is_mutable() => hir::Node::Const(hir::Const {
-                            value: const_value.as_struct().unwrap().get(&name).unwrap().clone().value,
-                            ty,
-                            span: pattern.span(),
-                        }),
-                        _ => hir::Node::MemberAccess(hir::MemberAccess {
-                            value: Box::new(value.clone()),
-                            member_name: name,
-                            member_index: index as _,
-                            ty,
-                            span: pattern.span(),
-                        }),
-                    };
+                        let field_value = match value.as_const_value() {
+                            Some(const_value) if !pattern.is_mutable() => hir::Node::Const(hir::Const {
+                                value: const_value.as_struct().unwrap().get(&name).unwrap().clone().value,
+                                ty,
+                                span,
+                            }),
+                            _ => hir::Node::MemberAccess(hir::MemberAccess {
+                                value: Box::new(value.clone()),
+                                member_name: name,
+                                member_index: index as _,
+                                ty,
+                                span,
+                            }),
+                        };
 
-                    let (_, bound_node) = match pattern {
-                        StructUnpackSubPattern::Name(pattern) => self.bind_name_pattern(
-                            env,
-                            pattern,
-                            visibility,
-                            ty,
-                            Some(field_value),
-                            kind,
-                            flags | BindingInfoFlags::TYPE_WAS_INFERRED,
-                        )?,
-                        StructUnpackSubPattern::NameAndPattern(_, pattern) => self.bind_pattern(
-                            env,
-                            pattern,
-                            visibility,
-                            ty,
-                            Some(field_value),
-                            kind,
-                            ty_origin_span,
-                            flags | BindingInfoFlags::TYPE_WAS_INFERRED,
-                        )?,
-                    };
+                        let (_, bound_node) = match pattern {
+                            StructUnpackSubPattern::Name(pattern) => self.bind_name_pattern(
+                                env,
+                                pattern,
+                                visibility,
+                                ty,
+                                Some(field_value),
+                                kind,
+                                flags | BindingInfoFlags::TYPE_WAS_INFERRED,
+                            )?,
+                            StructUnpackSubPattern::NameAndPattern(_, pattern) => self.bind_pattern(
+                                env,
+                                pattern,
+                                visibility,
+                                ty,
+                                Some(field_value),
+                                kind,
+                                ty_origin_span,
+                                flags | BindingInfoFlags::TYPE_WAS_INFERRED,
+                            )?,
+                        };
 
-                    statements.push(bound_node);
+                        statements.push(bound_node);
+                    } else {
+                        return Err(TypeError::invalid_struct_field(
+                            pattern.span(),
+                            pattern.name(),
+                            struct_type.display(&self.tcx),
+                        ));
+                    }
                 }
 
                 if let Some(wildcard) = &unpack_pattern.wildcard {
-                    match type_kind {
-                        Type::Struct(struct_ty) => {
-                            for (index, field) in struct_ty.fields.iter().enumerate() {
-                                if unpack_pattern
-                                    .sub_patterns
-                                    .iter()
-                                    .find(|p| field.name == p.name())
-                                    .is_some()
-                                {
-                                    // skip explicitly unpacked fields
-                                    continue;
-                                }
-
-                                let ty = self.tcx.bound(field.ty.clone(), field.span);
-
-                                let field_value = match value.as_const_value() {
-                                    Some(const_value) => hir::Node::Const(hir::Const {
-                                        value: const_value.as_struct().unwrap().get(&field.name).unwrap().value.clone(),
-                                        ty,
-                                        span: field.span,
-                                    }),
-                                    None => hir::Node::MemberAccess(hir::MemberAccess {
-                                        value: Box::new(value.clone()),
-                                        member_name: field.name,
-                                        member_index: index as _,
-                                        ty,
-                                        span: field.span,
-                                    }),
-                                };
-
-                                let (_, bound_node) = self.bind_name(
-                                    env,
-                                    field.name,
-                                    visibility,
-                                    ty,
-                                    Some(field_value),
-                                    false,
-                                    kind,
-                                    wildcard.span,
-                                    flags - BindingInfoFlags::IS_USER_DEFINED,
-                                )?;
-
-                                statements.push(bound_node);
-                            }
+                    for (index, field) in struct_type.fields.iter().enumerate() {
+                        // skip explicitly unpacked fields
+                        if unpacked_names.contains_key(&field.name) {
+                            continue;
                         }
-                        Type::Infer(_, InferType::PartialStruct(_)) => {
-                            return Err(Diagnostic::error()
-                                .with_message(format!(
-                                    "cannot use wildcard unpack on partial struct type - {}",
-                                    type_kind.display(&self.tcx)
-                                ))
-                                .with_label(Label::primary(wildcard.span, "illegal wildcard unpack")))
-                        }
-                        _ => {
-                            return Err(Diagnostic::error()
-                                .with_message(format!(
-                                    "cannot use wildcard unpack on partial tuple type - {}",
-                                    type_kind.display(&self.tcx)
-                                ))
-                                .with_label(Label::primary(wildcard.span, "illegal wildcard unpack")))
-                        }
+
+                        let ty = self.tcx.bound(field.ty.clone(), field.span);
+
+                        let field_value = match value.as_const_value() {
+                            Some(const_value) => hir::Node::Const(hir::Const {
+                                value: const_value.as_struct().unwrap().get(&field.name).unwrap().value.clone(),
+                                ty,
+                                span: field.span,
+                            }),
+                            None => hir::Node::MemberAccess(hir::MemberAccess {
+                                value: Box::new(value.clone()),
+                                member_name: field.name,
+                                member_index: index as _,
+                                ty,
+                                span: field.span,
+                            }),
+                        };
+
+                        let (_, bound_node) = self.bind_name(
+                            env,
+                            field.name,
+                            visibility,
+                            ty,
+                            Some(field_value),
+                            false,
+                            kind,
+                            wildcard.span,
+                            flags - BindingInfoFlags::IS_USER_DEFINED,
+                        )?;
+
+                        statements.push(bound_node);
                     }
                 }
-            }
-        }
 
-        Ok(())
+                Ok(())
+            }
+            _ => Err(Diagnostic::error()
+                .with_message(format!("cannot use tuple unpack on type `{}`", ty.display(&self.tcx)))
+                .with_label(Label::primary(unpack_pattern.span, "illegal tuple unpack"))),
+        }
     }
 
     fn bind_tuple_unpack_pattern(
@@ -602,59 +578,68 @@ impl<'s> CheckSess<'s> {
         ty_origin_span: Span,
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<()> {
-        let ty = value.ty();
+        match value.ty().normalize(&self.tcx) {
+            Type::Tuple(elem_types) => {
+                if pattern.sub_patterns.len() <= elem_types.len() {
+                    let mut pattern_types: Vec<TypeId> = vec![];
 
-        let element_types: Vec<TypeId> = pattern
-            .sub_patterns
-            .iter()
-            .map(|pattern| self.tcx.var(pattern.span()))
-            .collect();
+                    pattern.sub_patterns.iter().enumerate().for_each(|(index, pattern)| {
+                        let ty = match elem_types.get(index) {
+                            Some(elem) => self.tcx.bound(elem.clone(), pattern.span()),
+                            None => self.tcx.var(pattern.span()),
+                        };
 
-        let partial_tuple = self
-            .tcx
-            .partial_tuple(element_types.iter().map(TypeId::as_kind).collect(), pattern.span);
+                        pattern_types.push(ty)
+                    });
 
-        ty.unify(&partial_tuple, &mut self.tcx).or_report_err(
-            &self.tcx,
-            &partial_tuple,
-            Some(pattern.span),
-            &ty,
-            ty_origin_span,
-        )?;
+                    for ((index, sub_pattern), &ty) in pattern.sub_patterns.iter().enumerate().zip(pattern_types.iter())
+                    {
+                        let element_value = |pattern: &Pattern| match value.as_const_value() {
+                            Some(const_value) if !pattern.is_mutable() => hir::Node::Const(hir::Const {
+                                value: const_value.as_tuple().unwrap()[index].value.clone(),
+                                ty,
+                                span: value.span(),
+                            }),
+                            _ => hir::Node::MemberAccess(hir::MemberAccess {
+                                value: Box::new(value.clone()),
+                                member_name: ustr(&index.to_string()),
+                                member_index: index as _,
+                                ty,
+                                span: value.span(),
+                            }),
+                        };
 
-        for ((index, sub_pattern), &ty) in pattern.sub_patterns.iter().enumerate().zip(element_types.iter()) {
-            let element_value = |pattern: &Pattern| match value.as_const_value() {
-                Some(const_value) if !pattern.is_mutable() => hir::Node::Const(hir::Const {
-                    value: const_value.as_tuple().unwrap()[index].value.clone(),
-                    ty,
-                    span: value.span(),
-                }),
-                _ => hir::Node::MemberAccess(hir::MemberAccess {
-                    value: Box::new(value.clone()),
-                    member_name: ustr(&index.to_string()),
-                    member_index: index as _,
-                    ty,
-                    span: value.span(),
-                }),
-            };
+                        let element_value = element_value(sub_pattern);
 
-            let element_value = element_value(sub_pattern);
+                        let (_, bound_node) = self.bind_pattern(
+                            env,
+                            sub_pattern,
+                            visibility,
+                            ty,
+                            Some(element_value),
+                            kind,
+                            ty_origin_span,
+                            flags | BindingInfoFlags::TYPE_WAS_INFERRED,
+                        )?;
 
-            let (_, bound_node) = self.bind_pattern(
-                env,
-                sub_pattern,
-                visibility,
-                ty,
-                Some(element_value),
-                kind,
-                ty_origin_span,
-                flags | BindingInfoFlags::TYPE_WAS_INFERRED,
-            )?;
+                        statements.push(bound_node);
+                    }
 
-            statements.push(bound_node);
+                    Ok(())
+                } else {
+                    Err(Diagnostic::error()
+                        .with_message(format!(
+                            "too many unpacked elements - expected {} elements, got {}",
+                            elem_types.len(),
+                            pattern.sub_patterns.len()
+                        ))
+                        .with_label(Label::primary(pattern.span, "too many elements")))
+                }
+            }
+            ty => Err(Diagnostic::error()
+                .with_message(format!("cannot use tuple unpack on type `{}`", ty.display(&self.tcx)))
+                .with_label(Label::primary(pattern.span, "illegal tuple unpack"))),
         }
-
-        Ok(())
     }
 }
 

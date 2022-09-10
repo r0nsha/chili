@@ -7,13 +7,13 @@ use crate::{
     },
     span::Span,
     token::TokenKind::*,
-    types::StructTypeKind,
+    types::{FunctionTypeKind, StructTypeKind},
 };
 use std::vec;
 
 impl Parser {
     pub fn parse_statement(&mut self) -> DiagnosticResult<Ast> {
-        let attrs = if is!(self, At) { self.parse_attrs()? } else { vec![] };
+        let attrs = self.parse_attrs()?;
         let has_attrs = !attrs.is_empty();
 
         let parse_binding_result = self.try_parse_any_binding(attrs, ast::Visibility::Private, false)?;
@@ -137,9 +137,17 @@ impl Parser {
         let token = self.previous();
         let span = token.span;
 
+        self.skip_newlines();
+
         let condition = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false, true)?;
 
+        self.skip_newlines();
+
         let then = self.parse_block_expr()?;
+
+        let last_index = self.current;
+
+        self.skip_newlines();
 
         let otherwise = if eat!(self, Else) {
             let expr = if eat!(self, If) {
@@ -150,6 +158,7 @@ impl Parser {
 
             Some(Box::new(expr))
         } else {
+            self.current = last_index;
             None
         };
 
@@ -162,9 +171,9 @@ impl Parser {
     }
 
     pub fn parse_block(&mut self) -> DiagnosticResult<ast::Block> {
-        require!(self, OpenCurly, "{")?;
+        let start_span = require!(self, OpenCurly, "{")?.span;
 
-        let start_span = self.previous_span();
+        self.skip_newlines();
 
         let mut statements = vec![];
 
@@ -172,38 +181,42 @@ impl Parser {
             if eat!(self, CloseCurly) {
                 return Ok(ast::Block {
                     statements,
-                    yields: true,
                     span: start_span.to(self.previous_span()),
                 });
             } else if eat!(self, Semicolon | Newline) {
                 continue;
             } else {
-                let statement = self.parse_statement().unwrap_or_else(|diag| {
-                    let span = self.previous_span();
+                statements.push(self.parse_statement()?);
 
-                    self.cache.lock().diagnostics.push(diag);
-                    self.skip_until_recovery_point();
+                // TODO: Recovery
+                // let statement = self.parse_statement().unwrap_or_else(|diag| {
+                //     let span = self.previous_span();
 
-                    ast::Ast::Error(ast::Empty { span })
-                });
+                //     self.cache.lock().diagnostics.push(diag);
+                //     self.skip_until_recovery_point();
 
-                statements.push(statement);
-                // statements.push(self.parse_statement()?);
+                //     ast::Ast::Error(ast::Empty { span })
+                // });
+
+                // statements.push(statement);
             }
         }
 
-        self.cache
-            .lock()
-            .diagnostics
-            .push(SyntaxError::expected(self.span(), "}"));
+        Err(SyntaxError::expected(self.span(), "}"))
 
-        self.skip_until_recovery_point();
+        // TODO: Recovery
+        // self.cache
+        //     .lock()
+        //     .diagnostics
+        //     .push(SyntaxError::expected(self.span(), "}"));
 
-        Ok(ast::Block {
-            statements,
-            yields: true,
-            span: start_span.to(self.previous_span()),
-        })
+        // self.skip_until_recovery_point();
+
+        // Ok(ast::Block {
+        //     statements,
+        //     yields: true,
+        //     span: start_span.to(self.previous_span()),
+        // })
     }
 
     pub fn parse_block_expr(&mut self) -> DiagnosticResult<Ast> {
@@ -315,8 +328,8 @@ impl Parser {
             }))
         } else if eat!(self, Import) {
             self.parse_import()
-        } else if is!(self, Static) {
-            Ok(Ast::StaticEval(self.parse_static_eval()?))
+        } else if is!(self, Comptime) {
+            Ok(Ast::Comptime(self.parse_comptime()?))
         } else if eat!(self, Star) {
             let start_span = self.previous_span();
             let is_mutable = eat!(self, Mut);
@@ -357,18 +370,16 @@ impl Parser {
                     self.parse_tuple_literal(expr, start_span)
                 } else {
                     require!(self, CloseParen, ")")?;
-
-                    expr.span().range().start -= 1;
-                    *expr.span_mut() = Span::to(&expr.span(), self.previous_span());
-
+                    *expr.span_mut() = start_span.to(self.previous_span());
                     Ok(expr)
                 }
             }
         } else if eat!(self, Fn) {
-            self.parse_function(None, false)
+            self.parse_function_expr(None, FunctionTypeKind::Orphan)
         } else if eat!(self, Struct) {
             self.parse_struct_type()
-        } else if eat!(self, Union) {
+        } else if eat!(self, Extern) {
+            require!(self, Union, "union")?;
             self.parse_struct_union_type()
         } else {
             Err(SyntaxError::expected(
@@ -490,7 +501,7 @@ impl Parser {
                     span: id.span,
                 }
             },
-            "new line, ; or }"
+            "a new line, ; or }"
         );
 
         Ok(fields)
@@ -520,7 +531,11 @@ impl Parser {
     pub fn parse_while(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
+        self.skip_newlines();
+
         let condition = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false, true)?;
+
+        self.skip_newlines();
 
         let block = self.parse_block()?;
 
@@ -537,6 +552,7 @@ impl Parser {
         let iter_ident = require!(self, Ident(_), "an identifier")?;
 
         self.skip_newlines();
+
         let iter_index_ident = if eat!(self, Comma) {
             Some(require!(self, Ident(_), "an identifier")?)
         } else {
@@ -549,7 +565,7 @@ impl Parser {
 
         let iter_start = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false, true)?;
 
-        let iterator = if eat!(self, DotDot) {
+        let iterator = if eat!(self, DotDotDot) {
             self.skip_newlines();
 
             let iter_end =
@@ -559,6 +575,8 @@ impl Parser {
         } else {
             ast::ForIter::Value(Box::new(iter_start))
         };
+
+        self.skip_newlines();
 
         let block = self.parse_block()?;
 
@@ -579,20 +597,12 @@ impl Parser {
             Break => Ok(Ast::Break(ast::Empty { span })),
             Continue => Ok(Ast::Continue(ast::Empty { span })),
             Return => {
+                self.skip_newlines();
+
                 let expr = match self.peek().kind {
                     Newline | CloseCurly | Eof => None,
-                    _ => {
-                        let expr = self.parse_expression(false, true)?;
-                        Some(Box::new(expr))
-                    }
+                    _ => Some(Box::new(self.parse_expression(false, true)?)),
                 };
-
-                // let expr = if !self.peek().kind.is_expr_start() && is!(self, Semicolon) {
-                //     None
-                // } else {
-                //     let expr = self.parse_expression(false, true)?;
-                //     Some(Box::new(expr))
-                // };
 
                 Ok(Ast::Return(ast::Return {
                     expr,
@@ -603,14 +613,16 @@ impl Parser {
         }
     }
 
-    pub fn parse_static_eval(&mut self) -> DiagnosticResult<ast::StaticEval> {
+    pub fn parse_comptime(&mut self) -> DiagnosticResult<ast::Comptime> {
         let start_span = self.previous_span();
 
-        require!(self, Static, "static")?;
+        require!(self, Comptime, "comptime")?;
+
+        self.skip_newlines();
 
         let expr = self.parse_block_expr()?;
 
-        Ok(ast::StaticEval {
+        Ok(ast::Comptime {
             expr: Box::new(expr),
             span: start_span.to(self.previous_span()),
         })

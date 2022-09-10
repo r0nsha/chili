@@ -13,8 +13,7 @@ use ustr::ustr;
 
 pub const EOF_CHAR: char = '\0';
 pub const DOUBLE_QUOTE: char = '"';
-pub const RAW_STR_PREFIX: char = 'r';
-pub const CHAR_PREFIX: char = 'c';
+pub const SINGLE_QUOTE: char = '\'';
 
 pub struct Lexer<'lx> {
     pub source: Source<'lx>,
@@ -51,21 +50,15 @@ impl<'lx> Lexer<'lx> {
         let ch = self.bump();
 
         let tt = if is_id_start(ch) {
-            if ch == RAW_STR_PREFIX && self.peek() == DOUBLE_QUOTE {
-                self.eat_raw_str()?
-            } else if ch == CHAR_PREFIX && self.peek() == DOUBLE_QUOTE {
-                self.eat_char()?
-            } else {
-                self.eat_id()
-            }
+            self.eat_id()
         } else {
             match ch {
+                '@' => At,
                 '#' => {
                     // This is a comment, eat the rest of the line and then eat the next token.
                     self.eat_line();
                     self.eat_token()?
                 }
-                '@' => At,
                 ';' => Semicolon,
                 ':' => Colon,
                 '(' => OpenParen,
@@ -106,12 +99,10 @@ impl<'lx> Lexer<'lx> {
                     }
                 }
                 '.' => {
-                    if self.eat('.') {
-                        if self.eat('.') {
-                            DotDotDot
-                        } else {
-                            DotDot
-                        }
+                    if self.peek() == '.' && self.peek_next() == '.' {
+                        self.bump();
+                        self.bump();
+                        DotDotDot
                     } else {
                         Dot
                     }
@@ -127,19 +118,8 @@ impl<'lx> Lexer<'lx> {
                 // skip this character
                 ' ' | '\r' | '\t' => self.eat_token()?,
                 '\n' => Newline,
-                DOUBLE_QUOTE => {
-                    if self.eat(DOUBLE_QUOTE) {
-                        if self.eat(DOUBLE_QUOTE) {
-                            // this is a multiline string
-                            self.eat_str(StrFlavor::Multiline)?
-                        } else {
-                            // this is just an empty string, we can return an empty Str
-                            Str(ustr(""))
-                        }
-                    } else {
-                        self.eat_str(StrFlavor::Normal)?
-                    }
-                }
+                SINGLE_QUOTE => self.eat_char()?,
+                DOUBLE_QUOTE => self.eat_str()?,
                 '^' => {
                     if self.eat('=') {
                         CaretEq
@@ -229,17 +209,7 @@ impl<'lx> Lexer<'lx> {
         Ok(tt)
     }
 
-    fn eat_char(&mut self) -> DiagnosticResult<TokenKind> {
-        self.bump();
-        self.eat_str(StrFlavor::Char)
-    }
-
-    fn eat_raw_str(&mut self) -> DiagnosticResult<TokenKind> {
-        self.bump();
-        self.eat_str(StrFlavor::Raw)
-    }
-
-    fn eat_str(&mut self, flavor: StrFlavor) -> DiagnosticResult<TokenKind> {
+    fn eat_str(&mut self) -> DiagnosticResult<TokenKind> {
         while self.peek() != DOUBLE_QUOTE && !self.is_eof() {
             if self.peek() == '\\' && self.peek_next() == '"' {
                 self.bump();
@@ -258,77 +228,73 @@ impl<'lx> Lexer<'lx> {
                 .with_label(Label::primary(self.cursor.span(), "missing terminator")));
         }
 
-        if flavor == StrFlavor::Multiline {
-            self.expect(DOUBLE_QUOTE)?;
-            self.expect(DOUBLE_QUOTE)?;
-            self.expect(DOUBLE_QUOTE)?;
-        } else {
-            self.expect(DOUBLE_QUOTE)?;
-        }
+        self.expect(DOUBLE_QUOTE)?;
 
-        let value = match flavor {
-            StrFlavor::Normal | StrFlavor::Multiline => self.source.range(self.cursor.range()),
-            StrFlavor::Raw | StrFlavor::Char => self
-                .source
-                .range(self.cursor.start_index() + 1..self.cursor.end_index()),
-        };
+        let value = self.source.range(self.cursor.range());
 
         let mut chars = value.chars();
 
-        if flavor == StrFlavor::Multiline {
-            chars.next();
-            chars.next();
-            chars.next();
-            chars.next_back();
-            chars.next_back();
-            chars.next_back();
-        } else {
-            chars.next();
-            chars.next_back();
+        chars.next();
+        chars.next_back();
+
+        let contents = chars.as_str().to_string();
+        let contents = unindent(contents.trim());
+
+        let contents = unescape(&contents, self.cursor.span()).map_err(|e| match e {
+            UnescapeError::InvalidEscapeSequence(span) => {
+                let message = "unknown escape sequence";
+                Diagnostic::error()
+                    .with_message(message)
+                    .with_label(Label::primary(span, message))
+            }
+        })?;
+
+        Ok(Str(ustr(&contents)))
+    }
+
+    fn eat_char(&mut self) -> DiagnosticResult<TokenKind> {
+        while self.peek() != SINGLE_QUOTE && !self.is_eof() {
+            if self.peek() == '\\' && self.peek_next() == '"' {
+                self.bump();
+                self.bump();
+            } else {
+                self.bump();
+            }
         }
+
+        if self.is_eof() {
+            return Err(Diagnostic::error()
+                .with_message(format!("missing a terminating {} at the of char literal", SINGLE_QUOTE))
+                .with_label(Label::primary(self.cursor.span(), "missing terminator")));
+        }
+
+        self.expect(SINGLE_QUOTE)?;
+
+        let value = self.source.range(self.cursor.range());
+
+        let mut chars = value.chars();
+
+        chars.next();
+        chars.next_back();
 
         let contents = chars.as_str().to_string();
 
-        match flavor {
-            StrFlavor::Raw => Ok(Str(ustr(&contents))),
-            flavor => {
-                match flavor {
-                    StrFlavor::Normal if contents.contains('\n') => {
-                        return Err(Diagnostic::error()
-                            .with_message("string cannot contain newline characters")
-                            .with_label(Label::primary(self.cursor.span(), "cannot contain newline"))
-                            .with_note("use a multiline string instead, example: \"\"\"your string\"\"\""))
-                    }
-                    StrFlavor::Char if contents.len() != 1 => {
-                        return Err(Diagnostic::error()
-                            .with_message("character literal must be one character long")
-                            .with_label(Label::primary(self.cursor.span(), "not one character long")))
-                    }
-                    _ => (),
-                }
-
-                let contents = if matches!(flavor, StrFlavor::Multiline) {
-                    unindent(contents.trim())
-                } else {
-                    contents
-                };
-
-                let contents = unescape(&contents, self.cursor.span()).map_err(|e| match e {
-                    UnescapeError::InvalidEscapeSequence(span) => {
-                        let message = "unknown escape sequence";
-                        Diagnostic::error()
-                            .with_message(message)
-                            .with_label(Label::primary(span, message))
-                    }
-                })?;
-
-                if flavor == StrFlavor::Char {
-                    Ok(Char(contents.chars().next().unwrap()))
-                } else {
-                    Ok(Str(ustr(&contents)))
-                }
-            }
+        if contents.len() != 1 {
+            return Err(Diagnostic::error()
+                .with_message("character literal must be one character long")
+                .with_label(Label::primary(self.cursor.span(), "not one character long")));
         }
+
+        let contents = unescape(&contents, self.cursor.span()).map_err(|e| match e {
+            UnescapeError::InvalidEscapeSequence(span) => {
+                let message = "unknown escape sequence";
+                Diagnostic::error()
+                    .with_message(message)
+                    .with_label(Label::primary(span, message))
+            }
+        })?;
+
+        Ok(Char(contents.chars().next().unwrap()))
     }
 
     fn eat_line(&mut self) {
@@ -364,7 +330,7 @@ impl<'lx> Lexer<'lx> {
             Ok(Float(float))
         } else {
             let literal = self.source.range(self.cursor);
-            match literal.replace('_', "").parse::<i64>() {
+            match literal.replace('_', "").parse::<u128>() {
                 Ok(i) => Ok(Int(i)),
                 Err(_) => Err(LexerError::integer_too_large(self.cursor.span())),
             }
@@ -387,30 +353,10 @@ impl<'lx> Lexer<'lx> {
             }
         }
 
-        let mut base = 1;
-        let mut decimal_value: i64 = 0;
-
-        for char in hex_value.chars().rev() {
-            let to_add = if ('0'..='9').contains(&char) {
-                Some((char as i64 - 48) * base)
-            } else if ('A'..='F').contains(&char) {
-                Some((char as i64 - 55) * base)
-            } else if ('a'..='f').contains(&char) {
-                Some((char as i64 - 87) * base)
-            } else {
-                None
-            };
-
-            if let Some(to_add) = to_add {
-                decimal_value = match decimal_value.checked_add(to_add) {
-                    Some(v) => v,
-                    None => return Err(LexerError::integer_too_large(self.cursor.span())),
-                };
-                base *= 16;
-            }
+        match u128::from_str_radix(&hex_value, 16) {
+            Ok(n) => Ok(Int(n)),
+            Err(_) => Err(LexerError::integer_too_large(self.cursor.span())),
         }
-
-        Ok(Int(decimal_value))
     }
 
     fn eat_number_octal(&mut self) -> DiagnosticResult<TokenKind> {
@@ -429,12 +375,12 @@ impl<'lx> Lexer<'lx> {
             }
         }
 
-        let mut base = 1;
-        let mut decimal_value: i64 = 0;
+        let mut base: u128 = 1;
+        let mut decimal_value: u128 = 0;
 
         for char in octal_value.chars().rev() {
             let digit = char.to_digit(10).unwrap();
-            decimal_value = match decimal_value.checked_add(digit as i64 * base) {
+            decimal_value = match decimal_value.checked_add(digit as u128 * base) {
                 Some(v) => v,
                 None => return Err(LexerError::integer_too_large(self.cursor.span())),
             };
@@ -460,12 +406,12 @@ impl<'lx> Lexer<'lx> {
             }
         }
 
-        let mut base = 1;
-        let mut decimal_value: i64 = 0;
+        let mut base: u128 = 1;
+        let mut decimal_value: u128 = 0;
 
         for char in binary_value.chars().rev() {
             let digit = char.to_digit(10).unwrap();
-            decimal_value = match decimal_value.checked_add(digit as i64 * base) {
+            decimal_value = match decimal_value.checked_add(digit as u128 * base) {
                 Some(v) => v,
                 None => return Err(LexerError::integer_too_large(self.cursor.span())),
             };
@@ -498,6 +444,10 @@ impl<'lx> Lexer<'lx> {
 
     pub fn peek_next(&self) -> char {
         self.source.at(self.cursor.end_index() + 1)
+    }
+
+    pub fn peek_offset(&self, offset: usize) -> char {
+        self.source.at(self.cursor.end_index() + offset)
     }
 
     pub fn eat(&mut self, expected: char) -> bool {
@@ -547,12 +497,4 @@ fn is_id_start(ch: char) -> bool {
 #[inline]
 fn is_id_continue(ch: char) -> bool {
     UnicodeXID::is_xid_continue(ch) || ch == '_'
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum StrFlavor {
-    Normal,    // single line, with escape sequences
-    Raw,       // multiline, no escape sequences
-    Multiline, // multiline, with escape sequences
-    Char,      // single character, with escape sequences
 }

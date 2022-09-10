@@ -198,7 +198,6 @@ impl<'a, W: Write> Print<'a, W> for ConstValue {
             ConstValue::Type(t) => p.write_indented(&t.display(p.tcx), is_line_start),
             ConstValue::Bool(v) => p.write_indented(&v.to_string(), is_line_start),
             ConstValue::Int(v) => p.write_indented(&v.to_string(), is_line_start),
-            ConstValue::Uint(v) => p.write_indented(&v.to_string(), is_line_start),
             ConstValue::Float(v) => p.write_indented(&v.to_string(), is_line_start),
             ConstValue::Str(v) => p.write_indented(&format!("\"{}\"", v), is_line_start),
             ConstValue::Array(array) => {

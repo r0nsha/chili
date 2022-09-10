@@ -2,7 +2,7 @@ use crate::{
     ast,
     error::{
         diagnostic::{Diagnostic, Label},
-        DiagnosticResult, SyntaxError,
+        DiagnosticResult, TypeError,
     },
     hir::const_value::ConstValue,
     infer::type_ctx::TypeCtx,
@@ -40,6 +40,17 @@ pub fn binary(
     span: Span,
     tcx: &TypeCtx,
 ) -> DiagnosticResult<ConstValue> {
+    fn int_overflow(action: &str, lhs: &ConstValue, rhs: &ConstValue, span: Span, tcx: &TypeCtx) -> Diagnostic {
+        Diagnostic::error()
+            .with_message(format!(
+                "integer overflowed while {} {} and {} at compile-time",
+                action,
+                lhs.display(tcx),
+                rhs.display(tcx)
+            ))
+            .with_label(Label::primary(span, "integer overflow"))
+    }
+
     let int_overflow = |action: &str| int_overflow(action, lhs, rhs, span, tcx);
 
     match op {
@@ -47,11 +58,11 @@ pub fn binary(
         ast::BinaryOp::Sub => lhs.sub(rhs).ok_or_else(|| int_overflow("subtracting")),
         ast::BinaryOp::Mul => lhs.mul(rhs).ok_or_else(|| int_overflow("multiplying")),
         ast::BinaryOp::Div => match rhs {
-            ConstValue::Int(0) | ConstValue::Uint(0) => Err(SyntaxError::divide_by_zero(span)),
+            ConstValue::Int(0) => Err(TypeError::divide_by_zero(span)),
             _ => lhs.div(rhs).ok_or_else(|| int_overflow("dividing")),
         },
         ast::BinaryOp::Rem => match rhs {
-            ConstValue::Int(0) | ConstValue::Uint(0) => Err(SyntaxError::divide_by_zero(span)),
+            ConstValue::Int(0) => Err(TypeError::divide_by_zero(span)),
             _ => lhs.rem(rhs).ok_or_else(|| int_overflow("taking the remainder of")),
         },
         ast::BinaryOp::Eq => Ok(lhs.eq(rhs)),
@@ -63,21 +74,10 @@ pub fn binary(
         ast::BinaryOp::And => Ok(lhs.and(rhs)),
         ast::BinaryOp::Or => Ok(lhs.or(rhs)),
         ast::BinaryOp::Shl => lhs.shl(rhs).ok_or_else(|| int_overflow("shifting left")),
-        ast::BinaryOp::Shr => lhs.shr(rhs).ok_or_else(|| int_overflow("shifting left")),
+        ast::BinaryOp::Shr => lhs.shr(rhs).ok_or_else(|| int_overflow("shifting right")),
         ast::BinaryOp::BitAnd => Ok(lhs.bitand(rhs)),
         ast::BinaryOp::BitOr => Ok(lhs.bitor(rhs)),
         ast::BinaryOp::BitXor => Ok(lhs.bitxor(rhs)),
         _ => unreachable!("{}", op),
     }
-}
-
-fn int_overflow(action: &str, lhs: &ConstValue, rhs: &ConstValue, span: Span, tcx: &TypeCtx) -> Diagnostic {
-    Diagnostic::error()
-        .with_message(format!(
-            "integer overflowed while {} {} and {} at compile-time",
-            action,
-            lhs.display(tcx),
-            rhs.display(tcx)
-        ))
-        .with_label(Label::primary(span, "integer overflow"))
 }

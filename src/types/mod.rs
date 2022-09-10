@@ -9,8 +9,6 @@ use crate::{
     span::Span,
     workspace::{BindingId, ModuleId},
 };
-use indexmap::IndexMap;
-use std::ops::{Deref, DerefMut};
 use ustr::{ustr, Ustr};
 
 define_id_type!(TypeId);
@@ -53,8 +51,6 @@ pub enum Type {
 pub enum InferType {
     AnyInt,
     AnyFloat,
-    PartialStruct(PartialStructType),
-    PartialTuple(Vec<Type>),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -148,7 +144,7 @@ impl FunctionTypeKind {
 #[derive(Debug, PartialEq, Clone)]
 pub struct StructType {
     pub name: Ustr,
-    pub binding_id: BindingId,
+    pub binding_id: Option<BindingId>,
     pub fields: Vec<StructTypeField>,
     pub kind: StructTypeKind,
 }
@@ -170,42 +166,6 @@ impl StructType {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct PartialStructType(pub IndexMap<Ustr, Type>);
-
-impl Deref for PartialStructType {
-    type Target = IndexMap<Ustr, Type>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for PartialStructType {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl PartialStructType {
-    #[allow(unused)]
-    pub fn into_struct(&self) -> StructType {
-        StructType {
-            name: ustr(""),
-            binding_id: Default::default(),
-            fields: self
-                .iter()
-                .map(|(&name, ty)| StructTypeField {
-                    name,
-                    ty: ty.clone(),
-                    span: Span::unknown(),
-                })
-                .collect(),
-            kind: StructTypeKind::Struct,
-        }
-    }
-}
-
 impl From<StructType> for Type {
     fn from(ty: StructType) -> Self {
         Type::Struct(ty)
@@ -213,6 +173,24 @@ impl From<StructType> for Type {
 }
 
 impl StructType {
+    pub fn empty(name: Ustr, binding_id: Option<BindingId>, kind: StructTypeKind) -> Self {
+        Self {
+            name,
+            binding_id,
+            fields: vec![],
+            kind,
+        }
+    }
+
+    pub fn temp(fields: Vec<StructTypeField>, kind: StructTypeKind) -> Self {
+        Self {
+            name: ustr(""),
+            binding_id: None,
+            fields,
+            kind,
+        }
+    }
+
     #[allow(unused)]
     pub fn is_struct(&self) -> bool {
         matches!(self.kind, StructTypeKind::Struct)
@@ -225,6 +203,11 @@ impl StructType {
     pub fn is_union(&self) -> bool {
         matches!(self.kind, StructTypeKind::Union)
     }
+
+    #[allow(unused)]
+    pub fn is_anonymous(&self) -> bool {
+        self.name.is_empty()
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -232,31 +215,6 @@ pub enum StructTypeKind {
     Struct,
     PackedStruct,
     Union,
-}
-
-impl StructType {
-    pub fn empty(name: Ustr, binding_id: BindingId, kind: StructTypeKind) -> Self {
-        Self {
-            name,
-            binding_id,
-            fields: vec![],
-            kind,
-        }
-    }
-
-    pub fn temp(fields: Vec<StructTypeField>, kind: StructTypeKind) -> Self {
-        Self {
-            name: ustr(""),
-            binding_id: Default::default(),
-            fields,
-            kind,
-        }
-    }
-
-    #[allow(unused)]
-    pub fn is_anonymous(&self) -> bool {
-        self.name.is_empty()
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

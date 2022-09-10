@@ -123,11 +123,19 @@ pub enum Intrinsic {
     StartWorkspace,
     Location,
     CallerLocation,
+    Os,
+    Arch,
+    CompilerError,
+    CompilerWarning,
 }
 
 pub const INTRINSIC_NAME_START_WORKSPACE: &str = "start_workspace";
 pub const INTRINSIC_NAME_LOCATION: &str = "location";
 pub const INTRINSIC_NAME_CALLER_LOCATION: &str = "caller_location";
+pub const INTRINSIC_NAME_OS: &str = "os";
+pub const INTRINSIC_NAME_ARCH: &str = "arch";
+pub const INTRINSIC_NAME_COMPILER_ERROR: &str = "compiler_error";
+pub const INTRINSIC_NAME_COMPILER_WARNING: &str = "compiler_warning";
 
 impl TryFrom<&str> for Intrinsic {
     type Error = ();
@@ -137,6 +145,10 @@ impl TryFrom<&str> for Intrinsic {
             INTRINSIC_NAME_START_WORKSPACE => Ok(Intrinsic::StartWorkspace),
             INTRINSIC_NAME_LOCATION => Ok(Intrinsic::Location),
             INTRINSIC_NAME_CALLER_LOCATION => Ok(Intrinsic::CallerLocation),
+            INTRINSIC_NAME_OS => Ok(Intrinsic::Os),
+            INTRINSIC_NAME_ARCH => Ok(Intrinsic::Arch),
+            INTRINSIC_NAME_COMPILER_ERROR => Ok(Intrinsic::CompilerError),
+            INTRINSIC_NAME_COMPILER_WARNING => Ok(Intrinsic::CompilerWarning),
             _ => Err(()),
         }
     }
@@ -151,6 +163,10 @@ impl Display for Intrinsic {
                 Intrinsic::StartWorkspace => INTRINSIC_NAME_START_WORKSPACE,
                 Intrinsic::Location => INTRINSIC_NAME_LOCATION,
                 Intrinsic::CallerLocation => INTRINSIC_NAME_CALLER_LOCATION,
+                Intrinsic::Os => INTRINSIC_NAME_OS,
+                Intrinsic::Arch => INTRINSIC_NAME_ARCH,
+                Intrinsic::CompilerError => INTRINSIC_NAME_COMPILER_ERROR,
+                Intrinsic::CompilerWarning => INTRINSIC_NAME_COMPILER_WARNING,
             }
         )
     }
@@ -403,5 +419,22 @@ impl Node {
             statements: vec![],
             is_scope: false,
         })
+    }
+
+    pub fn force_into_sequence(self) -> Sequence {
+        match self {
+            Self::Sequence(x) => x,
+            _ => {
+                let ty = self.ty();
+                let span = self.span();
+
+                Sequence {
+                    statements: vec![self],
+                    is_scope: false,
+                    ty,
+                    span,
+                }
+            }
+        }
     }
 }

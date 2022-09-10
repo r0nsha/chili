@@ -2,18 +2,14 @@ use super::*;
 use crate::{
     ast::{self, Ast, Call, Cast, UnaryOp},
     error::*,
-    span::EndPosition,
+    span::{EndPosition, Position},
     token::TokenKind::*,
+    types::FunctionTypeKind,
 };
 use ustr::ustr;
 
 impl Parser {
     pub fn parse_operand_postfix_operator(&mut self, mut expr: Ast) -> DiagnosticResult<Ast> {
-        // named struct literal
-        if !self.restrictions.contains(Restrictions::NO_STRUCT_LITERAL) && is!(self, OpenCurly) {
-            return self.parse_struct_literal(Some(Box::new(expr)));
-        }
-
         // postfix expressions (recursive)
         loop {
             let last_index = self.current;
@@ -28,47 +24,52 @@ impl Parser {
                 continue;
             } else {
                 self.current = last_index;
-            }
 
-            expr = if eat!(self, Dot) {
-                self.parse_member_access(expr)?
-            } else if eat!(self, OpenParen) {
-                self.parse_call(expr)?
-            } else if eat!(self, OpenBracket) {
-                self.parse_subscript_or_slice(expr)?
-            } else if !self.restrictions.contains(Restrictions::NO_CAST) && eat!(self, As) {
-                self.parse_cast(expr)?
-            } else if eat!(self, Fn) {
-                let start_span = expr.span();
+                expr = if eat!(self, Dot) {
+                    self.parse_member_access(expr)?
+                } else if eat!(self, OpenParen) {
+                    self.parse_call(expr)?
+                } else if eat!(self, OpenBracket) {
+                    self.parse_subscript_or_slice(expr)?
+                } else if !self.restrictions.contains(Restrictions::NO_CAST) && eat!(self, As) {
+                    self.parse_cast(expr)?
+                } else if eat!(self, Fn) {
+                    let start_span = expr.span();
 
-                let fn_arg = self.parse_function(None, false)?;
-                let span = start_span.to(self.previous_span());
+                    let fn_arg = self.parse_function_expr(None, FunctionTypeKind::Orphan)?;
+                    let span = start_span.to(self.previous_span());
 
-                match &mut expr {
-                    Ast::Call(call) => {
-                        // map(x) fn ...
-                        call.args.push(ast::CallArg {
-                            value: fn_arg,
-                            spread: false,
-                        });
-
-                        expr
-                    }
-                    _ => {
-                        // map fn ...
-                        Ast::Call(Call {
-                            callee: Box::new(expr),
-                            args: vec![ast::CallArg {
+                    match &mut expr {
+                        Ast::Call(call) => {
+                            // map(x) fn ...
+                            call.args.push(ast::CallArg {
                                 value: fn_arg,
                                 spread: false,
-                            }],
-                            span,
-                        })
+                            });
+
+                            expr
+                        }
+                        _ => {
+                            // map fn ...
+                            Ast::Call(Call {
+                                callee: Box::new(expr),
+                                args: vec![ast::CallArg {
+                                    value: fn_arg,
+                                    spread: false,
+                                }],
+                                span,
+                            })
+                        }
                     }
+                } else {
+                    break;
                 }
-            } else {
-                break;
             }
+        }
+
+        // named struct literal
+        if !self.restrictions.contains(Restrictions::NO_STRUCT_LITERAL) && is!(self, OpenCurly) {
+            return self.parse_struct_literal(Some(Box::new(expr)));
         }
 
         Ok(expr)
@@ -97,12 +98,14 @@ impl Parser {
             Ident(id) => Ast::MemberAccess(ast::MemberAccess {
                 expr: Box::new(expr),
                 member: id,
+                member_span: token.span,
                 span: start_span.to(token.span),
             }),
 
             Int(i) => Ast::MemberAccess(ast::MemberAccess {
                 expr: Box::new(expr),
                 member: ustr(&i.to_string()),
+                member_span: token.span,
                 span: start_span.to(token.span),
             }),
 
@@ -110,17 +113,27 @@ impl Parser {
                 // this is for chained tuple access like `tuple.0.1`
                 let components = token.lexeme.split('.').collect::<Vec<&str>>();
 
+                let first_component_span = token.span.with_end(EndPosition {
+                    index: token.span.end.index - components[0].len() - 1,
+                });
+
                 let first_access = Ast::MemberAccess(ast::MemberAccess {
                     expr: Box::new(expr),
                     member: ustr(components[0]),
-                    span: start_span.to(token.span.with_end(EndPosition {
-                        index: token.span.end.index - components[0].len() + 1,
-                    })),
+                    member_span: first_component_span,
+                    span: start_span.to(first_component_span),
+                });
+
+                let second_component_span = token.span.with_start(Position {
+                    index: token.span.start.index + components[0].len() + 1,
+                    line: token.span.start.line,
+                    column: token.span.start.column,
                 });
 
                 Ast::MemberAccess(ast::MemberAccess {
                     expr: Box::new(first_access),
                     member: ustr(components[0]),
+                    member_span: second_component_span,
                     span: start_span.to(token.span),
                 })
             }
@@ -131,8 +144,7 @@ impl Parser {
                 span: start_span.to(token.span),
             }),
 
-            OpenParen => self.parse_call(expr)?,
-
+            // OpenParen => self.parse_call(expr)?,
             _ => return Err(SyntaxError::expected(self.span(), "an identifier, number or *")),
         };
 
@@ -165,7 +177,7 @@ impl Parser {
     fn parse_subscript_or_slice(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
-        if eat!(self, Colon) {
+        if eat!(self, DotDotDot) {
             let high = if eat!(self, CloseBracket) {
                 None
             } else {
@@ -183,7 +195,7 @@ impl Parser {
         } else {
             let index = self.parse_expression(false, true)?;
 
-            if eat!(self, Colon) {
+            if eat!(self, DotDotDot) {
                 let high = if eat!(self, CloseBracket) {
                     None
                 } else {

@@ -112,11 +112,12 @@ impl Parser {
                 self.skip_newlines();
 
                 if eat!(self, Comma) {
+                    self.skip_newlines();
                     continue;
                 } else if eat!(self, CloseCurly) {
                     break;
                 } else {
-                    let span = Parser::get_missing_delimiter_span(self.previous_span());
+                    let span = self.previous_span().after();
                     return Err(SyntaxError::expected(span, ", or }"));
                 }
             }

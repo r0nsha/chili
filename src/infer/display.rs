@@ -1,10 +1,5 @@
-use super::{
-    normalize::Normalize,
-    type_ctx::TypeCtx,
-    unify::{UnifyTypeErr, UnifyTypeResult},
-};
-use crate::{check::symbols, error::DiagnosticResult, types::*};
-use crate::{span::Span, workspace::BindingId};
+use super::{normalize::Normalize, type_ctx::TypeCtx, unify::UnifyTypeResult};
+use crate::{check::symbols, error::DiagnosticResult, span::Span, types::*};
 
 pub trait DisplayType {
     fn display(&self, tcx: &TypeCtx) -> String;
@@ -48,7 +43,7 @@ fn display_type(ty: &Type, tcx: &TypeCtx) -> String {
         Type::Array(inner, size) => format!("[{}]{}", size, display_type(inner, tcx)),
         Type::Slice(inner) => format!("[]{}", display_type(inner, tcx)),
         Type::Str(_) => "str".to_string(),
-        Type::Tuple(tys) | Type::Infer(_, InferType::PartialTuple(tys)) => format!(
+        Type::Tuple(tys) => format!(
             "({})",
             tys.iter()
                 .map(|t| display_type(t, tcx))
@@ -59,7 +54,6 @@ fn display_type(ty: &Type, tcx: &TypeCtx) -> String {
         Type::Type(_) | Type::AnyType => "type".to_string(),
         Type::Module(_) => "{module}".to_string(),
         Type::Never => "never".to_string(),
-        Type::Infer(_, InferType::PartialStruct(ty)) => ty.display(tcx),
         Type::Infer(_, InferType::AnyInt) => "{integer}".to_string(),
         Type::Infer(_, InferType::AnyFloat) => "{float}".to_string(),
         Type::Var(_) => "?".to_string(),
@@ -68,7 +62,7 @@ fn display_type(ty: &Type, tcx: &TypeCtx) -> String {
 
 impl DisplayType for StructType {
     fn display(&self, tcx: &TypeCtx) -> String {
-        if self.binding_id != BindingId::unknown() {
+        if self.binding_id.is_some() {
             self.name.to_string()
         } else {
             format!(
@@ -85,18 +79,6 @@ impl DisplayType for StructType {
                     .join(", ")
             )
         }
-    }
-}
-
-impl DisplayType for PartialStructType {
-    fn display(&self, tcx: &TypeCtx) -> String {
-        format!(
-            "struct {{ {} }}",
-            self.iter()
-                .map(|(symbol, ty)| format!("{}: {}", symbol, display_type(ty, tcx)))
-                .collect::<Vec<String>>()
-                .join(", ")
-        )
     }
 }
 
@@ -155,6 +137,6 @@ impl OrReportErr for UnifyTypeResult {
         found: &impl DisplayType,
         found_span: Span,
     ) -> DiagnosticResult<()> {
-        self.map_err(|e| UnifyTypeErr::into_diagnostic(e, tcx, expected, expected_span, found, found_span))
+        self.map_err(|e| e.into_diagnostic(tcx, expected, expected_span, found, found_span))
     }
 }

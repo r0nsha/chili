@@ -5,7 +5,6 @@ use super::{
 use crate::{
     infer::{display::DisplayType, normalize::Normalize},
     types::{size_of::SizeOf, *},
-    workspace::BindingId,
 };
 use inkwell::{
     types::{AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, PointerType},
@@ -71,11 +70,11 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
                     false,
                 )
                 .into(),
-            Type::Struct(struct_ty) => {
-                let struct_type = if struct_ty.binding_id == BindingId::unknown() {
-                    generator.create_anonymous_struct_type(struct_ty)
+            Type::Struct(struct_type) => {
+                let struct_type = if struct_type.binding_id.is_some() {
+                    generator.get_or_create_named_struct_type(struct_type)
                 } else {
-                    generator.get_or_create_named_struct_type(struct_ty)
+                    generator.create_anonymous_struct_type(struct_type)
                 };
 
                 struct_type.into()
@@ -181,27 +180,24 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         }
     }
 
-    pub(super) fn get_or_create_named_struct_type(
-        &mut self,
-        struct_ty: &StructType,
-    ) -> inkwell::types::StructType<'ctx> {
-        match self.types.get(&struct_ty.binding_id) {
+    fn get_or_create_named_struct_type(&mut self, struct_type: &StructType) -> inkwell::types::StructType<'ctx> {
+        match self.types.get(&struct_type.binding_id.unwrap()) {
             Some(t) => t.into_struct_type(),
-            None => self.create_named_struct_type(struct_ty),
+            None => self.create_named_struct_type(struct_type),
         }
     }
 
-    pub(super) fn create_named_struct_type(&mut self, struct_ty: &StructType) -> inkwell::types::StructType<'ctx> {
+    fn create_named_struct_type(&mut self, struct_ty: &StructType) -> inkwell::types::StructType<'ctx> {
         let struct_type = self.context.opaque_struct_type(&struct_ty.name);
 
-        self.types.insert(struct_ty.binding_id, struct_type.into());
+        self.types.insert(struct_ty.binding_id.unwrap(), struct_type.into());
 
         let fields = self.create_struct_type_fields(struct_ty);
         struct_type.set_body(&fields, struct_ty.is_packed_struct());
         struct_type
     }
 
-    pub(super) fn create_anonymous_struct_type(&mut self, struct_ty: &StructType) -> inkwell::types::StructType<'ctx> {
+    fn create_anonymous_struct_type(&mut self, struct_ty: &StructType) -> inkwell::types::StructType<'ctx> {
         let fields = self.create_struct_type_fields(struct_ty);
         self.context.struct_type(&fields, struct_ty.is_packed_struct())
     }

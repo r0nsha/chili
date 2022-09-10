@@ -65,6 +65,7 @@ impl<I, V> IdCache<I, V> {
         self.inner.len()
     }
 
+    #[allow(unused)]
     pub fn iter(&self) -> slab::Iter<V> {
         self.inner.iter()
     }
@@ -94,6 +95,11 @@ where
 {
     pub fn insert(&mut self, v: V) -> I {
         I::from(self.inner.insert(v))
+    }
+
+    #[allow(unused)]
+    pub fn ids(&mut self) -> Vec<I> {
+        self.iter().map(|(id, _)| I::from(id)).collect()
     }
 }
 

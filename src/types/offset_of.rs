@@ -6,6 +6,7 @@ pub trait OffsetOf {
 }
 
 impl OffsetOf for Type {
+    #[track_caller]
     fn offset_of(&self, index: usize, word_size: usize) -> usize {
         match self {
             Type::Array(ty, ..) => ty.size_of(word_size) * index,
@@ -22,23 +23,12 @@ impl OffsetOf for Type {
                 1 => word_size,
                 _ => panic!("{}", index),
             },
-            Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => StructType::temp(
+            Type::Tuple(elems) => StructType::temp(
                 elems.iter().map(|t| StructTypeField::temp(t.clone())).collect(),
                 StructTypeKind::Struct,
             )
             .offset_of(index, word_size),
             Type::Struct(s) => s.offset_of(index, word_size),
-            Type::Infer(_, InferType::PartialStruct(partial_struct)) => {
-                let mut offset = 0;
-
-                partial_struct.iter().take(index).for_each(|(_, field)| {
-                    let align = field.align_of(word_size);
-                    offset = calculate_align_from_offset(offset, align);
-                    offset += field.size_of(word_size);
-                });
-
-                offset
-            }
             ty => panic!("{:?} isn't an aggregate type", ty),
         }
     }

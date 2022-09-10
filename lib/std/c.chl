@@ -1,76 +1,138 @@
-let LIB = "c"
+let { os, Os_windows } = import intrinsics
 
-@lib(LIB)
-pub extern fn putchar(char: int) -> int
+# Types
+pub type c_char = u8
+pub type wchar_t = if os == Os_windows { u16 } else { u32 }
 
-@lib(LIB)
-pub extern fn getchar() -> int
+pub type c_byte = i8
+pub type c_short = i16
+pub type c_int = i32
+pub type c_long = if os == Os_windows || size_of!(uint) == 4 { i32 } else { i64 }
+pub type c_longlong = i64
 
-@lib(LIB)
-pub extern fn printf(input: *u8, args...) -> int
+pub type c_uchar = u8
+pub type c_ushort = u16
+pub type c_uint = u32
+pub type c_ulong = if os == Os_windows || size_of!(uint) == 4 { u32 } else { u64 }
+pub type c_ulonglong = u64
 
-@lib(LIB)
-pub extern fn sprintf_s(buffer: *u8, sizeOfBuffer: uint, format: *u8, args...) -> int
+pub type c_float = f32
+pub type c_double = f64
 
-@lib(LIB)
-pub extern fn strcpy(dest: *u8, src: *u8) -> *u8
+pub type c_bool = bool
 
-@lib(LIB)
-pub extern fn malloc(size: uint) -> *i8
 
-@lib(LIB)
-pub extern fn calloc(nitems: uint, size: uint) -> *i8
+pub type size_t = uint
+pub type ssize_t = int
 
-@lib(LIB)
-pub extern fn realloc(ptr: *i8, size: uint) -> *i8
+pub type int8_t = i8
+pub type uint8_t = u8
 
-@lib(LIB)
-pub extern fn free(memblock: *i8)
+pub type int16_t = i16
+pub type uint16_t = u16
 
-@lib(LIB)
-pub extern fn abs(x: i32) -> i32
+pub type int32_t = i32
+pub type uint32_t = u32
 
-@lib(LIB)
-pub extern fn sinf(arg: f32) -> f32
+pub type int64_t = i64
+pub type uint64_t = u64
 
-@lib(LIB)
-pub extern fn sin(arg: f64) -> f64
+pub type intptr_t = int
+pub type uintptr_t = uint
 
-@lib(LIB)
-pub extern fn cosf(arg: f32) -> f32
+pub type intmax_t = i64
+pub type uintmax_t = u64
 
-@lib(LIB)
-pub extern fn cos(arg: f64) -> f64
+pub type pid_t = int
 
-@lib(LIB)
-pub extern fn atan2f(y: f32, x: f32) -> f32
+pub type c_void = ()
 
-@lib(LIB)
-pub extern fn atan2(y: f64, x: f64) -> f64
+# Constants
+pub let INT8_MAX: int8_t = 0x7f
+pub let INT16_MAX: int16_t = 0x7fff
+pub let INT32_MAX: int32_t = 0x7fffffff
+pub let INT64_MAX: c_longlong = 0x7fffffffffffffff
 
-@lib(LIB)
-pub extern fn pow(x: f64, y: f64) -> f64
+pub let UINT8_MAX: uint8_t = 0xff
+pub let UINT16_MAX: uint16_t = 0xffff
+pub let UINT32_MAX: uint32_t = 0xffffffff
+pub let UINT64_MAX: c_ulonglong = 0xffffffffffffffff
 
-@lib(LIB)
-pub extern fn srand(seed: uint)
+pub let INT8_MIN: int8_t = !INT8_MAX
+pub let INT16_MIN: int16_t = !INT16_MAX
+pub let INT32_MIN: int32_t = !INT32_MAX
+pub let INT64_MIN: c_longlong = !INT64_MAX
 
-@lib(LIB)
-pub extern fn rand() -> uint
+pub let CHAR_BIT = 8
 
-@lib(LIB)
-pub extern fn time(some: *i8) -> uint
+# Functions
+let c = "c"
 
-@lib(LIB)
-pub extern fn fork() -> int
+![lib = c]
+pub extern fn putchar(char: c_int) -> c_int
 
-@lib(LIB)
-pub extern fn waitpid(pid: int, status: *mut int, options: int) -> int
+![lib = c]
+pub extern fn getchar() -> c_int
 
-@lib(LIB)
-pub extern fn execl(path: *u8, args...) -> int
+![lib = c]
+pub extern fn printf(input: *c_char, args...) -> c_int
 
-@lib(LIB)
+![lib = c]
+pub extern fn strcpy(dest: *mut c_char, src: *c_char) -> *c_char
+
+![lib = c]
+pub extern fn malloc(size: size_t) -> *mut c_void
+
+![lib = c]
+pub extern fn calloc(nitems: size_t, size: size_t) -> *mut c_void
+
+![lib = c]
+pub extern fn realloc(ptr: *c_void, size: size_t) -> *mut c_void
+
+![lib = c]
+pub extern fn free(memblock: *c_void)
+
+![lib = c]
+pub extern fn abs(x: c_int) -> c_int
+
+![lib = c]
+pub extern fn sinf(arg: c_float) -> c_float
+
+![lib = c]
+pub extern fn sin(arg: c_double) -> c_double
+
+![lib = c]
+pub extern fn cosf(arg: c_float) -> c_float
+
+![lib = c]
+pub extern fn cos(arg: c_double) -> c_double
+
+![lib = c]
+pub extern fn atan2f(y: c_float, x: c_float) -> c_float
+
+![lib = c]
+pub extern fn atan2(y: c_double, x: c_double) -> c_double
+
+![lib = c]
+pub extern fn pow(x: c_double, y: c_double) -> c_double
+
+![lib = c]
+pub extern fn srand(seed: c_uint)
+
+![lib = c]
+pub extern fn rand() -> c_int
+
+![lib = c]
+pub extern fn fork() -> pid_t
+
+![lib = c]
+pub extern fn waitpid(pid: pid_t, status: *mut c_int, options: c_int) -> pid_t
+
+![lib = c]
+pub extern fn execl(path: *c_char, args...) -> c_int
+
+![lib = c]
 pub extern fn abort() -> never
 
-@lib(LIB)
-pub extern fn exit(status: int) -> never
+![lib = c]
+pub extern fn exit(status: c_int) -> never

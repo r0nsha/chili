@@ -287,9 +287,19 @@ impl Buffer {
     }
 
     pub fn as_str(&self) -> &str {
-        std::str::from_utf8(self.as_slice::<u8>()).unwrap()
+        let slice = self.as_slice::<u8>();
+
+        // TODO: remove this nul terminator handle hack
+        let slice_without_nul = if slice.last().map_or(false, |c| *c == b'\0') {
+            &slice[..slice.len() - 1]
+        } else {
+            slice
+        };
+
+        std::str::from_utf8(slice_without_nul).unwrap()
     }
 
+    #[allow(unused)]
     pub fn from_ustr(s: Ustr) -> Self {
         let ty = Type::str_pointer();
         let size = ty.size_of(WORD_SIZE);
@@ -299,6 +309,41 @@ impl Buffer {
         bytes
             .offset_mut(0)
             .put_value(&Value::Pointer(Pointer::U8(s.as_char_ptr() as *mut u8)));
+
+        bytes
+            .offset_mut(ty.offset_of(1, WORD_SIZE))
+            .put_value(&Value::Uint(s.len()));
+
+        Buffer { bytes, ty }
+    }
+
+    #[allow(unused)]
+    pub fn from_str(s: &mut str) -> Self {
+        let ty = Type::str_pointer();
+        let size = ty.size_of(WORD_SIZE);
+
+        let mut bytes = ByteSeq::new(size);
+
+        bytes
+            .offset_mut(0)
+            .put_value(&Value::Pointer(Pointer::U8(s.as_mut_ptr())));
+
+        bytes
+            .offset_mut(ty.offset_of(1, WORD_SIZE))
+            .put_value(&Value::Uint(s.len()));
+
+        Buffer { bytes, ty }
+    }
+
+    pub fn from_str_bytes(s: &mut [u8]) -> Self {
+        let ty = Type::str_pointer();
+        let size = ty.size_of(WORD_SIZE);
+
+        let mut bytes = ByteSeq::new(size);
+
+        bytes
+            .offset_mut(0)
+            .put_value(&Value::Pointer(Pointer::U8(s.as_mut_ptr())));
 
         bytes
             .offset_mut(ty.offset_of(1, WORD_SIZE))
@@ -329,12 +374,7 @@ impl Buffer {
                 .enumerate()
                 .map(|(index, _)| self.get_value_at_index(index))
                 .collect(),
-            Type::Infer(_, InferType::PartialStruct(partial_struct)) => partial_struct
-                .iter()
-                .enumerate()
-                .map(|(index, _)| self.get_value_at_index(index))
-                .collect(),
-            Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => elements
+            Type::Tuple(elements) => elements
                 .iter()
                 .enumerate()
                 .map(|(index, _)| self.get_value_at_index(index))
@@ -368,13 +408,7 @@ impl Buffer {
         match &self.ty {
             Type::Unit => panic!("{}", index),
             Type::Struct(struct_type) => self.bytes.offset(offset).get_value(&struct_type.fields[index].ty),
-            Type::Infer(_, InferType::PartialStruct(partial_struct)) => self
-                .bytes
-                .offset(offset)
-                .get_value(&partial_struct.get_index(index).unwrap().1),
-            Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => {
-                self.bytes.offset(offset).get_value(&elements[index])
-            }
+            Type::Tuple(elements) => self.bytes.offset(offset).get_value(&elements[index]),
             Type::Array(ty, _) => self.bytes.offset(offset).get_value(ty),
             Type::Pointer(inner, _) => match inner.as_ref() {
                 Type::Slice(ty) | Type::Str(ty) => match index {
@@ -427,10 +461,14 @@ impl From<hir::Intrinsic> for IntrinsicFunction {
     fn from(intrinsic: hir::Intrinsic) -> Self {
         match intrinsic {
             hir::Intrinsic::StartWorkspace => IntrinsicFunction::StartWorkspace,
-            hir::Intrinsic::Location | hir::Intrinsic::CallerLocation => panic!(
+            hir::Intrinsic::Location
+            | hir::Intrinsic::CallerLocation
+            | hir::Intrinsic::CompilerError
+            | hir::Intrinsic::CompilerWarning => panic!(
                 "intrinsic function '{}' should have been evaluated at compile-time",
                 intrinsic
             ),
+            hir::Intrinsic::Os | hir::Intrinsic::Arch => panic!("unexpected intrinsic variable '{}'", intrinsic),
         }
     }
 }
@@ -488,10 +526,7 @@ impl From<&Type> for ValueKind {
                 _ => Self::Pointer,
             },
             Type::Function(_) => Self::Function,
-            Type::Array(_, _)
-            | Type::Tuple(_)
-            | Type::Struct(_)
-            | Type::Infer(_, InferType::PartialStruct(_) | InferType::PartialTuple(_)) => Self::Buffer,
+            Type::Array(_, _) | Type::Tuple(_) | Type::Struct(_) => Self::Buffer,
             Type::Module(_) => panic!(),
             Type::Type(_) => Self::Type,
             Type::Infer(_, InferType::AnyInt) => Self::Int,
@@ -576,7 +611,6 @@ impl Value {
                     Self::F32(*(ptr as *mut f32))
                 }
             }
-            Type::Infer(_, _) => todo!(),
             _ => panic!("invalid type {:?}", ty),
         }
     }
@@ -618,13 +652,13 @@ impl Value {
             Self::I8(v) => Ok(ConstValue::Int(v as _)),
             Self::I16(v) => Ok(ConstValue::Int(v as _)),
             Self::I32(v) => Ok(ConstValue::Int(v as _)),
-            Self::I64(v) => Ok(ConstValue::Int(v)),
+            Self::I64(v) => Ok(ConstValue::Int(v as _)),
             Self::Int(v) => Ok(ConstValue::Int(v as _)),
-            Self::U8(v) => Ok(ConstValue::Uint(v as _)),
-            Self::U16(v) => Ok(ConstValue::Uint(v as _)),
-            Self::U32(v) => Ok(ConstValue::Uint(v as _)),
-            Self::U64(v) => Ok(ConstValue::Uint(v as _)),
-            Self::Uint(v) => Ok(ConstValue::Uint(v as _)),
+            Self::U8(v) => Ok(ConstValue::Int(v as _)),
+            Self::U16(v) => Ok(ConstValue::Int(v as _)),
+            Self::U32(v) => Ok(ConstValue::Int(v as _)),
+            Self::U64(v) => Ok(ConstValue::Int(v as _)),
+            Self::Uint(v) => Ok(ConstValue::Int(v as _)),
             Self::F32(v) => Ok(ConstValue::Float(v as _)),
             Self::F64(v) => Ok(ConstValue::Float(v)),
             Self::Bool(v) => Ok(ConstValue::Bool(v)),
@@ -663,7 +697,7 @@ impl Value {
                     }
                     _ => panic!("value type mismatch. expected an aggregate type, got {:?}", ty),
                 },
-                Type::Infer(_, InferType::PartialTuple(elements)) | Type::Tuple(elements) => {
+                Type::Tuple(elements) => {
                     let align = ty.align_of(WORD_SIZE);
                     let mut values = Vec::with_capacity(elements.len());
 
@@ -691,25 +725,6 @@ impl Value {
                             ConstElement {
                                 value: const_value,
                                 ty: tcx.bound(field.ty.clone(), field.span),
-                            },
-                        );
-                    }
-
-                    Ok(ConstValue::Struct(fields))
-                }
-                Type::Infer(_, InferType::PartialStruct(struct_type)) => {
-                    let align = ty.align_of(WORD_SIZE);
-                    let mut fields = IndexMap::<Ustr, ConstElement>::new();
-
-                    for (index, (name, field_type)) in struct_type.iter().enumerate() {
-                        let value = buf.bytes.offset(index * align).get_value(field_type);
-                        let const_value = value.try_into_const_value(tcx, ty, eval_span)?;
-
-                        fields.insert(
-                            *name,
-                            ConstElement {
-                                value: const_value,
-                                ty: tcx.bound(field_type.clone(), eval_span),
                             },
                         );
                     }
@@ -769,18 +784,46 @@ impl Pointer {
                     }
                 }
             },
-            Type::Pointer(ty, _) => Self::from_type_and_ptr(ty, ptr),
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(_) | Type::Str(_) => {
+                    if ptr.is_null() {
+                        Self::Buffer(std::ptr::null_mut())
+                    } else {
+                        let bytes = ByteSeq::copy_from_raw_parts(ptr as _, ty.size_of(WORD_SIZE));
+
+                        let buf = Box::new(Buffer { bytes, ty: ty.clone() });
+
+                        // Note (Ron): Leak
+                        Self::Buffer(Box::leak(buf) as *mut Buffer)
+                    }
+                }
+                _ => Self::from_type_and_ptr(inner, ptr),
+            },
             Type::Function(_) => todo!(),
             Type::Array(inner, size) => {
-                let bytes = ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE));
+                if ptr.is_null() {
+                    Self::Buffer(std::ptr::null_mut())
+                } else {
+                    let bytes = ByteSeq::copy_from_raw_parts(ptr as _, *size * inner.size_of(WORD_SIZE));
 
-                let array = Box::new(Buffer { bytes, ty: ty.clone() });
+                    let buf = Box::new(Buffer { bytes, ty: ty.clone() });
 
-                // Note (Ron): Leak
-                Self::Buffer(Box::leak(array) as *mut Buffer)
+                    // Note (Ron): Leak
+                    Self::Buffer(Box::leak(buf) as *mut Buffer)
+                }
             }
-            Type::Tuple(_) => todo!(),
-            Type::Struct(_) => todo!(),
+            Type::Tuple(_) | Type::Struct(_) => {
+                if ptr.is_null() {
+                    Self::Buffer(std::ptr::null_mut())
+                } else {
+                    let bytes = ByteSeq::copy_from_raw_parts(ptr as _, ty.size_of(WORD_SIZE));
+
+                    let buf = Box::new(Buffer { bytes, ty: ty.clone() });
+
+                    // Note (Ron): Leak
+                    Self::Buffer(Box::leak(buf) as *mut Buffer)
+                }
+            }
             Type::Infer(_, InferType::AnyInt) => Self::Int(ptr as _),
             Type::Infer(_, InferType::AnyFloat) => {
                 if IS_64BIT {
@@ -789,7 +832,6 @@ impl Pointer {
                     Self::F64(ptr as _)
                 }
             }
-            Type::Infer(_, _) => todo!(),
             _ => panic!("invalid type {:?}", ty),
         }
     }
@@ -898,8 +940,7 @@ impl Display for Buffer {
 
             let len = match &self.ty {
                 Type::Struct(s) => s.fields.len(),
-                Type::Infer(_, InferType::PartialStruct(partial_struct)) => partial_struct.len(),
-                Type::Tuple(elements) | Type::Infer(_, InferType::PartialTuple(elements)) => elements.len(),
+                Type::Tuple(elements) => elements.len(),
                 Type::Array(_, size) => *size,
                 Type::Pointer(inner, _) => match inner.as_ref() {
                     Type::Slice(_) | Type::Str(_) => 2,
@@ -916,10 +957,10 @@ impl Display for Buffer {
             };
 
             match &self.ty {
-                Type::Struct(_) | Type::Infer(_, InferType::PartialStruct(_)) => {
+                Type::Struct(_) => {
                     write!(f, "{{{}{}}}", values_joined, extra_values_str)
                 }
-                Type::Tuple(_) | Type::Infer(_, InferType::PartialTuple(_)) => {
+                Type::Tuple(_) => {
                     write!(f, "({}{})", values_joined, extra_values_str)
                 }
                 Type::Array(..) => {

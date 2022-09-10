@@ -7,7 +7,7 @@ use crate::{
     },
     define_id_type,
     error::{emit_diagnostics, emitter::ColorMode, Diagnostics},
-    hir::const_value::ConstValue,
+    hir::{self, const_value::ConstValue},
     span::{FileId, Span},
     types::TypeId,
 };
@@ -73,12 +73,12 @@ pub struct BindingInfo {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BindingInfoKind {
-    Orphan,
-    Static,
+    LetConst,
+    LetStatic,
     Function,
     ExternFunction,
     ExternVariable,
-    Intrinsic,
+    Intrinsic(hir::Intrinsic),
     Type,
 }
 
@@ -125,12 +125,6 @@ impl BindingInfo {
     #[allow(unused)]
     pub fn is_no_const_fold(&self) -> bool {
         self.flags.contains(BindingInfoFlags::NO_CONST_FOLD)
-    }
-
-    #[inline]
-    #[allow(unused)]
-    pub fn is_shadowable(&self) -> bool {
-        self.flags.contains(BindingInfoFlags::SHADOWABLE)
     }
 }
 
@@ -181,10 +175,8 @@ bitflags! {
         const IMPLICIT_IT_FUNCTION_PARAM = 1 << 3;
         // Whether this binding should store a constant value
         const NO_CONST_FOLD = 1 << 4;
-        // Whether this binding should store a constant value
-        const SHADOWABLE = 1 << 5;
         // Whether this binding was ignored using `_`
-        const IGNORE = 1 << 6;
+        const IGNORE = 1 << 5;
     }
 }
 
@@ -192,8 +184,8 @@ impl Workspace {
     pub fn new(name: String, build_options: BuildOptions, main_library: Library) -> Self {
         let mut libraries = IdCache::new();
 
-        libraries.insert_with_id(main_library);
         libraries.insert_with_id(Library::std());
+        libraries.insert_with_id(main_library);
 
         Self {
             name,
@@ -240,22 +232,23 @@ impl Workspace {
         self.module_infos.get(self.root_module_id).unwrap()
     }
 
+    pub fn add_binding_info_use(&mut self, id: BindingId, span: Span) {
+        self.binding_infos.get_mut(id).unwrap().add_use(span);
+    }
+
     pub fn find_module_id_by_file_id(&self, file_id: FileId) -> Option<ModuleId> {
         self.module_infos
             .iter()
             .position(|(_, module)| module.file_id == file_id)
             .map(ModuleId::from)
     }
-
-    pub fn add_binding_info_use(&mut self, id: BindingId, span: Span) {
-        self.binding_infos.get_mut(id).unwrap().add_use(span);
-    }
 }
 
 define_id_type!(LibraryId);
 
-const LIBRARY_ID_MAIN: LibraryId = LibraryId(0);
-const LIBRARY_ID_STD: LibraryId = LibraryId(1);
+// * This needs to be synchronized with the order of insertion
+const LIBRARY_ID_STD: LibraryId = LibraryId(0);
+const LIBRARY_ID_MAIN: LibraryId = LibraryId(1);
 
 define_id_type!(ModuleId);
 define_id_type!(BindingId);
@@ -265,6 +258,7 @@ pub struct ModuleInfo {
     pub name: Ustr,
     pub file_path: Ustr,
     pub file_id: FileId,
+    pub library_id: LibraryId,
 }
 
 impl ModuleInfo {
@@ -335,6 +329,7 @@ impl From<&ModulePath> for ModuleInfo {
             name: ustr(&p.name()),
             file_path: ustr(&p.path().to_str().unwrap()),
             file_id: FileId::MAX,
+            library_id: p.library.id,
         }
     }
 }

@@ -5,6 +5,7 @@ pub trait AlignOf {
 }
 
 impl AlignOf for Type {
+    #[track_caller]
     fn align_of(&self, word_size: usize) -> usize {
         match self {
             Type::Unit | Type::Never | Type::Bool => 1,
@@ -13,20 +14,12 @@ impl AlignOf for Type {
             Type::Float(ty) => ty.align_of(word_size),
             Type::Pointer(..) | Type::Function(..) => word_size,
             Type::Array(ty, ..) => ty.align_of(word_size),
-            Type::Infer(_, InferType::PartialTuple(elems)) | Type::Tuple(elems) => StructType::temp(
+            Type::Tuple(elems) => StructType::temp(
                 elems.iter().map(|t| StructTypeField::temp(t.clone())).collect(),
                 StructTypeKind::Struct,
             )
             .align_of(word_size),
             Type::Struct(s) => s.align_of(word_size),
-            Type::Infer(_, InferType::PartialStruct(partial_struct)) => {
-                let mut max_align: usize = 1;
-                for (_, field) in partial_struct.iter() {
-                    let field_align = field.align_of(word_size);
-                    max_align = max_align.max(field_align);
-                }
-                max_align
-            }
             Type::Infer(_, InferType::AnyInt) => IntType::Int.align_of(word_size),
             Type::Infer(_, InferType::AnyFloat) => FloatType::Float.align_of(word_size),
             _ => panic!("type {:?} is unsized", self),

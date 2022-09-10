@@ -20,6 +20,14 @@ impl<K: Hash + Eq, V> Scopes<K, V> {
         self.inner.pop();
     }
 
+    #[allow(unused)]
+    pub fn with_scope<R>(&mut self, f: impl FnOnce() -> R) -> R {
+        self.push_scope();
+        let result = f();
+        self.pop_scope();
+        result
+    }
+
     pub fn insert(&mut self, k: K, v: V) {
         self.inner.last_mut().unwrap().insert(k, v);
     }

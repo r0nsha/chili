@@ -3,6 +3,7 @@ use crate::span::Span;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum DiagnosticSeverity {
     Error,
+    Warning,
 }
 
 #[derive(Debug, Clone)]
@@ -45,13 +46,21 @@ pub struct Diagnostic {
 }
 
 impl Diagnostic {
-    pub fn error() -> Self {
+    pub fn new(severity: DiagnosticSeverity) -> Self {
         Self {
-            severity: DiagnosticSeverity::Error,
+            severity,
             message: None,
             labels: vec![],
             notes: vec![],
         }
+    }
+
+    pub fn error() -> Self {
+        Self::new(DiagnosticSeverity::Error)
+    }
+
+    pub fn warning() -> Self {
+        Self::new(DiagnosticSeverity::Warning)
     }
 
     pub fn set_message(&mut self, message: impl ToString) {

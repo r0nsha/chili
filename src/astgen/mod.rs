@@ -1,6 +1,5 @@
 use crate::{
     ast,
-    common::path::{try_resolve_relative_path, RelativeTo},
     parse::{spawn_parser, ParserCache, ParserResult},
     workspace::Workspace,
 };
@@ -19,23 +18,17 @@ pub struct AstGenerationStats {
 pub type AstGenerationResult = Option<(Vec<ast::Module>, AstGenerationStats)>;
 
 pub fn generate_ast(workspace: &mut Workspace) -> AstGenerationResult {
-    let root_file_path = try_resolve_relative_path(&workspace.build_options.source_file, &RelativeTo::Cwd, None)
-        .map_err(|diag| workspace.diagnostics.push(diag))
-        .ok()?;
-
     let (mut modules, stats) = generate_ast_inner(workspace);
 
     // Add all module_infos to the workspace
+    let workspace_root_file = workspace.main_library().root_file.to_str().unwrap().to_string();
+
     for module in modules.iter_mut() {
         module.id = workspace.module_infos.insert(module.info);
 
-        if module.info.file_path.as_str() == root_file_path.to_str().unwrap() {
+        if module.info.file_path.as_str() == workspace_root_file {
             workspace.root_module_id = module.id;
         }
-
-        module.bindings.iter_mut().for_each(|binding| {
-            binding.module_id = module.id;
-        });
     }
 
     Some((modules, stats))

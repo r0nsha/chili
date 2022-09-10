@@ -1,7 +1,7 @@
 let { printf } = import std/c
 
-fn main = {
-    for i in 0..100 {
+fn main() = {
+    for i in 0...100 {
         fizzbuzz(i)
     }
 }

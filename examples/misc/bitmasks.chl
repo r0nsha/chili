@@ -1,6 +1,6 @@
 let { printf, malloc, free } = import std/c
 
-let main = fn {
+fn main() = {
     let n = 4
     let mut storage = 66
     printf("storage=%d\n".data, storage)

@@ -37,6 +37,7 @@ pub struct IdeDiagnostic {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum IdeDiagnosticSeverity {
     Error,
+    Warning,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

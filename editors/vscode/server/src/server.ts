@@ -18,7 +18,6 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import {
   ChiliTextDocument,
   HoverInfo,
-  LspDiagnosticSeverity,
   LspObject,
   Span,
   spanToRange,
@@ -230,10 +229,13 @@ async function validateTextDocument(
         }
 
         if (object.type == "Diagnostic") {
-          let severity = DiagnosticSeverity.Error;
+          let severity: DiagnosticSeverity = DiagnosticSeverity.Error;
           switch (object.severity) {
-            case LspDiagnosticSeverity.Error:
+            case "Error":
               severity = DiagnosticSeverity.Error;
+              break;
+            case "Warning":
+              severity = DiagnosticSeverity.Warning;
               break;
           }
 
@@ -276,7 +278,7 @@ async function validateTextDocument(
             InlayHintKind.Type
           );
 
-          objectTextDocument.chiliInlayHints.push(inlayHint);
+          objectTextDocument.chiliInlayHints?.push(inlayHint);
         }
       }
     } catch (e) {

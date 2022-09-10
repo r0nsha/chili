@@ -25,7 +25,7 @@ pub struct Module {
     pub info: ModuleInfo,
     pub file_id: FileId,
     pub bindings: Vec<Binding>,
-    pub consts: Vec<StaticEval>,
+    pub comptime_blocks: Vec<Comptime>,
 }
 
 impl Module {
@@ -35,8 +35,33 @@ impl Module {
             id: Default::default(),
             info: module_info,
             bindings: vec![],
-            consts: vec![],
+            comptime_blocks: vec![],
         }
+    }
+
+    pub fn find_binding(&self, name: Ustr) -> Option<(usize, &Binding)> {
+        self.bindings
+            .iter()
+            .enumerate()
+            .find(|(_, binding)| match &binding.kind {
+                BindingKind::Let { pattern, .. } => pattern.iter().any(|pattern| pattern.name == name),
+                BindingKind::Function {
+                    name: NameAndSpan { name: binding_name, .. },
+                    ..
+                }
+                | BindingKind::ExternFunction {
+                    name: NameAndSpan { name: binding_name, .. },
+                    ..
+                }
+                | BindingKind::ExternVariable {
+                    name: NameAndSpan { name: binding_name, .. },
+                    ..
+                }
+                | BindingKind::Type {
+                    name: NameAndSpan { name: binding_name, .. },
+                    ..
+                } => *binding_name == name,
+            })
     }
 }
 
@@ -48,7 +73,7 @@ pub enum Ast {
     Cast(Cast),
     Import(Import),
     Builtin(Builtin),
-    StaticEval(StaticEval),
+    Comptime(Comptime),
     Function(Function),
     While(While),
     For(For),
@@ -75,6 +100,8 @@ pub enum Ast {
     FunctionType(FunctionSig),
     SelfType(Empty),
     Placeholder(Empty),
+
+    #[allow(unused)]
     Error(Empty),
 }
 
@@ -88,7 +115,7 @@ macro_rules! ast_field_dispatch {
                     Self::Cast(x) => x.$field,
                     Self::Import(x) => x.$field,
                     Self::Builtin(x) => x.$field,
-                    Self::StaticEval(x) => x.$field,
+                    Self::Comptime(x) => x.$field,
                     Self::Function(x) => x.$field,
                     Self::While(x) => x.$field,
                     Self::For(x) => x.$field,
@@ -127,7 +154,7 @@ macro_rules! ast_field_dispatch {
                         Self::Cast(x) => &mut x.$field,
                         Self::Import(x) => &mut x.$field,
                         Self::Builtin(x) => &mut x.$field,
-                        Self::StaticEval(x) => &mut x.$field,
+                        Self::Comptime(x) => &mut x.$field,
                         Self::Function(x) => &mut x.$field,
                         Self::While(x) => &mut x.$field,
                         Self::For(x) => &mut x.$field,
@@ -218,7 +245,6 @@ pub struct If {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Block {
     pub statements: Vec<Ast>,
-    pub yields: bool,
     pub span: Span,
 }
 
@@ -291,6 +317,7 @@ pub struct CallArg {
 pub struct MemberAccess {
     pub expr: Box<Ast>,
     pub member: Ustr,
+    pub member_span: Span,
     pub span: Span,
 }
 
@@ -323,7 +350,7 @@ pub struct Literal {
 pub enum LiteralKind {
     Nil,
     Bool(bool),
-    Int(i64),
+    Int(i128),
     Float(f64),
     Str(Ustr),
     Char(char),
@@ -342,7 +369,7 @@ pub struct Builtin {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct StaticEval {
+pub struct Comptime {
     pub expr: Box<Ast>,
     pub span: Span,
 }
@@ -501,7 +528,6 @@ impl ExternLibrary {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Binding {
-    pub module_id: ModuleId,
     pub attrs: Vec<Attr>,
     pub visibility: Visibility,
     pub kind: BindingKind,
@@ -512,22 +538,43 @@ impl Binding {
     #[allow(unused)]
     pub fn debug_name(&self) -> String {
         match &self.kind {
-            BindingKind::Orphan { pattern, .. } => pattern.to_string(),
+            BindingKind::Let { pattern, .. } => pattern.to_string(),
             BindingKind::Function { name, .. }
             | BindingKind::ExternFunction { name, .. }
             | BindingKind::ExternVariable { name, .. }
             | BindingKind::Type { name, .. } => name.name.to_string(),
         }
     }
+
+    pub fn pattern_span(&self) -> Span {
+        match &self.kind {
+            BindingKind::Let { pattern, .. } => pattern.span(),
+            BindingKind::Function {
+                name: NameAndSpan { span, .. },
+                ..
+            }
+            | BindingKind::ExternFunction {
+                name: NameAndSpan { span, .. },
+                ..
+            }
+            | BindingKind::ExternVariable {
+                name: NameAndSpan { span, .. },
+                ..
+            }
+            | BindingKind::Type {
+                name: NameAndSpan { span, .. },
+                ..
+            } => *span,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BindingKind {
-    Orphan {
+    Let {
         pattern: Pattern,
         type_expr: Option<Box<Ast>>,
         value: Box<Ast>,
-        is_static: bool,
     },
     Function {
         name: NameAndSpan,
@@ -555,7 +602,7 @@ impl Display for BindingKind {
             f,
             "{}",
             match self {
-                BindingKind::Orphan { .. } => "orphan",
+                BindingKind::Let { .. } => "orphan",
                 BindingKind::Function { .. } => "function",
                 BindingKind::ExternFunction { .. } => "extern function",
                 BindingKind::ExternVariable { .. } => "extern variable",

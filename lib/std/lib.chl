@@ -3,3 +3,5 @@ pub let build = import build
 pub let c = import c
 pub let fmt @ { print, println } = import fmt
 pub let panicking @ { panic } = import panicking
+pub let sys = import sys
+pub let process = import process

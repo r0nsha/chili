@@ -2,7 +2,7 @@ use super::{display::DisplayType, inference_value::InferenceValue, normalize::No
 use crate::{
     common::id_cache::IdCache,
     span::Span,
-    types::{PartialStructType, Type, TypeId},
+    types::{InferType, StructType, Type, TypeId},
 };
 
 pub struct TypeCtx {
@@ -44,16 +44,6 @@ impl TypeCtx {
     #[inline]
     pub fn anyfloat(&mut self, span: Span) -> TypeId {
         self.insert(InferenceValue::AnyFloat, Some(span))
-    }
-
-    #[inline]
-    pub fn partial_tuple(&mut self, elements: Vec<Type>, span: Span) -> TypeId {
-        self.insert(InferenceValue::PartialTuple(elements), Some(span))
-    }
-
-    #[inline]
-    pub fn partial_struct(&mut self, partial_struct: PartialStructType, span: Span) -> TypeId {
-        self.insert(InferenceValue::PartialStruct(partial_struct), Some(span))
     }
 
     #[inline]
@@ -102,6 +92,53 @@ impl TypeCtx {
             .bindings
             .get_mut(id)
             .unwrap_or_else(|| panic!("type id not found: {:?}", id)) = value;
+    }
+
+    #[allow(unused)]
+    pub fn make_concrete(&mut self, ty: &mut Type) {
+        match ty {
+            Type::Infer(id, InferType::AnyInt) => {
+                let concrete = Type::int();
+                self.bind_ty(*id, concrete.clone());
+                *ty = concrete;
+            }
+
+            Type::Infer(id, InferType::AnyFloat) => {
+                let concrete = Type::float();
+                self.bind_ty(*id, concrete.clone());
+                *ty = concrete;
+            }
+
+            Type::Function(f) => {
+                f.params.iter_mut().for_each(|p| self.make_concrete(&mut p.ty));
+
+                self.make_concrete(&mut f.return_type);
+
+                if let Some(ty) = f.varargs.as_mut().and_then(|v| v.ty.as_mut()) {
+                    self.make_concrete(ty);
+                }
+            }
+
+            Type::Pointer(ty, _) | Type::Array(ty, _) | Type::Slice(ty) | Type::Str(ty) | Type::Type(ty) => {
+                self.make_concrete(ty)
+            }
+
+            Type::Tuple(tys) => tys.iter_mut().for_each(|t| self.make_concrete(t)),
+
+            Type::Struct(StructType { fields, .. }) => {
+                fields.iter_mut().for_each(|f| self.make_concrete(&mut f.ty));
+            }
+
+            Type::Never
+            | Type::Unit
+            | Type::Bool
+            | Type::Int(_)
+            | Type::Uint(_)
+            | Type::Float(_)
+            | Type::Module(_)
+            | Type::AnyType
+            | Type::Var(_) => (),
+        }
     }
 
     #[allow(unused)]
