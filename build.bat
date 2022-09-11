@@ -20,7 +20,7 @@ if %mode% == "release" (
 
 rmdir /s /q %dir% 2>NUL
 mkdir %dir% >NUL
-copy LLVM-C.dll %dir%\LLVM-C.dll >NUL
+copy llvm\windows\LLVM-C.dll %dir%\LLVM-C.dll >NUL
 copy target\%mode%\chili.exe %dir%\chili.exe >NUL
 xcopy lib %dir%\lib /E /I >NUL
 xcopy llvm\windows\bin\* %dir%\* /E /I >NUL

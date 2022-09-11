@@ -22,9 +22,10 @@ vm.out
 *.o
 *.txt
 dist
-examples/**/out
 docs/demo
 docs/static
 local_resources
 hir.pretty.chl
 !llvm/**
+.vscode
+examples/**/out
