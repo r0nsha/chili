@@ -29,3 +29,5 @@ hir.pretty.chl
 !llvm/**
 .vscode
 examples/**/out
+examples/demo/comptime
+examples/demo/demo
