@@ -1,4 +1,4 @@
-let { Workspace } = import build
+let { Workspace } = import(build)
 
 ![intrinsic]
 pub extern fn start_workspace(workspace: Workspace) -> (*str, bool)

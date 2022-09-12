@@ -1,4 +1,4 @@
-let { printf } = import std/c
+let { printf } = import(std).c
 
 fn fib(n) = {
     if n <= 1 {

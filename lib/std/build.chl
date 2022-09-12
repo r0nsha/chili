@@ -1,4 +1,4 @@
-pub let { start_workspace } = import intrinsics
+pub let { start_workspace } = import(intrinsics)
 
 pub type Workspace = struct {
     name: *str

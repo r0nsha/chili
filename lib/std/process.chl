@@ -1,11 +1,11 @@
 let { 
     intrinsics: { os, Os_linux, Os_windows },
     c: { printf },
-} = import lib
+} = import(lib)
 
 pub fn start(output_file: *str) -> () = {
     if os == Os_linux {
-        let { waitpid, fork, execl } = import c
+        let { waitpid, fork, execl } = import(c)
 
         let pid = fork()
 
@@ -20,7 +20,7 @@ pub fn start(output_file: *str) -> () = {
             panic("fork failed")
         }
     } else if os == Os_windows {
-        let { windows: w } = import sys
+        let { windows: w } = import(sys)
 
 		let si = w.types.STARTUPINFO {
 			cb: size_of!(w.types.STARTUPINFO) as _,

@@ -1,4 +1,4 @@
-let * = import types
+let * = import(types)
 
 let shell32 = "shell32"
 

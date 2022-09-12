@@ -1,4 +1,4 @@
-let { printf } = import std/c
+let { printf } = import(std).c
 
 fn main() = {
     for i in 0...100 {
