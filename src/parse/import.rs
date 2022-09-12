@@ -98,27 +98,23 @@ impl Parser {
                     Err(Parser::outside_of_library_root_err(&library, token.span))
                 }
             }
-            Ident(ident) => match ident.as_str() {
-                // import lib/foo
-                "lib" => Ok((ModulePath::new(self.module_path.library().clone(), vec![]), true)),
-                _ => {
-                    if let Some(library) = cache.libraries.get(ident) {
-                        // import std/foo
-                        Ok((ModulePath::new(library.clone(), vec![]), true))
-                    } else {
-                        // import foo
-                        let library = self.module_path.library().clone();
-                        let mut components = self.module_path.components().to_vec();
+            Ident(ident) => {
+                if let Some(library) = cache.libraries.get(ident) {
+                    // import std/foo
+                    Ok((ModulePath::new(library.clone(), vec![]), true))
+                } else {
+                    // import foo
+                    let library = self.module_path.library().clone();
+                    let mut components = self.module_path.components().to_vec();
 
-                        if components.pop().is_some() {
-                            components.push(*ident);
-                            Ok((ModulePath::new(library, components), true))
-                        } else {
-                            Err(Parser::outside_of_library_root_err(&library, token.span))
-                        }
+                    if components.pop().is_some() {
+                        components.push(*ident);
+                        Ok((ModulePath::new(library, components), true))
+                    } else {
+                        Err(Parser::outside_of_library_root_err(&library, token.span))
                     }
                 }
-            },
+            }
             _ => Err(SyntaxError::expected(token.span, "an identifier or .")),
         }
     }
