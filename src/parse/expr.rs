@@ -326,7 +326,7 @@ impl Parser {
                 value: Box::new(value),
                 span: start_span.to(self.previous_span()),
             }))
-        } else if eat!(self, Import) {
+        } else if is!(self, Import) {
             self.parse_import()
         } else if is!(self, Comptime) {
             Ok(Ast::Comptime(self.parse_comptime()?))

@@ -1,12 +1,10 @@
+use super::{LibraryId, ModuleId, ModulePath};
+use crate::common::id_cache::WithId;
 use std::{
     env,
     path::{Path, PathBuf},
 };
 use ustr::{ustr, Ustr};
-
-use crate::common::id_cache::WithId;
-
-use super::{LibraryId, ModuleId, ModulePath};
 
 pub const LIB_NAME_STD: &str = "std";
 

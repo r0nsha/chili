@@ -446,10 +446,6 @@ impl<'lx> Lexer<'lx> {
         self.source.at(self.cursor.end_index() + 1)
     }
 
-    pub fn peek_offset(&self, offset: usize) -> char {
-        self.source.at(self.cursor.end_index() + offset)
-    }
-
     pub fn eat(&mut self, expected: char) -> bool {
         if self.peek() == expected {
             self.bump();

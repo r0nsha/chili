@@ -9,7 +9,7 @@ use crate::{
 
 impl Parser {
     pub fn parse_import(&mut self) -> DiagnosticResult<ast::Ast> {
-        let start_span = self.previous_span();
+        let start_span = require!(self, Import, "import")?.span;
 
         let module_path = self.parse_import_path()?;
         let absolute_path = module_path.path();
@@ -82,40 +82,23 @@ impl Parser {
     }
 
     fn parse_import_path_root(&mut self) -> DiagnosticResult<(ModulePath, bool)> {
-        let token = self.bump().clone();
+        let token = require!(self, Ident(_), "an identifier")?;
+        let ident = token.name();
 
         let cache = self.cache.lock();
 
-        match &token.kind {
-            Dot => {
-                // import foo
-                let library = self.module_path.library().clone();
-                let mut components = self.module_path.components().to_vec();
+        if let Some(library) = cache.libraries.get(&ident) {
+            Ok((ModulePath::new(library.clone(), vec![]), true))
+        } else {
+            let library = self.module_path.library().clone();
+            let mut components = self.module_path.components().to_vec();
 
-                if components.pop().is_some() {
-                    Ok((ModulePath::new(library, components), false))
-                } else {
-                    Err(Parser::outside_of_library_root_err(&library, token.span))
-                }
+            if components.pop().is_some() {
+                components.push(ident);
+                Ok((ModulePath::new(library, components), true))
+            } else {
+                Err(Parser::outside_of_library_root_err(&library, token.span))
             }
-            Ident(ident) => {
-                if let Some(library) = cache.libraries.get(ident) {
-                    // import std/foo
-                    Ok((ModulePath::new(library.clone(), vec![]), true))
-                } else {
-                    // import foo
-                    let library = self.module_path.library().clone();
-                    let mut components = self.module_path.components().to_vec();
-
-                    if components.pop().is_some() {
-                        components.push(*ident);
-                        Ok((ModulePath::new(library, components), true))
-                    } else {
-                        Err(Parser::outside_of_library_root_err(&library, token.span))
-                    }
-                }
-            }
-            _ => Err(SyntaxError::expected(token.span, "an identifier or .")),
         }
     }
 
