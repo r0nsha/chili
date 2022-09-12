@@ -2,6 +2,7 @@ mod attrs;
 mod const_fold;
 mod entry;
 mod env;
+mod intrinsics;
 mod lvalue_access;
 mod pattern;
 pub mod symbols;
@@ -10,6 +11,7 @@ mod top_level;
 use self::pattern::get_qualified_name;
 use crate::{
     ast::{self, pattern::Pattern},
+    check::intrinsics::{can_dispatch_intrinsic_at_comptime, dispatch_intrinsic},
     common::{
         builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
         target::TargetMetrics,
@@ -2630,24 +2632,6 @@ impl Check for ast::Unary {
 }
 impl Check for ast::Call {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
-        fn is_callee_const_intrinsic(sess: &mut CheckSess, callee: &hir::Node) -> Option<hir::Intrinsic> {
-            if let Some(ConstValue::Function(f)) = callee.as_const_value() {
-                let function = sess.cache.functions.get(f.id).unwrap();
-                match &function.kind {
-                    hir::FunctionKind::Intrinsic(intrinsic) => match intrinsic {
-                        hir::Intrinsic::Location
-                        | hir::Intrinsic::CallerLocation
-                        | hir::Intrinsic::CompilerError
-                        | hir::Intrinsic::CompilerWarning => Some(*intrinsic),
-                        hir::Intrinsic::StartWorkspace | hir::Intrinsic::Os | hir::Intrinsic::Arch => None,
-                    },
-                    _ => None,
-                }
-            } else {
-                None
-            }
-        }
-
         fn validate_call_args(sess: &mut CheckSess, args: &[hir::Node]) -> DiagnosticResult<()> {
             for arg in args.iter() {
                 match arg.ty().normalize(&sess.tcx) {
@@ -2969,62 +2953,8 @@ impl Check for ast::Call {
 
                 let ty = sess.tcx.bound(function_type.return_type.as_ref().clone(), self.span);
 
-                if let Some(intrinsic) = is_callee_const_intrinsic(sess, &callee) {
-                    match intrinsic {
-                        hir::Intrinsic::Location => {
-                            let value = sess.build_location_value(env, self.span)?;
-
-                            Ok(hir::Node::Const(hir::Const {
-                                value,
-                                ty,
-                                span: self.span,
-                            }))
-                        }
-                        hir::Intrinsic::CallerLocation => {
-                            sess.get_track_caller_location_param_id(env, self.span).map(|id| {
-                                hir::Node::Id(hir::Id {
-                                    id,
-                                    ty,
-                                    span: self.span,
-                                })
-                            })
-                        }
-                        hir::Intrinsic::CompilerError => {
-                            let first_arg = args.first().unwrap();
-
-                            if let Some(ConstValue::Str(msg)) = args.first().unwrap().as_const_value() {
-                                Err(Diagnostic::error()
-                                    .with_message(msg)
-                                    .with_label(Label::primary(self.span, msg)))
-                            } else {
-                                Err(Diagnostic::error()
-                                    .with_message("argument `msg` must be a string literal")
-                                    .with_label(Label::primary(first_arg.span(), "not a string literal")))
-                            }
-                        }
-                        hir::Intrinsic::CompilerWarning => {
-                            let first_arg = args.first().unwrap();
-
-                            if let Some(ConstValue::Str(msg)) = args.first().unwrap().as_const_value() {
-                                sess.workspace.diagnostics.push(
-                                    Diagnostic::warning()
-                                        .with_message(msg)
-                                        .with_label(Label::primary(self.span, msg)),
-                                );
-
-                                Ok(hir::Node::Const(hir::Const {
-                                    value: ConstValue::Unit(()),
-                                    ty: sess.tcx.common_types.unit,
-                                    span: self.span,
-                                }))
-                            } else {
-                                Err(Diagnostic::error()
-                                    .with_message("argument `msg` must be a string literal")
-                                    .with_label(Label::primary(first_arg.span(), "not a string literal")))
-                            }
-                        }
-                        hir::Intrinsic::StartWorkspace | hir::Intrinsic::Os | hir::Intrinsic::Arch => unreachable!(),
-                    }
+                if let Some(intrinsic) = can_dispatch_intrinsic_at_comptime(sess, &callee) {
+                    dispatch_intrinsic(sess, env, &intrinsic, &args, ty, self.span)
                 } else {
                     Ok(hir::Node::Call(hir::Call {
                         callee: Box::new(callee),
