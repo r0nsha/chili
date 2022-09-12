@@ -147,7 +147,7 @@ impl Parser {
             tx,
             tokens: vec![],
             current: 0,
-            module_info: ModuleInfo::from(&module_path),
+            module_info: module_path.as_module_info(),
             module_path,
             restrictions: Restrictions::empty(),
         }

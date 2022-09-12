@@ -47,19 +47,14 @@ impl Library {
     }
 
     pub fn as_module_path(&self) -> ModulePath {
-        ModulePath::new(self.clone(), vec![ustr(self.root_file_name())])
-    }
-
-    #[allow(unused)]
-    pub fn root_module_name(&self) -> Ustr {
-        ustr(&format!("{}.{}", self.name, self.root_file_name()))
+        ModulePath::new(self.clone(), vec![ustr(self.root_file_stem())])
     }
 
     pub fn root_dir(&self) -> &Path {
         &self.root_file.parent().unwrap()
     }
 
-    pub fn root_file_name(&self) -> &str {
+    pub fn root_file_stem(&self) -> &str {
         self.root_file.file_stem().unwrap().to_str().unwrap()
     }
 }

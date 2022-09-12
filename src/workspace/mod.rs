@@ -20,7 +20,7 @@ use ustr::{ustr, Ustr, UstrMap};
 
 pub mod library;
 
-const SOURCE_FILE_EXT: &str = "chl";
+pub const SOURCE_FILE_EXT: &str = "chl";
 
 pub struct Workspace {
     pub name: String,
@@ -275,10 +275,7 @@ pub struct ModulePath {
 
 impl ModulePath {
     pub fn new(library: Library, components: Vec<Ustr>) -> Self {
-        Self {
-            library: library.clone(),
-            components,
-        }
+        Self { library, components }
     }
 
     pub fn push(&mut self, component: Ustr) {
@@ -289,10 +286,12 @@ impl ModulePath {
         self.components.pop()
     }
 
+    #[allow(unused)]
     pub fn library(&self) -> &Library {
         &self.library
     }
 
+    #[allow(unused)]
     pub fn components(&self) -> &[Ustr] {
         &self.components
     }
@@ -321,15 +320,13 @@ impl ModulePath {
 
         path
     }
-}
 
-impl From<&ModulePath> for ModuleInfo {
-    fn from(p: &ModulePath) -> Self {
-        Self {
-            name: ustr(&p.name()),
-            file_path: ustr(&p.path().to_str().unwrap()),
+    pub fn as_module_info(&self) -> ModuleInfo {
+        ModuleInfo {
+            name: ustr(&self.name()),
+            file_path: ustr(&self.path().to_str().unwrap()),
             file_id: FileId::MAX,
-            library_id: p.library.id,
+            library_id: self.library.id,
         }
     }
 }
