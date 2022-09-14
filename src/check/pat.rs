@@ -353,8 +353,8 @@ impl<'s> CheckSess<'s> {
                 let module_bindings = self.global_scopes.get(&module_id).unwrap().bindings.clone();
 
                 fn find_name(bindings: &UstrMap<BindingId>, name: Ustr) -> Option<BindingId> {
-                    // TODO: respect `self`
-                    // TODO: respect `super`
+                    // TODO: support `self`
+                    // TODO: support `super`
                     bindings.get(&name).copied()
                 }
 
