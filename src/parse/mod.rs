@@ -4,7 +4,7 @@ mod expr;
 mod function;
 mod import;
 mod literal;
-mod pattern;
+mod pat;
 mod postfix;
 mod top_level;
 
@@ -36,12 +36,12 @@ bitflags! {
 }
 
 macro_rules! is {
-    ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
+    ($parser:expr, $(|) ? $($pat : pat_param) | +) => {
         if $parser.eof() {
             false
         } else {
             match &$parser.peek().kind {
-                $( $pattern )|+ => true,
+                $( $pat )|+ => true,
                 _ => false
             }
         }
@@ -49,8 +49,8 @@ macro_rules! is {
 }
 
 macro_rules! eat {
-    ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
-        if is!($parser, $( $pattern )|+) {
+    ($parser:expr, $(|) ? $($pat : pat_param) | +) => {
+        if is!($parser, $( $pat )|+) {
             $parser.bump();
             true
         } else {
@@ -60,8 +60,8 @@ macro_rules! eat {
 }
 
 macro_rules! require {
-    ($parser:expr, $(|) ? $($pattern : pat_param) | +, $msg:expr) => {
-        if is!($parser, $( $pattern )|+) {
+    ($parser:expr, $(|) ? $($pat : pat_param) | +, $msg:expr) => {
+        if is!($parser, $( $pat )|+) {
             Ok($parser.bump().clone())
         } else {
             Err(SyntaxError::expected($parser.span(), $msg))

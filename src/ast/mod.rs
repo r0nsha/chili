@@ -1,6 +1,6 @@
-pub mod pattern;
+pub mod pat;
 
-use self::pattern::NamePattern;
+use self::pat::NamePat;
 use crate::{
     common::path::{resolve_relative_path, try_resolve_relative_path, RelativeTo},
     define_id_type,
@@ -10,7 +10,7 @@ use crate::{
     workspace::{ModuleId, ModuleInfo},
 };
 use paste::paste;
-use pattern::Pattern;
+use pat::Pat;
 use std::{
     ffi::OsStr,
     fmt::{self, Display},
@@ -44,7 +44,7 @@ impl Module {
             .iter()
             .enumerate()
             .find(|(_, binding)| match &binding.kind {
-                BindingKind::Let { pattern, .. } => pattern.iter().any(|pattern| pattern.name == name),
+                BindingKind::Let { pat, .. } => pat.iter().any(|pat| pat.name == name),
                 BindingKind::Function {
                     name: NameAndSpan { name: binding_name, .. },
                     ..
@@ -441,21 +441,21 @@ impl FunctionSig {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionVarargs {
-    pub name: NamePattern,
+    pub name: NamePat,
     pub type_expr: Option<Box<Ast>>,
     pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionParam {
-    pub pattern: Pattern,
+    pub pat: Pat,
     pub type_expr: Option<Box<Ast>>,
     pub default_value: Option<Box<Ast>>,
 }
 
 impl ToString for FunctionParam {
     fn to_string(&self) -> String {
-        self.pattern.to_string()
+        self.pat.to_string()
     }
 }
 
@@ -538,7 +538,7 @@ impl Binding {
     #[allow(unused)]
     pub fn debug_name(&self) -> String {
         match &self.kind {
-            BindingKind::Let { pattern, .. } => pattern.to_string(),
+            BindingKind::Let { pat, .. } => pat.to_string(),
             BindingKind::Function { name, .. }
             | BindingKind::ExternFunction { name, .. }
             | BindingKind::ExternVariable { name, .. }
@@ -546,9 +546,9 @@ impl Binding {
         }
     }
 
-    pub fn pattern_span(&self) -> Span {
+    pub fn pat_span(&self) -> Span {
         match &self.kind {
-            BindingKind::Let { pattern, .. } => pattern.span(),
+            BindingKind::Let { pat, .. } => pat.span(),
             BindingKind::Function {
                 name: NameAndSpan { span, .. },
                 ..
@@ -572,7 +572,7 @@ impl Binding {
 #[derive(Debug, PartialEq, Clone)]
 pub enum BindingKind {
     Let {
-        pattern: Pattern,
+        pat: Pat,
         type_expr: Option<Box<Ast>>,
         value: Box<Ast>,
     },

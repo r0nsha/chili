@@ -168,7 +168,7 @@ impl<'s> CheckSess<'s> {
                 ))
                 .with_label(Label::primary(caller_info.span, format!("`{}` refers to itself", name)))
                 .with_label(Label::secondary(
-                    binding.pattern_span(),
+                    binding.pat_span(),
                     format!("`{}` is defined here", name),
                 ))));
         }

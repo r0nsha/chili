@@ -4,12 +4,12 @@ mod entry;
 mod env;
 mod intrinsics;
 mod lvalue_access;
-mod pattern;
+mod pat;
 mod top_level;
 
-use self::pattern::get_qualified_name;
+use self::pat::get_qualified_name;
 use crate::{
-    ast::{self, pattern::Pattern},
+    ast::{self, pat::Pat},
     check::intrinsics::{can_dispatch_intrinsic_at_comptime, dispatch_intrinsic},
     common::{
         builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
@@ -468,12 +468,8 @@ impl Check for ast::Binding {
         sess.check_attrs_are_assigned_to_valid_binding(&attrs, self)?;
 
         match &self.kind {
-            ast::BindingKind::Let {
-                pattern,
-                type_expr,
-                value,
-            } => {
-                let ty = check_optional_type_expr(type_expr, sess, env, pattern.span())?;
+            ast::BindingKind::Let { pat, type_expr, value } => {
+                let ty = check_optional_type_expr(type_expr, sess, env, pat.span())?;
 
                 let mut value_node = value.check(sess, env, Some(ty))?;
 
@@ -501,30 +497,30 @@ impl Check for ast::Binding {
                 let value_is_module = binding_type.is_module();
 
                 let is_static =
-                    env.scope_level().is_global() && !value_node.is_const() || pattern.iter().any(|p| p.is_mutable);
+                    env.scope_level().is_global() && !value_node.is_const() || pat.iter().any(|p| p.is_mutable);
 
                 // Bindings of type `{module}` cannot be assigned to mutable bindings
                 if value_is_module {
-                    pattern.iter().filter(|pattern| pattern.is_mutable).for_each(|pattern| {
+                    pat.iter().filter(|pat| pat.is_mutable).for_each(|pat| {
                         sess.workspace.diagnostics.push(
                             Diagnostic::error()
                                 .with_message("variable of type `{module}` must be immutable")
-                                .with_label(Label::primary(pattern.span, "variable is mutable"))
+                                .with_label(Label::primary(pat.span, "variable is mutable"))
                                 .with_note("try removing the `mut` from the declaration"),
                         );
                     });
                 } else if binding_type.is_unsized() {
                     sess.workspace.diagnostics.push(TypeError::binding_is_unsized(
-                        &pattern.to_string(),
+                        &pat.to_string(),
                         binding_type.display(&sess.tcx),
-                        pattern.span(),
+                        pat.span(),
                     ))
                 }
 
                 let value_span = value_node.span();
-                let (_, bound_node) = sess.bind_pattern(
+                let (_, bound_node) = sess.bind_pat(
                     env,
-                    &pattern,
+                    &pat,
                     self.vis,
                     ty,
                     Some(value_node),
@@ -1544,12 +1540,12 @@ impl Check for ast::Ast {
                 let node = sig.check(sess, env, Some(sess.tcx.common_types.anytype))?;
 
                 for param in sig.params.iter() {
-                    match &param.pattern {
-                        Pattern::Name(_) => (),
-                        Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) | Pattern::Hybrid(_) => {
+                    match &param.pat {
+                        Pat::Name(_) => (),
+                        Pat::Struct(_) | Pat::Tuple(_) | Pat::Hybrid(_) => {
                             return Err(Diagnostic::error()
                                 .with_message("expected an indentifier or _")
-                                .with_label(Label::primary(param.pattern.span(), "expected an identifier or _"))
+                                .with_label(Label::primary(param.pat.span(), "expected an identifier or _"))
                                 .with_note("binding patterns are not allowed in function type parameters"))
                         }
                     }
@@ -3556,17 +3552,17 @@ fn check_function<'s>(
             Some(param) if !sym::is_implicitly_generated_param(&param_type.name) => {
                 let ty = sess.tcx.bound(
                     param_type.ty.clone(),
-                    param.type_expr.as_ref().map_or(param.pattern.span(), |e| e.span()),
+                    param.type_expr.as_ref().map_or(param.pat.span(), |e| e.span()),
                 );
 
-                let (bound_id, bound_node) = sess.bind_pattern(
+                let (bound_id, bound_node) = sess.bind_pat(
                     env,
-                    &param.pattern,
+                    &param.pat,
                     ast::Vis::Private,
                     ty,
                     None,
                     BindingInfoKind::LetConst,
-                    param.pattern.span(),
+                    param.pat.span(),
                     if param.type_expr.is_some() {
                         BindingInfoFlags::IS_USER_DEFINED
                     } else {
@@ -3578,7 +3574,7 @@ fn check_function<'s>(
                     hir::FunctionParam {
                         id: bound_id,
                         ty,
-                        span: param.pattern.span(),
+                        span: param.pat.span(),
                     },
                     bound_node,
                 )
@@ -3796,21 +3792,21 @@ fn check_function_sig<'s>(
     }
 
     for param in sig.params.iter() {
-        let param_span = param.pattern.span();
+        let param_span = param.pat.span();
 
-        let name = match &param.pattern {
-            Pattern::Name(p) => p.name,
-            Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => ustr("_"),
-            Pattern::Hybrid(p) => p.name_pattern.name,
+        let name = match &param.pat {
+            Pat::Name(p) => p.name,
+            Pat::Struct(_) | Pat::Tuple(_) => ustr("_"),
+            Pat::Hybrid(p) => p.name_pat.name,
         };
 
         let param_type = check_optional_type_expr(&param.type_expr, sess, env, param_span)?;
 
-        for pattern in param.pattern.iter() {
-            let name = pattern.name;
+        for pat in param.pat.iter() {
+            let name = pat.name;
 
-            if let Some(already_defined_span) = defined_params.insert(name, pattern.span) {
-                return Err(SyntaxError::duplicate_binding(name, pattern.span, already_defined_span));
+            if let Some(already_defined_span) = defined_params.insert(name, pat.span) {
+                return Err(SyntaxError::duplicate_binding(name, pat.span, already_defined_span));
             }
         }
 
@@ -3941,8 +3937,8 @@ fn check_function_sig_has_type_annotations<'s>(sess: &mut CheckSess<'s>, sig: &a
         .map(|param| {
             param.type_expr.is_none().then(|| {
                 Diagnostic::error()
-                    .with_message(format!("missing type for function parameter `{}`", param.pattern))
-                    .with_label(Label::primary(param.pattern.span(), "missing type annotation"))
+                    .with_message(format!("missing type for function parameter `{}`", param.pat))
+                    .with_label(Label::primary(param.pat.span(), "missing type annotation"))
             })
         })
         .flatten()
@@ -4016,8 +4012,8 @@ fn check_function_param_types<'s>(
             sess,
             &mut diagnostics,
             &param_type.ty.normalize(&sess.tcx),
-            &param.pattern,
-            param.pattern.span(),
+            &param.pat,
+            param.pat.span(),
         );
     }
 

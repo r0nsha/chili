@@ -1,19 +1,16 @@
 use super::*;
 use crate::{
-    ast::pattern::{
-        GlobPat, HybridPattern, NamePattern, Pattern, StructUnpackPattern, StructUnpackSubPattern, TupleUnpackPattern,
-        UnpackPatternKind,
-    },
+    ast::pat::{GlobPat, HybridPat, NamePat, Pat, StructPat, StructSubPat, TuplePat, UnpackPatKind},
     error::SyntaxError,
     workspace::BindingId,
 };
 
 impl Parser {
-    pub fn parse_pattern(&mut self) -> DiagnosticResult<Pattern> {
+    pub fn parse_pat(&mut self) -> DiagnosticResult<Pat> {
         self.skip_newlines();
 
         if is!(self, Mut | Ident(_) | Placeholder) {
-            let pattern = self.parse_name_pattern().map(Pattern::Name)?;
+            let pattern = self.parse_name_pattern().map(Pat::Name)?;
 
             self.skip_newlines();
 
@@ -22,14 +19,14 @@ impl Parser {
                 let start_span = pattern.span;
 
                 let unpack_pattern = match self.parse_unpack_pattern("an unpack pattern")? {
-                    Pattern::StructUnpack(pattern) => UnpackPatternKind::Struct(pattern),
-                    Pattern::TupleUnpack(pattern) => UnpackPatternKind::Tuple(pattern),
+                    Pat::Struct(pattern) => UnpackPatKind::Struct(pattern),
+                    Pat::Tuple(pattern) => UnpackPatKind::Tuple(pattern),
                     _ => panic!(),
                 };
 
-                Ok(Pattern::Hybrid(HybridPattern {
-                    name_pattern: pattern,
-                    unpack_pattern,
+                Ok(Pat::Hybrid(HybridPat {
+                    name_pat: pattern,
+                    unpack_pat: unpack_pattern,
                     span: start_span.to(self.previous_span()),
                 }))
             } else {
@@ -40,7 +37,7 @@ impl Parser {
         }
     }
 
-    fn parse_unpack_pattern(&mut self, expectation: &str) -> DiagnosticResult<Pattern> {
+    fn parse_unpack_pattern(&mut self, expectation: &str) -> DiagnosticResult<Pat> {
         self.skip_newlines();
 
         if eat!(self, OpenCurly) {
@@ -49,8 +46,8 @@ impl Parser {
             self.parse_tuple_unpack()
         } else if eat!(self, Star) {
             let span = self.previous_span();
-            Ok(Pattern::StructUnpack(StructUnpackPattern {
-                sub_patterns: vec![],
+            Ok(Pat::Struct(StructPat {
+                subpats: vec![],
                 span,
                 glob: Some(GlobPat { span }),
             }))
@@ -59,7 +56,7 @@ impl Parser {
         }
     }
 
-    fn parse_struct_unpack(&mut self) -> DiagnosticResult<Pattern> {
+    fn parse_struct_unpack(&mut self) -> DiagnosticResult<Pat> {
         let start_span = self.previous_span();
 
         let mut sub_patterns = vec![];
@@ -73,10 +70,7 @@ impl Parser {
                 require!(self, CloseCurly, "}")?;
                 break;
             } else {
-                fn parse_name(
-                    parser: &mut Parser,
-                    sub_patterns: &mut Vec<StructUnpackSubPattern>,
-                ) -> DiagnosticResult<()> {
+                fn parse_name(parser: &mut Parser, sub_patterns: &mut Vec<StructSubPat>) -> DiagnosticResult<()> {
                     let pattern = parser.parse_name_pattern()?;
 
                     // This means the user used `_`, instead of `x: _` - which is illegal
@@ -84,7 +78,7 @@ impl Parser {
                         return Err(SyntaxError::expected(pattern.span, "an identifier, ? or }"));
                     }
 
-                    sub_patterns.push(StructUnpackSubPattern::Name(pattern));
+                    sub_patterns.push(StructSubPat::Name(pattern));
 
                     Ok(())
                 }
@@ -98,9 +92,9 @@ impl Parser {
 
                         self.bump();
 
-                        let pattern = self.parse_pattern()?;
+                        let pattern = self.parse_pat()?;
 
-                        sub_patterns.push(StructUnpackSubPattern::NameAndPattern(name, pattern));
+                        sub_patterns.push(StructSubPat::NameAndPat(name, pattern));
                     } else {
                         self.revert(1);
                         parse_name(self, &mut sub_patterns)?;
@@ -123,25 +117,25 @@ impl Parser {
             }
         }
 
-        Ok(Pattern::StructUnpack(StructUnpackPattern {
-            sub_patterns,
+        Ok(Pat::Struct(StructPat {
+            subpats: sub_patterns,
             span: start_span.to(self.previous_span()),
             glob: glob_span.map(|span| GlobPat { span }),
         }))
     }
 
-    fn parse_tuple_unpack(&mut self) -> DiagnosticResult<Pattern> {
+    fn parse_tuple_unpack(&mut self) -> DiagnosticResult<Pat> {
         let start_span = self.previous_span();
 
-        let sub_patterns = parse_delimited_list!(self, CloseParen, Comma, self.parse_pattern()?, ", or )");
+        let sub_patterns = parse_delimited_list!(self, CloseParen, Comma, self.parse_pat()?, ", or )");
 
-        Ok(Pattern::TupleUnpack(TupleUnpackPattern {
-            sub_patterns,
+        Ok(Pat::Tuple(TuplePat {
+            subpats: sub_patterns,
             span: start_span.to(self.previous_span()),
         }))
     }
 
-    pub fn parse_name_pattern(&mut self) -> DiagnosticResult<NamePattern> {
+    pub fn parse_name_pattern(&mut self) -> DiagnosticResult<NamePat> {
         let is_mutable = eat!(self, Mut);
 
         let (name, ignore) = if eat!(self, Ident(_)) {
@@ -152,7 +146,7 @@ impl Parser {
             return Err(SyntaxError::expected(self.span(), "an identifier or _"));
         };
 
-        Ok(NamePattern {
+        Ok(NamePat {
             id: BindingId::unknown(),
             name,
             is_mutable,

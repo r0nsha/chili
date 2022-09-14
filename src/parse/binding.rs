@@ -1,5 +1,5 @@
 use super::*;
-use crate::{ast::pattern::Pattern, types::FunctionTypeKind};
+use crate::{ast::pat::Pat, types::FunctionTypeKind};
 
 impl Parser {
     pub fn try_parse_any_binding(
@@ -32,7 +32,7 @@ impl Parser {
     pub fn parse_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
-        let pattern = self.parse_pattern()?;
+        let pat = self.parse_pat()?;
 
         let type_expr = if eat!(self, Colon) {
             Some(Box::new(self.parse_expression(false, true)?))
@@ -44,8 +44,8 @@ impl Parser {
 
         let mut value = self.parse_expression(false, true)?;
 
-        match &pattern {
-            Pattern::Name(pattern) => Self::assign_expr_name_if_needed(&mut value, pattern.name),
+        match &pat {
+            Pat::Name(pat) => Self::assign_expr_name_if_needed(&mut value, pat.name),
             _ => (),
         }
 
@@ -53,7 +53,7 @@ impl Parser {
             attrs,
             vis,
             kind: ast::BindingKind::Let {
-                pattern,
+                pat,
                 type_expr,
                 value: Box::new(value),
             },

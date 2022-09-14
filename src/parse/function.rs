@@ -71,7 +71,7 @@ impl Parser {
             CloseParen,
             Comma,
             {
-                let pattern = self.parse_pattern()?;
+                let pat = self.parse_pat()?;
 
                 let type_expr = if eat!(self, Colon) {
                     Some(Box::new(self.parse_expression(false, true)?))
@@ -80,10 +80,10 @@ impl Parser {
                 };
 
                 if eat!(self, DotDotDot) {
-                    let name = if let Some(name) = pattern.as_name() {
+                    let name = if let Some(name) = pat.as_name() {
                         name.clone()
                     } else {
-                        return Err(SyntaxError::expected(pattern.span(), "an identifier or _"));
+                        return Err(SyntaxError::expected(pat.span(), "an identifier or _"));
                     };
 
                     let end_span = self.previous_span();
@@ -93,7 +93,7 @@ impl Parser {
                     varargs = Some(FunctionVarargs {
                         name,
                         type_expr,
-                        span: pattern.span().to(end_span),
+                        span: pat.span().to(end_span),
                     });
 
                     break;
@@ -105,7 +105,7 @@ impl Parser {
                     };
 
                     FunctionParam {
-                        pattern,
+                        pat,
                         type_expr,
                         default_value,
                     }
