@@ -13,6 +13,7 @@ mod interp;
 mod lint;
 mod parse;
 mod span;
+mod sym;
 mod token;
 mod types;
 mod workspace;

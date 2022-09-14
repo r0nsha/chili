@@ -5,7 +5,6 @@ mod env;
 mod intrinsics;
 mod lvalue_access;
 mod pattern;
-pub mod symbols;
 mod top_level;
 
 use self::pattern::get_qualified_name;
@@ -37,6 +36,7 @@ use crate::{
     },
     interp::interp::Interp,
     span::Span,
+    sym,
     types::{
         align_of::AlignOf, is_sized::IsSized, size_of::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeParam,
         FunctionTypeVarargs, StructType, StructTypeField, StructTypeKind, Type, TypeId,
@@ -360,7 +360,7 @@ impl<'s> CheckSess<'s> {
                 .with_label(Label::primary(span, "cannot be used within the current scope"))
         };
 
-        match env.find_binding(ustr(symbols::SYM_TRACK_CALLER_LOCATION_PARAM)) {
+        match env.find_binding(ustr(sym::TRACK_CALLER_LOCATION_PARAM)) {
             Some(id) => match self.function_frame() {
                 Some(frame) => {
                     let binding_info = self.workspace.binding_infos.get(id).unwrap();
@@ -2698,7 +2698,7 @@ impl Check for ast::Call {
                 // If the function was annotated by track_caller, its first argument
                 // should be the inserted location parameter: track_caller@location
                 let param_offset = match function_type.params.first() {
-                    Some(param) if param.name == symbols::SYM_TRACK_CALLER_LOCATION_PARAM => {
+                    Some(param) if param.name == sym::TRACK_CALLER_LOCATION_PARAM => {
                         let ty = sess.location_type()?;
 
                         let arg = match sess.get_track_caller_location_param_id(env, self.span) {
@@ -3557,7 +3557,7 @@ fn check_function<'s>(
 
     for (index, param_type) in function_type.params.iter().enumerate() {
         let (param, bound_node) = match sig.params.get(index) {
-            Some(param) if !symbols::is_implicitly_generated_param(&param_type.name) => {
+            Some(param) if !sym::is_implicitly_generated_param(&param_type.name) => {
                 let ty = sess.tcx.bound(
                     param_type.ty.clone(),
                     param.type_expr.as_ref().map_or(param.pattern.span(), |e| e.span()),
@@ -3785,7 +3785,7 @@ fn check_function_sig<'s>(
     // Whenever a function declaration is annotated with @track_caller, we implicitly
     // insert a location parameter at the start - track_caller@location: Location
     if track_caller == TrackCaller::Yes {
-        let name = ustr(symbols::SYM_TRACK_CALLER_LOCATION_PARAM);
+        let name = ustr(sym::TRACK_CALLER_LOCATION_PARAM);
         let ty = sess.location_type()?.normalize(&sess.tcx);
 
         if let Some(already_defined_span) = defined_params.insert(name, sig.span) {

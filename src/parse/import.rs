@@ -33,20 +33,16 @@ impl Parser {
                             Some(library) => {
                                 let module_path =
                                     ModulePath::new(library.clone(), vec![ustr(library.root_file_stem())]);
+
                                 self.finish_parse_import(module_path, span)
                             }
                             None => {
                                 search_notes.push(format!("searched for a library named `{}`", name));
 
-                                let mut diagnostic = Diagnostic::error()
+                                Err(Diagnostic::error()
                                     .with_message(format!("could not find module or library `{}`", name))
-                                    .with_label(Label::primary(span, "undefined module or library"));
-
-                                for note in search_notes {
-                                    diagnostic.add_note(note);
-                                }
-
-                                Err(diagnostic)
+                                    .with_label(Label::primary(span, "undefined module or library"))
+                                    .with_notes(&search_notes))
                             }
                         }
                     }

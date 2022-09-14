@@ -1,5 +1,5 @@
 use super::{normalize::Normalize, type_ctx::TypeCtx, unify::UnifyTypeResult};
-use crate::{check::symbols, error::DiagnosticResult, span::Span, types::*};
+use crate::{error::DiagnosticResult, span::Span, sym, types::*};
 
 pub trait DisplayType {
     fn display(&self, tcx: &TypeCtx) -> String;
@@ -13,29 +13,29 @@ impl<T: Normalize> DisplayType for T {
 
 fn display_type(ty: &Type, tcx: &TypeCtx) -> String {
     match ty {
-        Type::Unit => "()".to_string(),
-        Type::Bool => "bool".to_string(),
+        Type::Unit => sym::UNIT.to_string(),
+        Type::Bool => sym::BOOL.to_string(),
         Type::Int(inner) => match inner {
-            IntType::I8 => "i8",
-            IntType::I16 => "i16",
-            IntType::I32 => "i32",
-            IntType::I64 => "i64",
-            IntType::Int => "int",
+            IntType::I8 => sym::I8,
+            IntType::I16 => sym::I16,
+            IntType::I32 => sym::I32,
+            IntType::I64 => sym::I64,
+            IntType::Int => sym::INT,
         }
         .to_string(),
         Type::Uint(inner) => match inner {
-            UintType::U8 => "u8",
-            UintType::U16 => "u16",
-            UintType::U32 => "u32",
-            UintType::U64 => "u64",
-            UintType::Uint => "uint",
+            UintType::U8 => sym::U8,
+            UintType::U16 => sym::U16,
+            UintType::U32 => sym::U32,
+            UintType::U64 => sym::U64,
+            UintType::Uint => sym::UINT,
         }
         .to_string(),
         Type::Float(inner) => match inner {
-            FloatType::F16 => "f16",
-            FloatType::F32 => "f32",
-            FloatType::F64 => "f64",
-            FloatType::Float => "float",
+            FloatType::F16 => sym::F16,
+            FloatType::F32 => sym::F32,
+            FloatType::F64 => sym::F64,
+            FloatType::Float => sym::FLOAT,
         }
         .to_string(),
         Type::Pointer(ty, is_mutable) => format!("*{}{}", if *is_mutable { "mut " } else { "" }, display_type(ty, tcx)),
@@ -53,7 +53,7 @@ fn display_type(ty: &Type, tcx: &TypeCtx) -> String {
         Type::Struct(ty) => ty.display(tcx),
         Type::Type(_) | Type::AnyType => "type".to_string(),
         Type::Module(_) => "{module}".to_string(),
-        Type::Never => "never".to_string(),
+        Type::Never => sym::NEVER.to_string(),
         Type::Infer(_, InferType::AnyInt) => "{integer}".to_string(),
         Type::Infer(_, InferType::AnyFloat) => "{float}".to_string(),
         Type::Var(_) => "?".to_string(),
@@ -88,7 +88,7 @@ impl DisplayType for FunctionType {
             "fn({}{}) -> {}",
             self.params
                 .iter()
-                .filter(|param| !symbols::is_implicitly_generated_param(&param.name))
+                .filter(|param| !sym::is_implicitly_generated_param(&param.name))
                 .map(|param| format!(
                     "{}: {}{}",
                     param.name,
