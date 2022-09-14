@@ -38,6 +38,7 @@ macro_rules! define_id_type {
     };
 }
 
+#[derive(Debug)]
 pub struct IdCache<I, V> {
     inner: Slab<V>,
     marker: PhantomData<I>,

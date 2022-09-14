@@ -32,7 +32,7 @@ impl Module {
     pub fn new(file_id: FileId, module_info: ModuleInfo) -> Self {
         Self {
             file_id,
-            id: Default::default(),
+            id: module_info.id,
             info: module_info,
             bindings: vec![],
             comptime_blocks: vec![],

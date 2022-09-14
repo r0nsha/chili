@@ -16,7 +16,7 @@ use std::{
     cmp::Ordering,
     path::{Path, PathBuf},
 };
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::{Ustr, UstrMap};
 
 pub mod library;
 
@@ -255,10 +255,22 @@ define_id_type!(BindingId);
 
 #[derive(Debug, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct ModuleInfo {
+    pub id: ModuleId,
     pub name: Ustr,
     pub file_path: Ustr,
     pub file_id: FileId,
     pub library_id: LibraryId,
+    pub parent: Option<ModuleId>,
+}
+
+impl WithId<ModuleId> for ModuleInfo {
+    fn id(&self) -> &ModuleId {
+        &self.id
+    }
+
+    fn id_mut(&mut self) -> &mut ModuleId {
+        &mut self.id
+    }
 }
 
 impl ModuleInfo {
@@ -319,15 +331,6 @@ impl ModulePath {
         path.set_extension(SOURCE_FILE_EXT);
 
         path
-    }
-
-    pub fn as_module_info(&self) -> ModuleInfo {
-        ModuleInfo {
-            name: ustr(&self.name()),
-            file_path: ustr(&self.path().to_str().unwrap()),
-            file_id: FileId::MAX,
-            library_id: self.library.id,
-        }
     }
 }
 

@@ -887,13 +887,9 @@ impl Check for ast::Ast {
                     .find(|m| m.info.file_path == import_path)
                     .unwrap_or_else(|| panic!("couldn't find ast for module with path: {}", import_path));
 
-                let module_type = sess.check_module(module)?;
+                sess.check_module(module)?;
 
-                Ok(hir::Node::Const(hir::Const {
-                    value: ConstValue::Unit(()),
-                    ty: module_type,
-                    span: import.span,
-                }))
+                Ok(sess.module_node(module.id, import.span))
             }
             ast::Ast::Builtin(builtin) => match &builtin.kind {
                 ast::BuiltinKind::SizeOf(expr) => {

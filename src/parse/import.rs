@@ -71,6 +71,7 @@ impl Parser {
             self.tx.clone(),
             Arc::clone(&self.cache),
             module_path,
+            Some(self.module_info.id),
         );
 
         Ok(ast::Ast::Import(ast::Import { path, span }))

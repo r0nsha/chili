@@ -81,15 +81,8 @@ pub fn start_workspace(name: String, build_options: BuildOptions) -> StartWorksp
 
     // Parse all source files into ast's
     let (modules, stats) = time! { workspace.build_options.emit_times, "parse", {
-            match crate::astgen::generate_ast(&mut workspace) {
-                Some(result) => result,
-                None => {
-                    workspace.emit_diagnostics();
-                    return StartWorkspaceResult::new_untyped(workspace);
-                }
-            }
-        }
-    };
+        crate::astgen::generate_ast(&mut workspace)
+    }};
 
     if workspace.diagnostics.has_errors() {
         workspace.emit_diagnostics();

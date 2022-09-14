@@ -82,13 +82,17 @@ impl<'s> CheckSess<'s> {
                 Some(Err(diag)) => Err(diag),
                 None => match name.as_str() {
                     // Top level `self` module
-                    sym::SELF => Ok(hir::Node::Const(hir::Const {
-                        value: ConstValue::Unit(()),
-                        ty: self.get_module_type(module_id),
-                        span: caller_info.span,
-                    })),
+                    sym::SELF => Ok(self.module_node(module_id, caller_info.span)),
                     // Top level `super` module
-                    sym::SUPER => todo!(),
+                    sym::SUPER => {
+                        if let Some(parent_module_id) = module.info.parent {
+                            Ok(self.module_node(parent_module_id, caller_info.span))
+                        } else {
+                            Err(Diagnostic::error()
+                                .with_message(format!("module `{}` has no parent", module.info.name))
+                                .with_label(Label::primary(caller_info.span, "invalid `super` module")))
+                        }
+                    }
                     _ => {
                         // A used library name
                         let find_library_result = self
@@ -233,7 +237,7 @@ impl<'s> CheckSess<'s> {
 
         if binding_info.visibility == ast::Visibility::Private && binding_info.module_id != caller_info.module_id {
             Err(Diagnostic::error()
-                .with_message(format!("associated symbol `{}` is private", binding_info.name))
+                .with_message(format!("symbol `{}` is private", binding_info.name))
                 .with_label(Label::primary(caller_info.span, "accessed here"))
                 .with_label(Label::secondary(binding_info.span, "defined here")))
         } else {
@@ -344,5 +348,13 @@ impl<'s> CheckSess<'s> {
 
             _ => None,
         }
+    }
+
+    pub fn module_node(&self, module_id: ModuleId, span: Span) -> hir::Node {
+        hir::Node::Const(hir::Const {
+            value: ConstValue::Unit(()),
+            ty: self.get_module_type(module_id),
+            span,
+        })
     }
 }
