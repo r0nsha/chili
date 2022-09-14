@@ -1,7 +1,10 @@
 use super::*;
-use crate::error::{
-    diagnostic::{Diagnostic, Label},
-    DiagnosticResult, SyntaxError,
+use crate::{
+    error::{
+        diagnostic::{Diagnostic, Label},
+        DiagnosticResult, SyntaxError,
+    },
+    sym,
 };
 
 impl Parser {
@@ -19,30 +22,39 @@ impl Parser {
 
         let mut search_notes = vec![];
 
-        match self.search_for_child_module(name) {
-            Ok(module_path) => self.finish_parse_import(module_path, span),
-            Err(path) => {
-                search_notes.push(format!("searched path: {}", path.display()));
-
-                match self.search_for_neighbor_module(name) {
+        match name.as_str() {
+            // Allow using self/super in imports
+            sym::SELF | sym::SUPER => Ok(ast::Ast::Ident(ast::Ident { name, span })),
+            _ => {
+                // Search for {module}/foo.chl
+                match self.search_for_child_module(name) {
                     Ok(module_path) => self.finish_parse_import(module_path, span),
                     Err(path) => {
                         search_notes.push(format!("searched path: {}", path.display()));
 
-                        match self.cache.lock().libraries.get(&name) {
-                            Some(library) => {
-                                let module_path =
-                                    ModulePath::new(library.clone(), vec![ustr(library.root_file_stem())]);
+                        // Search for ./foo.chl
+                        match self.search_for_neighbor_module(name) {
+                            Ok(module_path) => self.finish_parse_import(module_path, span),
+                            Err(path) => {
+                                search_notes.push(format!("searched path: {}", path.display()));
 
-                                self.finish_parse_import(module_path, span)
-                            }
-                            None => {
-                                search_notes.push(format!("searched for a library named `{}`", name));
+                                // Search for a library named `foo`
+                                match self.cache.lock().libraries.get(&name) {
+                                    Some(library) => {
+                                        let module_path =
+                                            ModulePath::new(library.clone(), vec![ustr(library.root_file_stem())]);
 
-                                Err(Diagnostic::error()
-                                    .with_message(format!("could not find module or library `{}`", name))
-                                    .with_label(Label::primary(span, "undefined module or library"))
-                                    .with_notes(&search_notes))
+                                        self.finish_parse_import(module_path, span)
+                                    }
+                                    None => {
+                                        search_notes.push(format!("searched for a library named `{}`", name));
+
+                                        Err(Diagnostic::error()
+                                            .with_message(format!("could not find module or library `{}`", name))
+                                            .with_label(Label::primary(span, "undefined module or library"))
+                                            .with_notes(&search_notes))
+                                    }
+                                }
                             }
                         }
                     }
