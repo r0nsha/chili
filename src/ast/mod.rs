@@ -624,7 +624,7 @@ impl NameAndSpan {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Visibility {
     Private,
     Public,
@@ -633,6 +633,15 @@ pub enum Visibility {
 impl Default for Visibility {
     fn default() -> Self {
         Self::Private
+    }
+}
+
+impl Display for Visibility {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Visibility::Private => write!(f, "private"),
+            Visibility::Public => write!(f, "public"),
+        }
     }
 }
 

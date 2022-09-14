@@ -58,14 +58,16 @@ pub struct CallerInfo {
 }
 
 impl<'s> CheckSess<'s> {
-    pub fn check_top_level_binding(&mut self, name: Ustr, module_id: ModuleId, caller_info: CallerInfo) -> CheckResult {
+    pub fn check_top_level_name(&mut self, name: Ustr, module_id: ModuleId, caller_info: CallerInfo) -> CheckResult {
         // In general, top level names are searched in this order:
-        // 1. A binding in current module
-        // 2. An extern library name
-        // 3. A built-in type name
-        // 4. A binding in `std` prelude
+        // > 1. A binding in current module
+        // > 2. The `self` module
+        // > 3. The `super` module
+        // > 4. A library name
+        // > 5. A built-in type name
+        // > 6. A binding in `std` prelude
 
-        if let Some(result) = self.find_checked_top_level_binding(name, module_id, caller_info) {
+        if let Some(result) = self.find_checked_top_level_name(name, module_id, caller_info) {
             result
         } else {
             let module = self
@@ -74,51 +76,58 @@ impl<'s> CheckSess<'s> {
                 .find(|m| m.id == module_id)
                 .unwrap_or_else(|| panic!("{:?}", module_id));
 
-            // Check if the binding exists in the current module
-            match self.check_binding_in_module(name, module, caller_info) {
+            match self.check_name_in_module(name, module, caller_info) {
                 Some(Ok(node)) => Ok(node),
                 Some(Err(diag)) => Err(diag),
-                None => {
-                    let find_library_result = self
-                        .workspace
-                        .libraries
-                        .iter()
-                        .find(|(_, library)| library.name == name);
+                None => match name.as_str() {
+                    symbols::SYM_SELF => Ok(hir::Node::Const(hir::Const {
+                        value: ConstValue::Unit(()),
+                        ty: self.get_module_type(module_id),
+                        span: caller_info.span,
+                    })),
+                    symbols::SYM_SUPER => todo!(),
+                    _ => {
+                        let find_library_result = self
+                            .workspace
+                            .libraries
+                            .iter()
+                            .find(|(_, library)| library.name == name);
 
-                    if let Some((_, library)) = find_library_result {
-                        let module_type = self.check_module_by_id(library.root_module_id)?;
+                        if let Some((_, library)) = find_library_result {
+                            let module_type = self.check_module_by_id(library.root_module_id)?;
 
-                        Ok(hir::Node::Const(hir::Const {
-                            value: ConstValue::Unit(()),
-                            ty: module_type,
-                            span: caller_info.span,
-                        }))
-                    } else if let Some(ty) = self.get_builtin_type(&name) {
-                        let value = ConstValue::Type(ty);
-                        let ty = self.tcx.bound_maybe_spanned(ty.as_kind().create_type(), None);
+                            Ok(hir::Node::Const(hir::Const {
+                                value: ConstValue::Unit(()),
+                                ty: module_type,
+                                span: caller_info.span,
+                            }))
+                        } else if let Some(ty) = self.get_builtin_type(&name) {
+                            let value = ConstValue::Type(ty);
+                            let ty = self.tcx.bound_maybe_spanned(ty.as_kind().create_type(), None);
 
-                        Ok(hir::Node::Const(hir::Const {
-                            value,
-                            ty,
-                            span: caller_info.span,
-                        }))
-                    } else if let Some(result) = self.check_binding_in_std_prelude(name, caller_info) {
-                        result
-                    } else {
-                        Err(self.name_not_found_error(module_id, name, caller_info))
+                            Ok(hir::Node::Const(hir::Const {
+                                value,
+                                ty,
+                                span: caller_info.span,
+                            }))
+                        } else if let Some(result) = self.check_name_in_std_prelude(name, caller_info) {
+                            result
+                        } else {
+                            Err(self.name_not_found_error(module_id, name, caller_info))
+                        }
                     }
-                }
+                },
             }
         }
     }
 
     // Note(Ron): This function is pretty weird, maybe we should yeet it?
-    fn find_checked_top_level_binding(
+    fn find_checked_top_level_name(
         &mut self,
         name: Ustr,
         module_id: ModuleId,
         caller_info: CallerInfo,
-    ) -> Option<CheckResult<hir::Node>> {
+    ) -> Option<CheckResult> {
         if let Some(id) = self.get_global_binding_id(module_id, name) {
             self.workspace.add_binding_info_use(id, caller_info.span);
 
@@ -132,12 +141,12 @@ impl<'s> CheckSess<'s> {
         }
     }
 
-    fn check_binding_in_module(
+    fn check_name_in_module(
         &mut self,
         name: Ustr,
         module: &ast::Module,
         caller_info: CallerInfo,
-    ) -> Option<CheckResult<hir::Node>> {
+    ) -> Option<CheckResult> {
         let (index, binding) = module.find_binding(name)?;
 
         // Check that this binding isn't cyclic
@@ -177,10 +186,10 @@ impl<'s> CheckSess<'s> {
         }
     }
 
-    fn check_binding_in_std_prelude(&mut self, name: Ustr, caller_info: CallerInfo) -> Option<CheckResult> {
+    fn check_name_in_std_prelude(&mut self, name: Ustr, caller_info: CallerInfo) -> Option<CheckResult> {
         let std_root_module_id = self.workspace.std_library().root_module_id;
 
-        if let Some(result) = self.find_checked_top_level_binding(name, std_root_module_id, caller_info) {
+        if let Some(result) = self.find_checked_top_level_name(name, std_root_module_id, caller_info) {
             Some(result)
         } else {
             let std_root_module = self
@@ -189,16 +198,11 @@ impl<'s> CheckSess<'s> {
                 .find(|m| m.id == std_root_module_id)
                 .unwrap_or_else(|| panic!("{:?}", std_root_module_id));
 
-            self.check_binding_in_module(name, std_root_module, caller_info)
+            self.check_name_in_module(name, std_root_module, caller_info)
         }
     }
 
-    pub(super) fn name_not_found_error(
-        &mut self,
-        module_id: ModuleId,
-        name: Ustr,
-        caller_info: CallerInfo,
-    ) -> Diagnostic {
+    pub(super) fn name_not_found_error(&self, module_id: ModuleId, name: Ustr, caller_info: CallerInfo) -> Diagnostic {
         let module_info = self.workspace.module_infos.get(module_id).unwrap();
 
         let message = if module_info.name.is_empty() {
@@ -289,6 +293,10 @@ impl<'s> CheckSess<'s> {
 
             Ok(module_type)
         }
+    }
+
+    fn get_module_type(&self, id: ModuleId) -> TypeId {
+        self.queued_modules.get(&id).unwrap().module_type
     }
 
     fn get_completed_module_type(&self, id: ModuleId) -> Option<TypeId> {

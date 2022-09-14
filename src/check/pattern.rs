@@ -354,6 +354,12 @@ impl<'s> CheckSess<'s> {
 
                 let module_bindings = self.global_scopes.get(&module_id).unwrap().bindings.clone();
 
+                fn find_name(bindings: &UstrMap<BindingId>, name: Ustr) -> Option<BindingId> {
+                    // TODO: respect `self`
+                    // TODO: respect `super`
+                    bindings.get(&name).copied()
+                }
+
                 let mut unpacked_names = UstrMap::default();
 
                 for pattern in unpack_pattern.sub_patterns.iter() {
@@ -371,8 +377,8 @@ impl<'s> CheckSess<'s> {
                                 span: pattern.span,
                             };
 
-                            let id = match module_bindings.get(&pattern.name) {
-                                Some(id) => *id,
+                            let id = match find_name(&module_bindings, pattern.name) {
+                                Some(id) => id,
                                 None => return Err(self.name_not_found_error(module_id, pattern.name, caller_info)),
                             };
 
@@ -400,9 +406,8 @@ impl<'s> CheckSess<'s> {
                                 span,
                             };
 
-                            // dbg!(module_bindings.keys().collect::<Vec<_>>());
-                            let id = match module_bindings.get(&name) {
-                                Some(id) => *id,
+                            let id = match find_name(&module_bindings, name) {
+                                Some(id) => id,
                                 None => return Err(self.name_not_found_error(module_id, name, caller_info)),
                             };
 
