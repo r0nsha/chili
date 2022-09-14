@@ -16,7 +16,7 @@ impl Parser {
         let attrs = self.parse_attrs()?;
         let has_attrs = !attrs.is_empty();
 
-        let parse_binding_result = self.try_parse_any_binding(attrs, ast::Visibility::Private, false)?;
+        let parse_binding_result = self.try_parse_any_binding(attrs, ast::Vis::Private, false)?;
 
         match parse_binding_result {
             Some(binding) => Ok(Ast::Binding(binding?)),

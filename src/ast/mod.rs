@@ -529,7 +529,7 @@ impl ExternLibrary {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Binding {
     pub attrs: Vec<Attr>,
-    pub visibility: Visibility,
+    pub vis: Vis,
     pub kind: BindingKind,
     pub span: Span,
 }
@@ -625,22 +625,22 @@ impl NameAndSpan {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Visibility {
+pub enum Vis {
     Private,
     Public,
 }
 
-impl Default for Visibility {
+impl Default for Vis {
     fn default() -> Self {
         Self::Private
     }
 }
 
-impl Display for Visibility {
+impl Display for Vis {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Visibility::Private => write!(f, "private"),
-            Visibility::Public => write!(f, "public"),
+            Vis::Private => write!(f, "private"),
+            Vis::Public => write!(f, "public"),
         }
     }
 }

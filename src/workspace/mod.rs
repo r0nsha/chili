@@ -54,7 +54,7 @@ pub struct BindingInfo {
     pub module_id: ModuleId,
     // the name used for the binding
     pub name: Ustr,
-    pub visibility: ast::Visibility,
+    pub vis: ast::Vis,
     pub ty: TypeId,
     pub const_value: Option<ConstValue>,
     // what kind of access the binding has
@@ -132,7 +132,7 @@ impl BindingInfo {
 pub struct PartialBindingInfo {
     pub module_id: ModuleId,
     pub name: Ustr,
-    pub visibility: ast::Visibility,
+    pub vis: ast::Vis,
     pub ty: TypeId,
     pub const_value: Option<ConstValue>,
     pub is_mutable: bool,
@@ -149,7 +149,7 @@ impl PartialBindingInfo {
             id: BindingId::unknown(),
             module_id: self.module_id,
             name: self.name,
-            visibility: self.visibility,
+            vis: self.vis,
             ty: self.ty,
             const_value: self.const_value,
             is_mutable: self.is_mutable,

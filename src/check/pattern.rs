@@ -49,7 +49,7 @@ impl<'s> CheckSess<'s> {
         &mut self,
         env: &mut Env,
         name: Ustr,
-        visibility: ast::Visibility,
+        vis: ast::Vis,
         ty: TypeId,
         value: Option<hir::Node>,
         is_mutable: bool,
@@ -63,7 +63,7 @@ impl<'s> CheckSess<'s> {
         let partial_binding_info = PartialBindingInfo {
             module_id,
             name,
-            visibility,
+            vis,
             ty,
             const_value: if is_mutable || flags.contains(BindingInfoFlags::NO_CONST_FOLD) {
                 None
@@ -136,7 +136,7 @@ impl<'s> CheckSess<'s> {
         &mut self,
         env: &mut Env,
         pattern: &NamePattern,
-        visibility: ast::Visibility,
+        vis: ast::Vis,
         ty: TypeId,
         value: Option<hir::Node>,
         kind: BindingInfoKind,
@@ -145,7 +145,7 @@ impl<'s> CheckSess<'s> {
         self.bind_name(
             env,
             pattern.name,
-            visibility,
+            vis,
             ty,
             value,
             pattern.is_mutable,
@@ -163,7 +163,7 @@ impl<'s> CheckSess<'s> {
         &mut self,
         env: &mut Env,
         pattern: &Pattern,
-        visibility: ast::Visibility,
+        vis: ast::Vis,
         ty: TypeId,
         value: Option<hir::Node>,
         kind: BindingInfoKind,
@@ -171,13 +171,13 @@ impl<'s> CheckSess<'s> {
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<(BindingId, hir::Node)> {
         match pattern {
-            Pattern::Name(pattern) => self.bind_name_pattern(env, pattern, visibility, ty, value, kind, flags),
+            Pattern::Name(pattern) => self.bind_name_pattern(env, pattern, vis, ty, value, kind, flags),
             Pattern::StructUnpack(pattern) => {
                 let mut statements = vec![];
 
                 let (id, id_node) = self.bind_temp_name_for_unpack_pattern(
                     env,
-                    visibility,
+                    vis,
                     ty,
                     value,
                     kind,
@@ -190,7 +190,7 @@ impl<'s> CheckSess<'s> {
                     &mut statements,
                     env,
                     pattern,
-                    visibility,
+                    vis,
                     ty,
                     id_node,
                     kind,
@@ -213,7 +213,7 @@ impl<'s> CheckSess<'s> {
 
                 let (id, id_node) = self.bind_temp_name_for_unpack_pattern(
                     env,
-                    visibility,
+                    vis,
                     ty,
                     value,
                     kind,
@@ -226,7 +226,7 @@ impl<'s> CheckSess<'s> {
                     &mut statements,
                     env,
                     pattern,
-                    visibility,
+                    vis,
                     id_node,
                     kind,
                     ty_origin_span,
@@ -247,7 +247,7 @@ impl<'s> CheckSess<'s> {
                 let mut statements = vec![];
 
                 let (id, bound_node) =
-                    self.bind_name_pattern(env, &pattern.name_pattern, visibility, ty, value.clone(), kind, flags)?;
+                    self.bind_name_pattern(env, &pattern.name_pattern, vis, ty, value.clone(), kind, flags)?;
 
                 let id_node = self.get_id_node_for_unpack_pattern(bound_node, &mut statements);
 
@@ -256,7 +256,7 @@ impl<'s> CheckSess<'s> {
                         &mut statements,
                         env,
                         pattern,
-                        visibility,
+                        vis,
                         ty,
                         id_node,
                         kind,
@@ -267,7 +267,7 @@ impl<'s> CheckSess<'s> {
                         &mut statements,
                         env,
                         pattern,
-                        visibility,
+                        vis,
                         id_node,
                         kind,
                         ty_origin_span,
@@ -291,7 +291,7 @@ impl<'s> CheckSess<'s> {
     fn bind_temp_name_for_unpack_pattern(
         &mut self,
         env: &mut Env,
-        visibility: ast::Visibility,
+        vis: ast::Vis,
         ty: TypeId,
         value: Option<hir::Node>,
         kind: BindingInfoKind,
@@ -304,7 +304,7 @@ impl<'s> CheckSess<'s> {
         let (id, bound_node) = self.bind_name(
             env,
             name,
-            visibility,
+            vis,
             ty,
             value,
             false,
@@ -335,7 +335,7 @@ impl<'s> CheckSess<'s> {
         statements: &mut Vec<hir::Node>,
         env: &mut Env,
         unpack_pattern: &StructUnpackPattern,
-        visibility: ast::Visibility,
+        vis: ast::Vis,
         ty: TypeId,
         value: hir::Node,
         kind: BindingInfoKind,
@@ -382,14 +382,14 @@ impl<'s> CheckSess<'s> {
                                 None => return Err(self.name_not_found_error(module_id, pattern.name, caller_info)),
                             };
 
-                            self.validate_item_visibility(id, caller_info)?;
+                            self.validate_item_vis(id, caller_info)?;
 
                             let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
                             let (_, binding) = self.bind_name_pattern(
                                 env,
                                 pattern,
-                                visibility,
+                                vis,
                                 binding_info.ty,
                                 Some(self.id_or_const(binding_info, pattern.span)),
                                 kind,
@@ -411,14 +411,14 @@ impl<'s> CheckSess<'s> {
                                 None => return Err(self.name_not_found_error(module_id, name, caller_info)),
                             };
 
-                            self.validate_item_visibility(id, caller_info)?;
+                            self.validate_item_vis(id, caller_info)?;
 
                             let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
                             let (_, binding) = self.bind_pattern(
                                 env,
                                 pattern,
-                                visibility,
+                                vis,
                                 binding_info.ty,
                                 Some(self.id_or_const(binding_info, span)),
                                 kind,
@@ -435,7 +435,7 @@ impl<'s> CheckSess<'s> {
                     for (_, &id) in module_bindings.iter() {
                         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
-                        if binding_info.visibility == ast::Visibility::Private {
+                        if binding_info.vis == ast::Vis::Private {
                             continue;
                         }
 
@@ -447,7 +447,7 @@ impl<'s> CheckSess<'s> {
                         let (_, binding) = self.bind_name(
                             env,
                             binding_info.name,
-                            visibility,
+                            vis,
                             binding_info.ty,
                             Some(self.id_or_const(binding_info, wildcard.span)),
                             binding_info.is_mutable,
@@ -496,7 +496,7 @@ impl<'s> CheckSess<'s> {
                             StructUnpackSubPattern::Name(pattern) => self.bind_name_pattern(
                                 env,
                                 pattern,
-                                visibility,
+                                vis,
                                 ty,
                                 Some(field_value),
                                 kind,
@@ -505,7 +505,7 @@ impl<'s> CheckSess<'s> {
                             StructUnpackSubPattern::NameAndPattern(_, pattern) => self.bind_pattern(
                                 env,
                                 pattern,
-                                visibility,
+                                vis,
                                 ty,
                                 Some(field_value),
                                 kind,
@@ -551,7 +551,7 @@ impl<'s> CheckSess<'s> {
                         let (_, bound_node) = self.bind_name(
                             env,
                             field.name,
-                            visibility,
+                            vis,
                             ty,
                             Some(field_value),
                             false,
@@ -577,7 +577,7 @@ impl<'s> CheckSess<'s> {
         statements: &mut Vec<hir::Node>,
         env: &mut Env,
         pattern: &TupleUnpackPattern,
-        visibility: ast::Visibility,
+        vis: ast::Vis,
         value: hir::Node,
         kind: BindingInfoKind,
         ty_origin_span: Span,
@@ -619,7 +619,7 @@ impl<'s> CheckSess<'s> {
                         let (_, bound_node) = self.bind_pattern(
                             env,
                             sub_pattern,
-                            visibility,
+                            vis,
                             ty,
                             Some(element_value),
                             kind,

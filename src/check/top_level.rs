@@ -141,7 +141,7 @@ impl<'s> CheckSess<'s> {
         if let Some(id) = self.get_global_binding_id(module_id, name) {
             self.workspace.add_binding_info_use(id, caller_info.span);
 
-            if let Err(diag) = self.validate_item_visibility(id, caller_info) {
+            if let Err(diag) = self.validate_item_vis(id, caller_info) {
                 Some(Err(diag))
             } else {
                 Some(Ok(self.id_or_const_by_id(id, caller_info.span)))
@@ -184,7 +184,7 @@ impl<'s> CheckSess<'s> {
                 let desired_id = *bound_names.get(&name).unwrap();
 
                 self.workspace.add_binding_info_use(desired_id, caller_info.span);
-                match self.validate_item_visibility(desired_id, caller_info) {
+                match self.validate_item_vis(desired_id, caller_info) {
                     Ok(_) => {
                         self.encountered_items.remove(&(module.id, index));
                         Some(Ok(self.id_or_const_by_id(desired_id, caller_info.span)))
@@ -232,10 +232,10 @@ impl<'s> CheckSess<'s> {
             .with_label(Label::primary(caller_info.span, label_message))
     }
 
-    pub fn validate_item_visibility(&self, id: BindingId, caller_info: CallerInfo) -> CheckResult<()> {
+    pub fn validate_item_vis(&self, id: BindingId, caller_info: CallerInfo) -> CheckResult<()> {
         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
-        if binding_info.visibility == ast::Visibility::Private && binding_info.module_id != caller_info.module_id {
+        if binding_info.vis == ast::Vis::Private && binding_info.module_id != caller_info.module_id {
             Err(Diagnostic::error()
                 .with_message(format!("symbol `{}` is private", binding_info.name))
                 .with_label(Label::primary(caller_info.span, "accessed here"))

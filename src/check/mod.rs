@@ -395,7 +395,7 @@ impl<'s> CheckSess<'s> {
                 let (id, bound_node) = self.bind_name(
                     env,
                     rvalue_name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     ty,
                     Some(value),
                     is_mutable,
@@ -525,7 +525,7 @@ impl Check for ast::Binding {
                 let (_, bound_node) = sess.bind_pattern(
                     env,
                     &pattern,
-                    self.visibility,
+                    self.vis,
                     ty,
                     Some(value_node),
                     if is_static {
@@ -594,7 +594,7 @@ impl Check for ast::Binding {
                 sess.bind_name(
                     env,
                     name,
-                    self.visibility,
+                    self.vis,
                     node.ty(),
                     Some(node),
                     false,
@@ -688,7 +688,7 @@ impl Check for ast::Binding {
                 sess.bind_name(
                     env,
                     name,
-                    self.visibility,
+                    self.vis,
                     ty,
                     Some(function_value),
                     false,
@@ -796,7 +796,7 @@ impl Check for ast::Binding {
                 sess.bind_name(
                     env,
                     name,
-                    self.visibility,
+                    self.vis,
                     ty,
                     Some(value),
                     *is_mutable,
@@ -819,7 +819,7 @@ impl Check for ast::Binding {
                         .bind_name(
                             env,
                             name,
-                            self.visibility,
+                            self.vis,
                             type_node.ty(),
                             Some(type_node),
                             false,
@@ -1694,7 +1694,7 @@ impl Check for ast::For {
                 let (index_id, index_binding) = sess.bind_name(
                     env,
                     index_binding.name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     index_type,
                     Some(hir::Node::Const(hir::Const {
                         value: ConstValue::Int(0),
@@ -1721,7 +1721,7 @@ impl Check for ast::For {
                 let (iter_id, iter_binding) = sess.bind_name(
                     env,
                     self.iter_binding.name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     iter_type,
                     Some(start_node),
                     false,
@@ -1860,7 +1860,7 @@ impl Check for ast::For {
                 let (value_id, value_binding) = sess.bind_name(
                     env,
                     value_name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     value_type,
                     Some(value_node),
                     false,
@@ -1886,7 +1886,7 @@ impl Check for ast::For {
                 let (index_id, index_binding) = sess.bind_name(
                     env,
                     index_binding.name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     index_type,
                     Some(hir::Node::Const(hir::Const {
                         value: ConstValue::Int(0),
@@ -1943,7 +1943,7 @@ impl Check for ast::For {
                 let (_, iter_binding) = sess.bind_name(
                     env,
                     self.iter_binding.name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     iter_type,
                     Some(hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
                         value: Box::new(value_id_node),
@@ -3242,7 +3242,7 @@ impl Check for ast::StructType {
             let (binding_id, _) = sess.bind_name(
                 env,
                 name,
-                ast::Visibility::Private,
+                ast::Vis::Private,
                 struct_type_type_var,
                 Some(hir::Node::Const(hir::Const {
                     value: ConstValue::Type(struct_type_var),
@@ -3562,7 +3562,7 @@ fn check_function<'s>(
                 let (bound_id, bound_node) = sess.bind_pattern(
                     env,
                     &param.pattern,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     ty,
                     None,
                     BindingInfoKind::LetConst,
@@ -3591,7 +3591,7 @@ fn check_function<'s>(
                 let (bound_id, bound_node) = sess.bind_name(
                     env,
                     param_type.name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     ty,
                     None,
                     false,
@@ -3627,7 +3627,7 @@ fn check_function<'s>(
                 let (bound_id, _) = sess.bind_name(
                     env,
                     varargs.name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     ty,
                     None,
                     false,

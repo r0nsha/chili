@@ -5,14 +5,14 @@ impl Parser {
     pub fn try_parse_any_binding(
         &mut self,
         attrs: Vec<ast::Attr>,
-        visibility: ast::Visibility,
+        vis: ast::Vis,
         is_top_level: bool,
     ) -> DiagnosticResult<Option<DiagnosticResult<ast::Binding>>> {
         if eat!(self, Let) {
-            Ok(Some(self.parse_binding(attrs, visibility)))
+            Ok(Some(self.parse_binding(attrs, vis)))
         } else if eat!(self, Fn) {
             if is!(self, Ident(_)) {
-                Ok(Some(self.parse_function_binding(attrs, visibility)))
+                Ok(Some(self.parse_function_binding(attrs, vis)))
             } else if is_top_level {
                 Err(SyntaxError::expected(self.span(), "an identifier"))
             } else {
@@ -21,19 +21,15 @@ impl Parser {
                 Ok(None)
             }
         } else if eat!(self, Extern) {
-            Ok(Some(self.parse_extern_binding(attrs, visibility)))
+            Ok(Some(self.parse_extern_binding(attrs, vis)))
         } else if eat!(self, Type) {
-            Ok(Some(self.parse_type_binding(attrs, visibility)))
+            Ok(Some(self.parse_type_binding(attrs, vis)))
         } else {
             Ok(None)
         }
     }
 
-    pub fn parse_binding(
-        &mut self,
-        attrs: Vec<ast::Attr>,
-        visibility: ast::Visibility,
-    ) -> DiagnosticResult<ast::Binding> {
+    pub fn parse_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
         let pattern = self.parse_pattern()?;
@@ -55,7 +51,7 @@ impl Parser {
 
         Ok(ast::Binding {
             attrs,
-            visibility,
+            vis,
             kind: ast::BindingKind::Let {
                 pattern,
                 type_expr,
@@ -65,11 +61,7 @@ impl Parser {
         })
     }
 
-    pub fn parse_function_binding(
-        &mut self,
-        attrs: Vec<ast::Attr>,
-        visibility: ast::Visibility,
-    ) -> DiagnosticResult<ast::Binding> {
+    pub fn parse_function_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
         let id = require!(self, Ident(_), "an identifier")?;
@@ -85,7 +77,7 @@ impl Parser {
 
         Ok(ast::Binding {
             attrs,
-            visibility,
+            vis,
             kind: ast::BindingKind::Function {
                 name: name_and_span,
                 sig,
@@ -95,11 +87,7 @@ impl Parser {
         })
     }
 
-    pub fn parse_extern_binding(
-        &mut self,
-        attrs: Vec<ast::Attr>,
-        visibility: ast::Visibility,
-    ) -> DiagnosticResult<ast::Binding> {
+    pub fn parse_extern_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
         if eat!(self, Fn) {
@@ -112,7 +100,7 @@ impl Parser {
 
             Ok(ast::Binding {
                 attrs,
-                visibility,
+                vis,
                 kind: ast::BindingKind::ExternFunction {
                     name: name_and_span,
                     sig,
@@ -133,7 +121,7 @@ impl Parser {
 
             Ok(ast::Binding {
                 attrs,
-                visibility,
+                vis,
                 kind: ast::BindingKind::ExternVariable {
                     name: name_and_span,
                     is_mutable,
@@ -146,11 +134,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_type_binding(
-        &mut self,
-        attrs: Vec<ast::Attr>,
-        visibility: ast::Visibility,
-    ) -> DiagnosticResult<ast::Binding> {
+    pub fn parse_type_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
         let id = require!(self, Ident(_), "an identifier")?;
@@ -163,7 +147,7 @@ impl Parser {
 
         Ok(ast::Binding {
             attrs,
-            visibility,
+            vis,
             kind: ast::BindingKind::Type {
                 name: ast::NameAndSpan { name, span: id.span },
                 type_expr: Box::new(type_expr),

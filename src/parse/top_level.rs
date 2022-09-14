@@ -25,13 +25,13 @@ impl Parser {
         let attrs = self.parse_attrs()?;
         let has_attrs = !attrs.is_empty();
 
-        let visibility = if eat!(self, Pub) {
-            ast::Visibility::Public
+        let vis = if eat!(self, Pub) {
+            ast::Vis::Public
         } else {
-            ast::Visibility::Private
+            ast::Vis::Private
         };
 
-        match self.try_parse_any_binding(attrs, visibility, true)? {
+        match self.try_parse_any_binding(attrs, vis, true)? {
             Some(binding) => {
                 module.bindings.push(binding?);
                 Ok(())
