@@ -76,17 +76,21 @@ impl<'s> CheckSess<'s> {
                 .find(|m| m.id == module_id)
                 .unwrap_or_else(|| panic!("{:?}", module_id));
 
+            // Top level name in the searched module
             match self.check_name_in_module(name, module, caller_info) {
                 Some(Ok(node)) => Ok(node),
                 Some(Err(diag)) => Err(diag),
                 None => match name.as_str() {
+                    // Top level `self` module
                     symbols::SYM_SELF => Ok(hir::Node::Const(hir::Const {
                         value: ConstValue::Unit(()),
                         ty: self.get_module_type(module_id),
                         span: caller_info.span,
                     })),
+                    // Top level `super` module
                     symbols::SYM_SUPER => todo!(),
                     _ => {
+                        // A used library name
                         let find_library_result = self
                             .workspace
                             .libraries
@@ -102,6 +106,7 @@ impl<'s> CheckSess<'s> {
                                 span: caller_info.span,
                             }))
                         } else if let Some(ty) = self.get_builtin_type(&name) {
+                            // A built-in type
                             let value = ConstValue::Type(ty);
                             let ty = self.tcx.bound_maybe_spanned(ty.as_kind().create_type(), None);
 
@@ -111,6 +116,7 @@ impl<'s> CheckSess<'s> {
                                 span: caller_info.span,
                             }))
                         } else if let Some(result) = self.check_name_in_std_prelude(name, caller_info) {
+                            // Top level name in the `std` prelude
                             result
                         } else {
                             Err(self.name_not_found_error(module_id, name, caller_info))
