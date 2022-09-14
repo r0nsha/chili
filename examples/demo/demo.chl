@@ -456,7 +456,7 @@ fn binding_patterns() = {
     # and as such, can be used directly.
     import(foo).hello()
 
-    # The wildcard pattern unpacks all *public* fields/declarations from a 
+    # The glob pattern unpacks all *public* fields/declarations from a 
     # given struct/module
 
     # The next line automatically unpacks the `hello` function.
@@ -470,7 +470,7 @@ fn binding_patterns() = {
 
     std.c.printf("a=%d b=%d\n".data, a, b)
 
-    # Wildcard patterns can be partially applied
+    # Glob patterns can be partially applied
     let { a, * } = { a: 8, b: 99 }
     #        ^---- only `b` is unpacked here
 

@@ -80,7 +80,7 @@ For some examples of what you can do with Chili, check out the [examples folder]
   - [x] Pointers & Arrays & Slices
   - [x] Structs & Tuples
 - [x] Modules & Imports
-- [x] Binding patterns: Struct/Module unpack, Tuple unpack and Wildcard
+- [x] Binding patterns: Struct/Module unpack, Tuple unpack and Glob unpack
 - [x] Compile time execution with FFI support
   - [x] FFI support
   - [x] Build configuration based on compile-time execution

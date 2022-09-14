@@ -431,7 +431,7 @@ impl<'s> CheckSess<'s> {
                     }
                 }
 
-                if let Some(wildcard) = &unpack_pattern.wildcard {
+                if let Some(glob) = &unpack_pattern.glob {
                     for (_, &id) in module_bindings.iter() {
                         let binding_info = self.workspace.binding_infos.get(id).unwrap();
 
@@ -449,10 +449,10 @@ impl<'s> CheckSess<'s> {
                             binding_info.name,
                             vis,
                             binding_info.ty,
-                            Some(self.id_or_const(binding_info, wildcard.span)),
+                            Some(self.id_or_const(binding_info, glob.span)),
                             binding_info.is_mutable,
                             binding_info.kind,
-                            wildcard.span,
+                            glob.span,
                             flags - BindingInfoFlags::IS_USER_DEFINED,
                         )?;
 
@@ -524,7 +524,7 @@ impl<'s> CheckSess<'s> {
                     }
                 }
 
-                if let Some(wildcard) = &unpack_pattern.wildcard {
+                if let Some(glob) = &unpack_pattern.glob {
                     for (index, field) in struct_type.fields.iter().enumerate() {
                         // skip explicitly unpacked fields
                         if unpacked_names.contains_key(&field.name) {
@@ -556,7 +556,7 @@ impl<'s> CheckSess<'s> {
                             Some(field_value),
                             false,
                             kind,
-                            wildcard.span,
+                            glob.span,
                             flags - BindingInfoFlags::IS_USER_DEFINED,
                         )?;
 

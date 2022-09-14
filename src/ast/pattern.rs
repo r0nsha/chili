@@ -39,7 +39,7 @@ impl Pattern {
 pub struct StructUnpackPattern {
     pub sub_patterns: Vec<StructUnpackSubPattern>,
     pub span: Span,
-    pub wildcard: Option<Wildcard>,
+    pub glob: Option<GlobPat>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -78,7 +78,7 @@ pub struct TupleUnpackPattern {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Wildcard {
+pub struct GlobPat {
     pub span: Span,
 }
 

@@ -1,8 +1,8 @@
 use super::*;
 use crate::{
     ast::pattern::{
-        HybridPattern, NamePattern, Pattern, StructUnpackPattern, StructUnpackSubPattern, TupleUnpackPattern,
-        UnpackPatternKind, Wildcard,
+        GlobPat, HybridPattern, NamePattern, Pattern, StructUnpackPattern, StructUnpackSubPattern, TupleUnpackPattern,
+        UnpackPatternKind,
     },
     error::SyntaxError,
     workspace::BindingId,
@@ -52,7 +52,7 @@ impl Parser {
             Ok(Pattern::StructUnpack(StructUnpackPattern {
                 sub_patterns: vec![],
                 span,
-                wildcard: Some(Wildcard { span }),
+                glob: Some(GlobPat { span }),
             }))
         } else {
             Err(SyntaxError::expected(self.span(), expectation))
@@ -63,13 +63,13 @@ impl Parser {
         let start_span = self.previous_span();
 
         let mut sub_patterns = vec![];
-        let mut wildcard_span: Option<Span> = None;
+        let mut glob_span: Option<Span> = None;
 
         while !eat!(self, CloseCurly) && !self.eof() {
             self.skip_newlines();
 
             if eat!(self, Star) {
-                wildcard_span = Some(self.previous().span);
+                glob_span = Some(self.previous().span);
                 require!(self, CloseCurly, "}")?;
                 break;
             } else {
@@ -126,7 +126,7 @@ impl Parser {
         Ok(Pattern::StructUnpack(StructUnpackPattern {
             sub_patterns,
             span: start_span.to(self.previous_span()),
-            wildcard: wildcard_span.map(|span| Wildcard { span }),
+            glob: glob_span.map(|span| GlobPat { span }),
         }))
     }
 
