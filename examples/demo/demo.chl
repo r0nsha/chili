@@ -413,6 +413,9 @@ fn imports() = {
     let foo = import(foo)
     let { fmt } = import(std)
 
+    # The current module can be access via the implicit top-level `self`
+    # The parent module (if there is any), can be access via the implicit, top-level `super`
+
     foo.hello()
 }
 
