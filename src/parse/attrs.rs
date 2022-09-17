@@ -5,16 +5,12 @@ impl Parser {
     pub(super) fn parse_attrs(&mut self) -> DiagnosticResult<Vec<ast::Attr>> {
         let mut attrs = vec![];
 
-        if !self.is_attr_start() {
+        if !is!(self, At) {
             return Ok(attrs);
         }
 
-        while eat!(self, Bang) {
+        while eat!(self, At) {
             let start_span = self.previous_span();
-
-            self.skip_newlines();
-
-            require!(self, OpenBracket, "[")?;
 
             self.skip_newlines();
 
@@ -23,14 +19,13 @@ impl Parser {
 
             let name_and_span = ast::NameAndSpan { name, span: id.span };
 
-            let value = if eat!(self, Eq) {
+            let value = if eat!(self, OpenParen) {
                 let value = self.parse_expression(false, true)?;
+                require!(self, CloseParen, ")")?;
                 Some(Box::new(value))
             } else {
                 None
             };
-
-            require!(self, CloseBracket, "]")?;
 
             let attr = ast::Attr {
                 name: name_and_span,
@@ -44,15 +39,5 @@ impl Parser {
         self.skip_newlines();
 
         Ok(attrs)
-    }
-
-    fn is_attr_start(&mut self) -> bool {
-        if eat!(self, Bang) {
-            let result = is!(self, OpenBracket);
-            self.revert(1);
-            result
-        } else {
-            false
-        }
     }
 }
