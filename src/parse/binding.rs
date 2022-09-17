@@ -24,6 +24,14 @@ impl Parser {
             Ok(Some(self.parse_extern_binding(attrs, vis)))
         } else if eat!(self, Type) {
             Ok(Some(self.parse_type_binding(attrs, vis)))
+        } else if eat!(self, Import) {
+            if is!(self, OpenParen) {
+                // This is considered Ok, since this could be a use expression
+                self.revert(1);
+                Ok(None)
+            } else {
+                Ok(Some(self.parse_import_binding(attrs, vis)))
+            }
         } else {
             Ok(None)
         }
@@ -154,5 +162,11 @@ impl Parser {
             },
             span: start_span.to(self.previous_span()),
         })
+    }
+
+    pub fn parse_import_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
+        let ident = require!(self, Ident(_), "an identifier")?;
+        // let pat = Pattern::Name(())
+        todo!();
     }
 }

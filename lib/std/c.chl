@@ -68,71 +68,71 @@ pub let CHAR_BIT = 8
 # Functions
 let c = "c"
 
-![lib = c]
+@lib(c)
 pub extern fn putchar(char: c_int) -> c_int
 
-![lib = c]
+@lib(c)
 pub extern fn getchar() -> c_int
 
-![lib = c]
+@lib(c)
 pub extern fn printf(input: *c_char, args...) -> c_int
 
-![lib = c]
+@lib(c)
 pub extern fn strcpy(dest: *mut c_char, src: *c_char) -> *c_char
 
-![lib = c]
+@lib(c)
 pub extern fn malloc(size: size_t) -> *mut c_void
 
-![lib = c]
+@lib(c)
 pub extern fn calloc(nitems: size_t, size: size_t) -> *mut c_void
 
-![lib = c]
+@lib(c)
 pub extern fn realloc(ptr: *c_void, size: size_t) -> *mut c_void
 
-![lib = c]
+@lib(c)
 pub extern fn free(memblock: *c_void)
 
-![lib = c]
+@lib(c)
 pub extern fn abs(x: c_int) -> c_int
 
-![lib = c]
+@lib(c)
 pub extern fn sinf(arg: c_float) -> c_float
 
-![lib = c]
+@lib(c)
 pub extern fn sin(arg: c_double) -> c_double
 
-![lib = c]
+@lib(c)
 pub extern fn cosf(arg: c_float) -> c_float
 
-![lib = c]
+@lib(c)
 pub extern fn cos(arg: c_double) -> c_double
 
-![lib = c]
+@lib(c)
 pub extern fn atan2f(y: c_float, x: c_float) -> c_float
 
-![lib = c]
+@lib(c)
 pub extern fn atan2(y: c_double, x: c_double) -> c_double
 
-![lib = c]
+@lib(c)
 pub extern fn pow(x: c_double, y: c_double) -> c_double
 
-![lib = c]
+@lib(c)
 pub extern fn srand(seed: c_uint)
 
-![lib = c]
+@lib(c)
 pub extern fn rand() -> c_int
 
-![lib = c]
+@lib(c)
 pub extern fn fork() -> pid_t
 
-![lib = c]
+@lib(c)
 pub extern fn waitpid(pid: pid_t, status: *mut c_int, options: c_int) -> pid_t
 
-![lib = c]
+@lib(c)
 pub extern fn execl(path: *c_char, args...) -> c_int
 
-![lib = c]
+@lib(c)
 pub extern fn abort() -> never
 
-![lib = c]
+@lib(c)
 pub extern fn exit(status: c_int) -> never

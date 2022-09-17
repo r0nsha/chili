@@ -2,7 +2,7 @@ let * = import(types)
 
 let shell32 = "shell32"
 
-![lib = shell32]
+@lib(shell32)
 pub extern fn ShellExecuteA(
     hwnd: HWND,
     lpOperation: LPCSTR,
