@@ -483,7 +483,7 @@ impl Parser {
             CloseCurly,
             Semicolon | Newline,
             {
-                let id = require!(self, Ident(_), "an identifier")?;
+                let id = self.require_ident()?;
                 let name = id.name();
 
                 self.skip_newlines();
@@ -549,12 +549,12 @@ impl Parser {
     pub fn parse_for(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
-        let iter_ident = require!(self, Ident(_), "an identifier")?;
+        let iter_ident = self.require_ident()?;
 
         self.skip_newlines();
 
         let iter_index_ident = if eat!(self, Comma) {
-            Some(require!(self, Ident(_), "an identifier")?)
+            Some(self.require_ident()?)
         } else {
             None
         };

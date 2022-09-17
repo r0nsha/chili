@@ -1,6 +1,14 @@
 let * = import(std).build
 
+import foo
+# import foo.bar
+# import foo.std.process.start
+# import foo.std.process.start as shturt
+
 fn build() = {
+	foo.bar()
+	# bar()
+	
 	let build_options = BuildOptions {
         input_file: "src/main.chl",
         output_file: "out/main",
@@ -16,7 +24,10 @@ fn build() = {
 	let (executable, ok) = start_workspace(workspace)
 
 	if ok {
-		std.process.start(executable)
+		# std.process.start(executable)
+		# foo.std.process.start(executable)
+		# start(executable)
+		# shturt(executable)
 	}
 }
 

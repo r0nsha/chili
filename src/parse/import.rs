@@ -13,7 +13,7 @@ impl Parser {
 
         require!(self, OpenParen, "(")?;
 
-        let id_token = require!(self, Ident(_), "an identifier")?;
+        let id_token = self.require_ident()?;
         let name = id_token.name();
 
         require!(self, CloseParen, ")")?;

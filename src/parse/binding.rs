@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    ast::pat::{NamePat, Pat},
+    ast::pat::{NamePat, Pat, StructPat, StructSubPat},
     types::FunctionTypeKind,
     workspace::BindingId,
 };
@@ -76,7 +76,7 @@ impl Parser {
     pub fn parse_function_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
-        let id = require!(self, Ident(_), "an identifier")?;
+        let id = self.require_ident()?;
         let name = id.name();
 
         let name_and_span = ast::NameAndSpan { name, span: id.span };
@@ -103,7 +103,7 @@ impl Parser {
         let start_span = self.previous_span();
 
         if eat!(self, Fn) {
-            let id = require!(self, Ident(_), "an identifier")?;
+            let id = self.require_ident()?;
             let name = id.name();
 
             let name_and_span = ast::NameAndSpan { name, span: id.span };
@@ -122,7 +122,7 @@ impl Parser {
         } else if eat!(self, Let) {
             let is_mutable = eat!(self, Mut);
 
-            let id = require!(self, Ident(_), "an identifier")?;
+            let id = self.require_ident()?;
             let name = id.name();
 
             let name_and_span = ast::NameAndSpan { name, span: id.span };
@@ -149,7 +149,7 @@ impl Parser {
     pub fn parse_type_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
-        let id = require!(self, Ident(_), "an identifier")?;
+        let id = self.require_ident()?;
         let name = id.name();
 
         require!(self, Eq, "=")?;
@@ -171,18 +171,12 @@ impl Parser {
     pub fn parse_import_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
-        let ident = require!(self, Ident(_), "an identifier")?;
+        let ident = self.require_ident()?;
         let name = ident.name();
 
-        let pat = Pat::Name(NamePat {
-            id: BindingId::unknown(),
-            name,
-            span: ident.span,
-            is_mutable: false,
-            ignore: false,
-        });
+        let import_expr = self.search_import_name(name, ident.span)?;
 
-        let value = self.search_import_name(name, ident.span)?;
+        let pat = self.parse_import_binding_pat(Some(ident))?;
 
         Ok(ast::Binding {
             attrs,
@@ -190,9 +184,81 @@ impl Parser {
             kind: ast::BindingKind::Let {
                 pat,
                 type_expr: None,
-                value: Box::new(value),
+                value: Box::new(import_expr),
             },
             span: start_span.to(self.previous_span()),
         })
+    }
+
+    fn parse_import_binding_pat(&mut self, ident: Option<Token>) -> DiagnosticResult<Pat> {
+        let ident = if let Some(ident) = ident {
+            ident
+        } else {
+            self.require_ident()?
+        };
+
+        if eat!(self, Dot) {
+            let sym = self.require_ident()?;
+            let name = sym.name();
+
+            let subpat = if is!(self, Dot) {
+                // Nested path: foo.bar.baz.qux
+                let name_and_span = ast::NameAndSpan { name, span: sym.span };
+                let pat = self.parse_import_binding_pat(Some(sym))?;
+                StructSubPat::NameAndPat(name_and_span, pat)
+            } else {
+                if eat!(self, As) {
+                    let name_and_span = ast::NameAndSpan { name, span: sym.span };
+
+                    let alias_tok = self.require_ident()?;
+                    let alias = alias_tok.name();
+
+                    StructSubPat::NameAndPat(
+                        name_and_span,
+                        Pat::Name(NamePat {
+                            id: BindingId::unknown(),
+                            name: alias,
+                            span: alias_tok.span,
+                            is_mutable: false,
+                            ignore: false,
+                        }),
+                    )
+                } else {
+                    StructSubPat::Name(NamePat {
+                        id: BindingId::unknown(),
+                        name,
+                        span: sym.span,
+                        is_mutable: false,
+                        ignore: false,
+                    })
+                }
+            };
+
+            let span = ident.span.to(subpat.span());
+
+            Ok(Pat::Struct(StructPat {
+                subpats: vec![subpat],
+                span,
+                glob: None,
+            }))
+        } else if eat!(self, As) {
+            let alias = self.require_ident()?.name();
+
+            Ok(Pat::Name(NamePat {
+                id: BindingId::unknown(),
+                name: alias,
+                span: ident.span,
+                is_mutable: false,
+                ignore: false,
+            }))
+        } else {
+            Ok(Pat::Name(NamePat {
+                id: BindingId::unknown(),
+                name: ident.name(),
+                span: ident.span,
+                is_mutable: false,
+                ignore: false,
+            }))
+        }
     }
 }

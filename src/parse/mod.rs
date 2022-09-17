@@ -280,4 +280,8 @@ impl Parser {
             self.bump();
         }
     }
+
+    pub fn require_ident(&mut self) -> DiagnosticResult<Token> {
+        require!(self, Ident(_), "an identifier")
+    }
 }
