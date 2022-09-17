@@ -7,7 +7,7 @@ pub fn exit(ec: int) -> never = {
 	c_exit(ec as _)
 }
 
-![track_caller]
+@track_caller
 pub fn panic(
     fmt: *str = "unknown reason",
 ) -> never = {

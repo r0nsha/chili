@@ -1,5 +1,9 @@
 use super::*;
-use crate::{ast::pat::Pat, types::FunctionTypeKind};
+use crate::{
+    ast::pat::{NamePat, Pat},
+    types::FunctionTypeKind,
+    workspace::BindingId,
+};
 
 impl Parser {
     pub fn try_parse_any_binding(
@@ -165,8 +169,30 @@ impl Parser {
     }
 
     pub fn parse_import_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
+        let start_span = self.previous_span();
+
         let ident = require!(self, Ident(_), "an identifier")?;
-        // let pat = Pattern::Name(())
-        todo!();
+        let name = ident.name();
+
+        let pat = Pat::Name(NamePat {
+            id: BindingId::unknown(),
+            name,
+            span: ident.span,
+            is_mutable: false,
+            ignore: false,
+        });
+
+        let value = self.search_import_name(name, ident.span)?;
+
+        Ok(ast::Binding {
+            attrs,
+            vis,
+            kind: ast::BindingKind::Let {
+                pat,
+                type_expr: None,
+                value: Box::new(value),
+            },
+            span: start_span.to(self.previous_span()),
+        })
     }
 }

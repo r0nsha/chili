@@ -20,6 +20,10 @@ impl Parser {
 
         let span = start_span.to(self.previous_span());
 
+        self.search_import_name(name, span)
+    }
+
+    pub fn search_import_name(&self, name: Ustr, span: Span) -> DiagnosticResult<ast::Ast> {
         let mut search_notes = vec![];
 
         match name.as_str() {
