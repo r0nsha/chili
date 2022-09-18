@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    ast::pat::{NamePat, Pat, StructPat, StructSubPat},
+    ast::pat::{GlobPat, NamePat, Pat, StructPat, StructSubPat},
     types::FunctionTypeKind,
     workspace::BindingId,
 };
@@ -203,25 +203,46 @@ impl Parser {
                 let name = sym.name();
 
                 let subpat = self.parse_import_binding_subpat(name, sym)?;
-
-                let span = ident.span.to(subpat.span());
+                let span = subpat.span();
 
                 Ok(Pat::Struct(StructPat {
                     subpats: vec![subpat],
                     span,
                     glob: None,
                 }))
+            } else if eat!(self, Star) {
+                Ok(Pat::Struct(StructPat {
+                    subpats: vec![],
+                    span: ident.span.to(self.previous_span()),
+                    glob: Some(GlobPat {
+                        span: self.previous_span(),
+                    }),
+                }))
             } else if eat!(self, OpenCurly) {
                 self.skip_newlines();
 
-                let subpats = if eat!(self, CloseCurly) {
-                    vec![]
+                let start_span = self.previous_span();
+
+                if eat!(self, CloseCurly) {
+                    Ok(Pat::Struct(StructPat {
+                        subpats: vec![],
+                        span: ident.span.to(self.previous_span()),
+                        glob: None,
+                    }))
                 } else {
-                    parse_delimited_list!(
-                        self,
-                        CloseCurly,
-                        Comma,
-                        {
+                    let mut subpats = vec![];
+                    let mut glob: Option<GlobPat> = None;
+
+                    while !eat!(self, CloseCurly) && !self.eof() {
+                        self.skip_newlines();
+
+                        if eat!(self, Star) {
+                            glob = Some(GlobPat {
+                                span: self.previous_span(),
+                            });
+                            require!(self, CloseCurly, "}")?;
+                            break;
+                        } else {
                             self.skip_newlines();
 
                             let sym = self.require_ident()?;
@@ -229,27 +250,32 @@ impl Parser {
 
                             self.skip_newlines();
 
-                            self.parse_import_binding_subpat(name, sym)?
-                        },
-                        "a , or }"
-                    )
-                };
+                            let subpat = self.parse_import_binding_subpat(name, sym)?;
 
-                let span = if let Some(last) = subpats.last() {
-                    last.span()
-                } else {
-                    ident.span
-                };
+                            subpats.push(subpat);
 
-                self.skip_newlines();
+                            if eat!(self, Comma) {
+                                self.skip_newlines();
+                                continue;
+                            } else if eat!(self, CloseCurly) {
+                                break;
+                            } else {
+                                let span = self.previous_span().after();
+                                return Err(SyntaxError::expected(span, ", or }"));
+                            }
+                        }
+                    }
 
-                Ok(Pat::Struct(StructPat {
-                    subpats,
-                    span,
-                    glob: None,
-                }))
+                    self.skip_newlines();
+
+                    Ok(Pat::Struct(StructPat {
+                        subpats,
+                        span: start_span.to(self.previous_span()),
+                        glob,
+                    }))
+                }
             } else {
-                Err(SyntaxError::expected(self.span(), "an identifier or {"))
+                Err(SyntaxError::expected(self.span(), "an identifier, * or {"))
             }
         } else if eat!(self, As) {
             let alias = self.require_ident()?;

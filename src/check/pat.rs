@@ -15,6 +15,7 @@ use crate::{
     hir,
     infer::{display::DisplayType, normalize::Normalize},
     span::Span,
+    sym,
     types::{Type, TypeId},
     workspace::{BindingId, BindingInfoFlags, BindingInfoKind, ModuleId, PartialBindingInfo, ScopeLevel},
 };
@@ -332,9 +333,17 @@ impl<'s> CheckSess<'s> {
 
                             let node = self.check_top_level_name(pat.name, module_id, caller_info, true)?;
 
+                            let pat = match (pat.name.as_str(), node.ty().normalize(&self.tcx)) {
+                                (sym::SELF | sym::SUPER, Type::Module(module_id)) => NamePat {
+                                    name: self.workspace.module_infos.get(module_id).unwrap().name,
+                                    ..pat.clone()
+                                },
+                                _ => pat.clone(),
+                            };
+
                             let (_, binding) = self.bind_name_pat(
                                 env,
-                                pat,
+                                &pat,
                                 vis,
                                 node.ty(),
                                 Some(node),
@@ -507,8 +516,8 @@ impl<'s> CheckSess<'s> {
                 Ok(())
             }
             _ => Err(Diagnostic::error()
-                .with_message(format!("cannot use tuple unpack on type `{}`", ty.display(&self.tcx)))
-                .with_label(Label::primary(unpack_pat.span, "illegal tuple unpack"))),
+                .with_message(format!("cannot use struct unpack on type `{}`", ty.display(&self.tcx)))
+                .with_label(Label::primary(unpack_pat.span, "illegal struct unpack"))),
         }
     }
 

@@ -60,13 +60,15 @@ impl Parser {
         let start_span = self.previous_span();
 
         let mut subpats = vec![];
-        let mut glob_span: Option<Span> = None;
+        let mut glob: Option<GlobPat> = None;
 
         while !eat!(self, CloseCurly) && !self.eof() {
             self.skip_newlines();
 
             if eat!(self, Star) {
-                glob_span = Some(self.previous().span);
+                glob = Some(GlobPat {
+                    span: self.previous_span(),
+                });
                 require!(self, CloseCurly, "}")?;
                 break;
             } else {
@@ -120,7 +122,7 @@ impl Parser {
         Ok(Pat::Struct(StructPat {
             subpats,
             span: start_span.to(self.previous_span()),
-            glob: glob_span.map(|span| GlobPat { span }),
+            glob,
         }))
     }
 
