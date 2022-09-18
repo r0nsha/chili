@@ -128,7 +128,7 @@ impl<'s> CheckSess<'s> {
             return Some(Err(Diagnostic::error()
                 .with_message(format!(
                     "cycle detected while checking `{}` in module `{}`",
-                    name, module.info.name
+                    name, module.info.qualified_name
                 ))
                 .with_label(Label::primary(caller_info.span, format!("`{}` refers to itself", name)))
                 .with_label(Label::secondary(
@@ -179,16 +179,19 @@ impl<'s> CheckSess<'s> {
     pub(super) fn name_not_found_error(&self, module_id: ModuleId, name: Ustr, caller_info: CallerInfo) -> Diagnostic {
         let module_info = self.workspace.module_infos.get(module_id).unwrap();
 
-        let message = if module_info.name.is_empty() {
+        let message = if module_info.qualified_name.is_empty() {
             format!("cannot find value `{}` in this scope", name)
         } else {
-            format!("cannot find value `{}` in module `{}`", name, module_info.name)
+            format!(
+                "cannot find value `{}` in module `{}`",
+                name, module_info.qualified_name
+            )
         };
 
-        let label_message = if module_info.name.is_empty() {
+        let label_message = if module_info.qualified_name.is_empty() {
             "not found in this scope".to_string()
         } else {
-            format!("not found in `{}`", module_info.name)
+            format!("not found in `{}`", module_info.qualified_name)
         };
 
         Diagnostic::error()
@@ -336,7 +339,7 @@ impl<'s> CheckSess<'s> {
             Ok(self.module_node(parent_module_id, caller_info.span))
         } else {
             Err(Diagnostic::error()
-                .with_message(format!("module `{}` has no parent", module_info.name))
+                .with_message(format!("module `{}` has no parent", module_info.qualified_name))
                 .with_label(Label::primary(caller_info.span, "invalid `super` module")))
         }
     }

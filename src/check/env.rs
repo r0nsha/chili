@@ -56,12 +56,12 @@ impl Env {
             .collect::<Vec<&str>>()
             .join(".");
 
-        if self.module_info.name.is_empty() {
+        if self.module_info.qualified_name.is_empty() {
             ustr(&scopes_str)
         } else if self.scopes.is_empty() {
-            self.module_info.name
+            self.module_info.qualified_name
         } else {
-            ustr(&format!("{}.{}", self.module_info.name, scopes_str))
+            ustr(&format!("{}.{}", self.module_info.qualified_name, scopes_str))
         }
     }
 

@@ -196,7 +196,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             .workspace
             .module_infos
             .iter()
-            .position(|(_, m)| m.name == module_name)
+            .position(|(_, m)| m.qualified_name == module_name)
             .map(ModuleId::from)
             .unwrap_or_else(|| panic!("couldn't find {}", module_name));
 

@@ -90,7 +90,10 @@ impl<'a, W: Write> Print<'a, W> for hir::Cache {
             .for_each(|(module_id, items)| {
                 let module_info = p.workspace.module_infos.get(module_id).unwrap();
 
-                p.write_comment(&format!("{} ({})\n\n", module_info.name, module_info.file_path), true);
+                p.write_comment(
+                    &format!("{} ({})\n\n", module_info.qualified_name, module_info.file_path),
+                    true,
+                );
 
                 for item in items {
                     match item {

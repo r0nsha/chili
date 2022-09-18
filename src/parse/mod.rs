@@ -107,7 +107,8 @@ pub fn spawn_parser(
     thread_pool.clone().execute(move || {
         let mut module_info = ModuleInfo {
             id: ModuleId::unknown(),
-            name: ustr(&module_path.name()),
+            name: module_path.name(),
+            qualified_name: ustr(&module_path.qualified_name()),
             file_path: ustr(&module_path.path().to_str().unwrap()),
             file_id: FileId::MAX,
             library_id: module_path.library().id,

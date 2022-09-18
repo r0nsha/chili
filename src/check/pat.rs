@@ -31,7 +31,7 @@ impl<'s> CheckSess<'s> {
         self.global_scopes
             .entry(module_id)
             .or_insert({
-                let module_name = self.workspace.module_infos.get(module_id).unwrap().name;
+                let module_name = self.workspace.module_infos.get(module_id).unwrap().qualified_name;
                 Scope::new(module_name, ScopeKind::Global)
             })
             .bindings

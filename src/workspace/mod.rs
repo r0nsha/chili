@@ -257,6 +257,7 @@ define_id_type!(BindingId);
 pub struct ModuleInfo {
     pub id: ModuleId,
     pub name: Ustr,
+    pub qualified_name: Ustr,
     pub file_path: Ustr,
     pub file_id: FileId,
     pub library_id: LibraryId,
@@ -276,10 +277,6 @@ impl WithId<ModuleId> for ModuleInfo {
 impl ModuleInfo {
     pub fn dir(&self) -> &Path {
         Path::new(self.file_path.as_str()).parent().unwrap()
-    }
-
-    pub fn stem(&self) -> &str {
-        self.name.split('.').last().unwrap()
     }
 }
 
@@ -312,13 +309,17 @@ impl ModulePath {
         &self.components
     }
 
-    pub fn name(&self) -> String {
+    pub fn qualified_name(&self) -> String {
         [self.library.name]
             .iter()
             .chain(self.components.iter())
             .map(ToString::to_string)
             .collect::<Vec<String>>()
             .join(".")
+    }
+
+    pub fn name(&self) -> Ustr {
+        self.components.last().copied().unwrap_or_else(|| self.library.name)
     }
 
     pub fn path(&self) -> PathBuf {

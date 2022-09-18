@@ -306,7 +306,7 @@ impl<'s> CheckSess<'s> {
             .workspace
             .module_infos
             .iter()
-            .find(|(_, m)| m.name == module_name)
+            .find(|(_, m)| m.qualified_name == module_name)
             .map(|(id, _)| ModuleId::from(id))
             .unwrap_or_else(|| panic!("couldn't find module '{}'", module_name));
 
