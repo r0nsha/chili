@@ -236,6 +236,7 @@ impl<'s> CheckSess<'s> {
                             module_type,
                             all_complete: false,
                             queued_bindings: HashSet::new(),
+                            queued_comptime: HashSet::new(),
                         },
                     );
 
@@ -257,11 +258,19 @@ impl<'s> CheckSess<'s> {
 
             self.queued_modules.get_mut(&module.id).unwrap().all_complete = true;
 
-            for r#static in module.comptime_blocks.iter() {
-                let node = self.with_env(module.id, |sess, mut env| r#static.check(sess, &mut env, None))?;
+            for (index, comptime) in module.comptime_blocks.iter().enumerate() {
+                if self
+                    .queued_modules
+                    .get_mut(&module.id)
+                    .unwrap()
+                    .queued_comptime
+                    .insert(index)
+                {
+                    let node = self.with_env(module.id, |sess, mut env| comptime.check(sess, &mut env, None))?;
 
-                if !self.workspace.build_options.check_mode {
-                    self.eval(&node, module.id, r#static.span)?;
+                    if !self.workspace.build_options.check_mode {
+                        self.eval(&node, module.id, comptime.span)?;
+                    }
                 }
             }
 

@@ -76,7 +76,8 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
 pub(super) struct QueuedModule {
     pub(super) module_type: TypeId,
     pub(super) all_complete: bool,
-    pub(super) queued_bindings: HashSet<usize>, // Binding index -> Completion status
+    pub(super) queued_bindings: HashSet<usize>, // Binding indices
+    pub(super) queued_comptime: HashSet<usize>, // Comptime indices
 }
 
 pub(super) struct CheckSess<'s> {
