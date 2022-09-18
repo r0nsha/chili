@@ -352,44 +352,28 @@ impl<'s> CheckSess<'s> {
 
                 let module_bindings = self.global_scopes.get(&module_id).unwrap().bindings.clone();
 
-                fn find_name(bindings: &UstrMap<BindingId>, name: Ustr) -> Option<BindingId> {
-                    // TODO: support `self`
-                    // TODO: support `super`
-                    bindings.get(&name).copied()
-                }
-
-                let mut unpacked_names = UstrMap::default();
+                let mut bound_names = UstrMap::default();
 
                 for pattern in unpack_pattern.subpats.iter() {
-                    if let Some(already_unpacked_span) = unpacked_names.insert(pattern.name(), pattern.span()) {
-                        return Err(Diagnostic::error()
-                            .with_message(format!("symbol `{}` has already been unpacked", pattern.name()))
-                            .with_label(Label::primary(pattern.span(), "duplicate unpack"))
-                            .with_label(Label::secondary(already_unpacked_span, "already unpacked here")));
-                    }
-
                     match pattern {
                         StructSubPat::Name(pattern) => {
+                            if let Some(already_bound_span) = bound_names.insert(pattern.name, pattern.span) {
+                                return Err(already_bound_err(pattern.name, pattern.span, already_bound_span));
+                            }
+
                             let caller_info = CallerInfo {
                                 module_id: env.module_id(),
                                 span: pattern.span,
                             };
 
-                            let id = match find_name(&module_bindings, pattern.name) {
-                                Some(id) => id,
-                                None => return Err(self.name_not_found_error(module_id, pattern.name, caller_info)),
-                            };
-
-                            self.validate_item_vis(id, caller_info)?;
-
-                            let binding_info = self.workspace.binding_infos.get(id).unwrap();
+                            let node = self.check_top_level_name(pattern.name, module_id, caller_info, true)?;
 
                             let (_, binding) = self.bind_name_pattern(
                                 env,
                                 pattern,
                                 vis,
-                                binding_info.ty,
-                                Some(self.id_or_const(binding_info, pattern.span)),
+                                node.ty(),
+                                Some(node),
                                 kind,
                                 flags | BindingInfoFlags::TYPE_WAS_INFERRED,
                             )?;
@@ -404,21 +388,14 @@ impl<'s> CheckSess<'s> {
                                 span,
                             };
 
-                            let id = match find_name(&module_bindings, name) {
-                                Some(id) => id,
-                                None => return Err(self.name_not_found_error(module_id, name, caller_info)),
-                            };
-
-                            self.validate_item_vis(id, caller_info)?;
-
-                            let binding_info = self.workspace.binding_infos.get(id).unwrap();
+                            let node = self.check_top_level_name(name, module_id, caller_info, true)?;
 
                             let (_, binding) = self.bind_pat(
                                 env,
                                 pattern,
                                 vis,
-                                binding_info.ty,
-                                Some(self.id_or_const(binding_info, span)),
+                                node.ty(),
+                                Some(node),
                                 kind,
                                 ty_origin_span,
                                 flags | BindingInfoFlags::TYPE_WAS_INFERRED,
@@ -437,8 +414,8 @@ impl<'s> CheckSess<'s> {
                             continue;
                         }
 
-                        // skip explicitly unpacked bindings
-                        if unpacked_names.contains_key(&binding_info.name) {
+                        // skip explicitly bound bindings
+                        if bound_names.contains_key(&binding_info.name) {
                             continue;
                         }
 
@@ -461,18 +438,13 @@ impl<'s> CheckSess<'s> {
                 Ok(())
             }
             Type::Struct(struct_type) => {
-                let mut unpacked_names = UstrMap::default();
+                let mut bound_names = UstrMap::default();
 
                 for (index, pattern) in unpack_pattern.subpats.iter().enumerate() {
                     let name = pattern.name();
                     let span = pattern.span();
 
-                    if let Some(already_unpacked_span) = unpacked_names.insert(name, span) {
-                        return Err(Diagnostic::error()
-                            .with_message(format!("field `{}` has already been unpacked", name))
-                            .with_label(Label::primary(span, "duplicate unpack"))
-                            .with_label(Label::secondary(already_unpacked_span, "already unpacked here")));
-                    } else if let Some(field) = struct_type.field(name) {
+                    if let Some(field) = struct_type.field(name) {
                         let ty = self.tcx.bound(field.ty.clone(), span);
 
                         let field_value = match value.as_const_value() {
@@ -491,15 +463,21 @@ impl<'s> CheckSess<'s> {
                         };
 
                         let (_, bound_node) = match pattern {
-                            StructSubPat::Name(pattern) => self.bind_name_pattern(
-                                env,
-                                pattern,
-                                vis,
-                                ty,
-                                Some(field_value),
-                                kind,
-                                flags | BindingInfoFlags::TYPE_WAS_INFERRED,
-                            )?,
+                            StructSubPat::Name(pattern) => {
+                                if let Some(already_bound_span) = bound_names.insert(name, span) {
+                                    return Err(already_bound_err(pattern.name, pattern.span, already_bound_span));
+                                }
+
+                                self.bind_name_pattern(
+                                    env,
+                                    pattern,
+                                    vis,
+                                    ty,
+                                    Some(field_value),
+                                    kind,
+                                    flags | BindingInfoFlags::TYPE_WAS_INFERRED,
+                                )?
+                            }
                             StructSubPat::NameAndPat(_, pattern) => self.bind_pat(
                                 env,
                                 pattern,
@@ -524,8 +502,8 @@ impl<'s> CheckSess<'s> {
 
                 if let Some(glob) = &unpack_pattern.glob {
                     for (index, field) in struct_type.fields.iter().enumerate() {
-                        // skip explicitly unpacked fields
-                        if unpacked_names.contains_key(&field.name) {
+                        // skip explicitly bound fields
+                        if bound_names.contains_key(&field.name) {
                             continue;
                         }
 
@@ -569,6 +547,34 @@ impl<'s> CheckSess<'s> {
                 .with_label(Label::primary(unpack_pattern.span, "illegal tuple unpack"))),
         }
     }
+
+    // fn find_name_in_module_bindings(
+    //     &mut self,
+    //     name: Ustr,
+    //     span: Span,
+    //     module_id: ModuleId,
+    //     caller_info: CallerInfo,
+    //     module_bindings: &UstrMap<BindingId>,
+    // ) -> CheckResult {
+    //     match name.as_str() {
+    //         // Top level `self` module
+    //         sym::SELF => Ok(self.module_node(module_id, caller_info.span)),
+    //         // Top level `super` module
+    //         sym::SUPER => {
+    //             let module_info = self.workspace.module_infos.get(module_id).unwrap().clone();
+    //             self.super_node_module(&module_info, caller_info)
+    //         }
+    //         _ => {
+    //             if let Some(id) = module_bindings.get(&name).copied() {
+    //                 self.validate_item_vis(id, caller_info)?;
+    //                 let binding_info = self.workspace.binding_infos.get(id).unwrap();
+    //                 Ok(self.id_or_const(binding_info, span))
+    //             } else {
+    //                 Err(self.name_not_found_error(module_id, name, caller_info))
+    //             }
+    //         }
+    //     }
+    // }
 
     fn bind_tuple_unpack_pattern(
         &mut self,
@@ -643,6 +649,16 @@ impl<'s> CheckSess<'s> {
                 .with_label(Label::primary(pattern.span, "illegal tuple unpack"))),
         }
     }
+}
+
+fn already_bound_err(name: Ustr, span: Span, already_bound_span: Span) -> Diagnostic {
+    Diagnostic::error()
+        .with_message(format!(
+            "identifier `{}` is bound more than once in the same pattern",
+            name
+        ))
+        .with_label(Label::primary(span, format!("multiple uses of `{}` in pattern", name)))
+        .with_label(Label::secondary(already_bound_span, "first use here"))
 }
 
 pub(super) fn get_qualified_name(scope_name: Ustr, name: Ustr) -> Ustr {

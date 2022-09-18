@@ -1176,6 +1176,7 @@ impl Check for ast::Ast {
                                 module_id: env.module_id(),
                                 span: access.member_span,
                             },
+                            true,
                         )
                     }
                     _ => (),
@@ -1324,6 +1325,7 @@ impl Check for ast::Ast {
                                     module_id: env.module_id(),
                                     span: ident.span,
                                 },
+                                false,
                             )
                         }
                     }

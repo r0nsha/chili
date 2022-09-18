@@ -198,56 +198,67 @@ impl Parser {
         };
 
         if eat!(self, Dot) {
-            let sym = self.require_ident()?;
-            let name = sym.name();
+            if eat!(self, Ident(_)) {
+                let sym = self.previous().clone();
+                let name = sym.name();
 
-            let subpat = if is!(self, Dot) {
-                // Nested path: foo.bar.baz.qux
-                let name_and_span = ast::NameAndSpan { name, span: sym.span };
-                let pat = self.parse_import_binding_pat(Some(sym))?;
-                StructSubPat::NameAndPat(name_and_span, pat)
-            } else {
-                if eat!(self, As) {
-                    let name_and_span = ast::NameAndSpan { name, span: sym.span };
+                let subpat = self.parse_import_binding_subpat(name, sym)?;
 
-                    let alias_tok = self.require_ident()?;
-                    let alias = alias_tok.name();
+                let span = ident.span.to(subpat.span());
 
-                    StructSubPat::NameAndPat(
-                        name_and_span,
-                        Pat::Name(NamePat {
-                            id: BindingId::unknown(),
-                            name: alias,
-                            span: alias_tok.span,
-                            is_mutable: false,
-                            ignore: false,
-                        }),
-                    )
+                Ok(Pat::Struct(StructPat {
+                    subpats: vec![subpat],
+                    span,
+                    glob: None,
+                }))
+            } else if eat!(self, OpenCurly) {
+                self.skip_newlines();
+
+                let subpats = if eat!(self, CloseCurly) {
+                    vec![]
                 } else {
-                    StructSubPat::Name(NamePat {
-                        id: BindingId::unknown(),
-                        name,
-                        span: sym.span,
-                        is_mutable: false,
-                        ignore: false,
-                    })
-                }
-            };
+                    parse_delimited_list!(
+                        self,
+                        CloseCurly,
+                        Comma,
+                        {
+                            self.skip_newlines();
 
-            let span = ident.span.to(subpat.span());
+                            let sym = self.require_ident()?;
+                            let name = sym.name();
 
-            Ok(Pat::Struct(StructPat {
-                subpats: vec![subpat],
-                span,
-                glob: None,
-            }))
+                            self.skip_newlines();
+
+                            self.parse_import_binding_subpat(name, sym)?
+                        },
+                        "a , or }"
+                    )
+                };
+
+                let span = if let Some(last) = subpats.last() {
+                    last.span()
+                } else {
+                    ident.span
+                };
+
+                self.skip_newlines();
+
+                Ok(Pat::Struct(StructPat {
+                    subpats,
+                    span,
+                    glob: None,
+                }))
+            } else {
+                Err(SyntaxError::expected(self.span(), "an identifier or {"))
+            }
         } else if eat!(self, As) {
-            let alias = self.require_ident()?.name();
+            let alias = self.require_ident()?;
+            let name = alias.name();
 
             Ok(Pat::Name(NamePat {
                 id: BindingId::unknown(),
-                name: alias,
-                span: ident.span,
+                name,
+                span: alias.span,
                 is_mutable: false,
                 ignore: false,
             }))
@@ -256,6 +267,41 @@ impl Parser {
                 id: BindingId::unknown(),
                 name: ident.name(),
                 span: ident.span,
+                is_mutable: false,
+                ignore: false,
+            }))
+        }
+    }
+
+    fn parse_import_binding_subpat(&mut self, name: Ustr, sym: Token) -> DiagnosticResult<StructSubPat> {
+        if is!(self, Dot) {
+            // Nested subpath: foo.bar.baz.qux
+            let name_and_span = ast::NameAndSpan { name, span: sym.span };
+            let pat = self.parse_import_binding_pat(Some(sym))?;
+            Ok(StructSubPat::NameAndPat(name_and_span, pat))
+        } else if eat!(self, As) {
+            // Aliased subpath: foo as qux
+            let name_and_span = ast::NameAndSpan { name, span: sym.span };
+
+            let alias_tok = self.require_ident()?;
+            let alias = alias_tok.name();
+
+            Ok(StructSubPat::NameAndPat(
+                name_and_span,
+                Pat::Name(NamePat {
+                    id: BindingId::unknown(),
+                    name: alias,
+                    span: alias_tok.span,
+                    is_mutable: false,
+                    ignore: false,
+                }),
+            ))
+        } else {
+            // Subpath: foo
+            Ok(StructSubPat::Name(NamePat {
+                id: BindingId::unknown(),
+                name,
+                span: sym.span,
                 is_mutable: false,
                 ignore: false,
             }))

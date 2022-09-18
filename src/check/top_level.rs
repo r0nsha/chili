@@ -6,50 +6,10 @@ use crate::{
     infer::substitute::substitute_node,
     span::Span,
     types::{Type, TypeId},
-    workspace::{BindingId, ModuleId},
+    workspace::{BindingId, ModuleId, ModuleInfo},
 };
 use std::collections::HashSet;
 use ustr::{Ustr, UstrMap};
-
-trait CheckTopLevel
-where
-    Self: Sized,
-{
-    fn check_top_level(&self, sess: &mut CheckSess, module_id: ModuleId) -> CheckResult<UstrMap<BindingId>>;
-}
-
-impl CheckTopLevel for ast::Binding {
-    fn check_top_level(&self, sess: &mut CheckSess, module_id: ModuleId) -> CheckResult<UstrMap<BindingId>> {
-        let node = sess.with_env(module_id, |sess, mut env| self.check(sess, &mut env, None))?;
-
-        if let Err(mut diagnostics) = substitute_node(&node, &mut sess.tcx) {
-            let last = diagnostics.pop().unwrap();
-            sess.workspace.diagnostics.extend(diagnostics);
-            return Err(last);
-        }
-
-        fn collect_bound_names(node: hir::Node, bound_names: &mut UstrMap<BindingId>, sess: &mut CheckSess) {
-            match node {
-                hir::Node::Binding(binding) => {
-                    let (name, id) = (binding.name, binding.id);
-                    sess.cache.bindings.insert(id, binding);
-                    bound_names.insert(name, id);
-                }
-                hir::Node::Sequence(sequence) => {
-                    sequence.statements.into_iter().for_each(|statement| {
-                        collect_bound_names(statement, bound_names, sess);
-                    });
-                }
-                _ => unreachable!("{:#?}", node),
-            }
-        }
-
-        let mut bound_names = UstrMap::<BindingId>::default();
-        collect_bound_names(node, &mut bound_names, sess);
-
-        Ok(bound_names)
-    }
-}
 
 #[derive(Debug, Clone, Copy)]
 pub struct CallerInfo {
@@ -58,7 +18,13 @@ pub struct CallerInfo {
 }
 
 impl<'s> CheckSess<'s> {
-    pub fn check_top_level_name(&mut self, name: Ustr, module_id: ModuleId, caller_info: CallerInfo) -> CheckResult {
+    pub fn check_top_level_name(
+        &mut self,
+        name: Ustr,
+        module_id: ModuleId,
+        caller_info: CallerInfo,
+        is_other_module: bool,
+    ) -> CheckResult {
         // In general, top level names are searched in this order:
         // > 1. A binding in current module
         // > 2. The `self` module
@@ -80,53 +46,51 @@ impl<'s> CheckSess<'s> {
             match self.check_name_in_module(name, module, caller_info) {
                 Some(Ok(node)) => Ok(node),
                 Some(Err(diag)) => Err(diag),
-                None => match name.as_str() {
-                    // Top level `self` module
-                    sym::SELF => Ok(self.module_node(module_id, caller_info.span)),
-                    // Top level `super` module
-                    sym::SUPER => {
-                        if let Some(parent_module_id) = module.info.parent {
-                            Ok(self.module_node(parent_module_id, caller_info.span))
-                        } else {
-                            Err(Diagnostic::error()
-                                .with_message(format!("module `{}` has no parent", module.info.name))
-                                .with_label(Label::primary(caller_info.span, "invalid `super` module")))
+                None => {
+                    match name.as_str() {
+                        // Top level `self` module
+                        sym::SELF => Ok(self.module_node(module_id, caller_info.span)),
+                        // Top level `super` module
+                        sym::SUPER => self.super_node_module(&module.info, caller_info),
+                        _ => {
+                            if is_other_module {
+                                return Err(self.name_not_found_error(module_id, name, caller_info));
+                            }
+
+                            // A used library name
+                            let find_library_result = self
+                                .workspace
+                                .libraries
+                                .iter()
+                                .find(|(_, library)| library.name == name);
+
+                            if let Some((_, library)) = find_library_result {
+                                let module_type = self.check_module_by_id(library.root_module_id)?;
+
+                                Ok(hir::Node::Const(hir::Const {
+                                    value: ConstValue::Unit(()),
+                                    ty: module_type,
+                                    span: caller_info.span,
+                                }))
+                            } else if let Some(ty) = self.get_builtin_type(&name) {
+                                // A built-in type
+                                let value = ConstValue::Type(ty);
+                                let ty = self.tcx.bound_maybe_spanned(ty.as_kind().create_type(), None);
+
+                                Ok(hir::Node::Const(hir::Const {
+                                    value,
+                                    ty,
+                                    span: caller_info.span,
+                                }))
+                            } else if let Some(result) = self.check_name_in_std_prelude(name, caller_info) {
+                                // Top level name in the `std` prelude
+                                result
+                            } else {
+                                Err(self.name_not_found_error(module_id, name, caller_info))
+                            }
                         }
                     }
-                    _ => {
-                        // A used library name
-                        let find_library_result = self
-                            .workspace
-                            .libraries
-                            .iter()
-                            .find(|(_, library)| library.name == name);
-
-                        if let Some((_, library)) = find_library_result {
-                            let module_type = self.check_module_by_id(library.root_module_id)?;
-
-                            Ok(hir::Node::Const(hir::Const {
-                                value: ConstValue::Unit(()),
-                                ty: module_type,
-                                span: caller_info.span,
-                            }))
-                        } else if let Some(ty) = self.get_builtin_type(&name) {
-                            // A built-in type
-                            let value = ConstValue::Type(ty);
-                            let ty = self.tcx.bound_maybe_spanned(ty.as_kind().create_type(), None);
-
-                            Ok(hir::Node::Const(hir::Const {
-                                value,
-                                ty,
-                                span: caller_info.span,
-                            }))
-                        } else if let Some(result) = self.check_name_in_std_prelude(name, caller_info) {
-                            // Top level name in the `std` prelude
-                            result
-                        } else {
-                            Err(self.name_not_found_error(module_id, name, caller_info))
-                        }
-                    }
-                },
+                }
             }
         }
     }
@@ -356,5 +320,55 @@ impl<'s> CheckSess<'s> {
             ty: self.get_module_type(module_id),
             span,
         })
+    }
+
+    pub fn super_node_module(&mut self, module_info: &ModuleInfo, caller_info: CallerInfo) -> CheckResult {
+        if let Some(parent_module_id) = module_info.parent {
+            Ok(self.module_node(parent_module_id, caller_info.span))
+        } else {
+            Err(Diagnostic::error()
+                .with_message(format!("module `{}` has no parent", module_info.name))
+                .with_label(Label::primary(caller_info.span, "invalid `super` module")))
+        }
+    }
+}
+
+trait CheckTopLevel
+where
+    Self: Sized,
+{
+    fn check_top_level(&self, sess: &mut CheckSess, module_id: ModuleId) -> CheckResult<UstrMap<BindingId>>;
+}
+
+impl CheckTopLevel for ast::Binding {
+    fn check_top_level(&self, sess: &mut CheckSess, module_id: ModuleId) -> CheckResult<UstrMap<BindingId>> {
+        let node = sess.with_env(module_id, |sess, mut env| self.check(sess, &mut env, None))?;
+
+        if let Err(mut diagnostics) = substitute_node(&node, &mut sess.tcx) {
+            let last = diagnostics.pop().unwrap();
+            sess.workspace.diagnostics.extend(diagnostics);
+            return Err(last);
+        }
+
+        fn collect_bound_names(node: hir::Node, bound_names: &mut UstrMap<BindingId>, sess: &mut CheckSess) {
+            match node {
+                hir::Node::Binding(binding) => {
+                    let (name, id) = (binding.name, binding.id);
+                    sess.cache.bindings.insert(id, binding);
+                    bound_names.insert(name, id);
+                }
+                hir::Node::Sequence(sequence) => {
+                    sequence.statements.into_iter().for_each(|statement| {
+                        collect_bound_names(statement, bound_names, sess);
+                    });
+                }
+                _ => unreachable!("{:#?}", node),
+            }
+        }
+
+        let mut bound_names = UstrMap::<BindingId>::default();
+        collect_bound_names(node, &mut bound_names, sess);
+
+        Ok(bound_names)
     }
 }
