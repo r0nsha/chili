@@ -63,7 +63,7 @@ impl<'a, W: Write> Printer<'a, W> {
     }
 
     fn write_comment(&mut self, s: &str, is_line_start: bool) {
-        self.write_indented(&format!("// {}", s), is_line_start)
+        self.write_indented(&format!("# {}", s), is_line_start)
     }
 }
 
