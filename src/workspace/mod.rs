@@ -277,6 +277,10 @@ impl ModuleInfo {
     pub fn dir(&self) -> &Path {
         Path::new(self.file_path.as_str()).parent().unwrap()
     }
+
+    pub fn stem(&self) -> &str {
+        self.name.split('.').last().unwrap()
+    }
 }
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Hash)]

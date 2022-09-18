@@ -88,7 +88,7 @@ pub(super) struct CheckSess<'s> {
 
     pub tcx: TypeCtx,
 
-    // The ast's being processed
+    // The module's being processed
     pub modules: &'s [ast::Module],
 
     pub cache: hir::Cache,
