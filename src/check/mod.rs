@@ -3883,9 +3883,8 @@ fn check_function_sig<'s>(
         _ => sess.tcx.var(sig.span),
     };
 
-    let return_type_span = sig.return_type.as_ref().map(|t| t.span()).unwrap_or(sig.span);
-
-    if let Some(Type::Function(expected_function_type)) = expected_type.map(|ty| ty.normalize(&sess.tcx)) {
+    let expected_type_norm = expected_type.map(|ty| ty.normalize(&sess.tcx));
+    if let Some(Type::Function(expected_function_type)) = &expected_type_norm {
         // if the function signature has no parameters, and the
         // parent type is a function with 1 parameter, add an implicit `it` parameter
         if sig.params.is_empty() && varargs.is_none() {
@@ -3898,16 +3897,6 @@ fn check_function_sig<'s>(
                 });
             }
         }
-
-        return_type
-            .unify(expected_function_type.return_type.as_ref(), &mut sess.tcx)
-            .or_report_err(
-                &sess.tcx,
-                expected_function_type.return_type.as_ref(),
-                None,
-                &return_type,
-                return_type_span,
-            )?;
     }
 
     let function_type = sess.tcx.bound(
@@ -3919,6 +3908,17 @@ fn check_function_sig<'s>(
         }),
         sig.span,
     );
+
+    if let Some(expected_type_norm @ Type::Function(_)) = expected_type_norm {
+        // unify this signature with the expected signature
+        function_type.unify(&expected_type_norm, &mut sess.tcx).or_report_err(
+            &sess.tcx,
+            &expected_type_norm,
+            sess.tcx.ty_span(expected_type.unwrap()),
+            &function_type,
+            sig.span,
+        )?;
+    }
 
     if extra_diagnostics.is_empty() {
         Ok(hir::Node::Const(hir::Const {
