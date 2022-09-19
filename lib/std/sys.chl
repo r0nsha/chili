@@ -1,1 +1,1 @@
-pub let windows = import(windows)
+pub import windows

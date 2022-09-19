@@ -407,16 +407,21 @@ fn imports() = {
     println("imports")
 
     # You can import other modules using an import statement
-    # TODO
+    import foo
+    foo.hello()
 
-    # Import can also be used as an expression
-    let foo = import(foo)
-    let { fmt } = import(std)
+    import std.fmt
+    fmt.println("Hello :)")
+
+    import foo.*
+    hello()
 
     # The current module can be access via the implicit top-level `self`
     # The parent module (if there is any), can be access via the implicit, top-level `super`
 
-    foo.hello()
+    # Import can also be used as an expression, by wrapping the 
+    # imported module with parentheses
+    import(foo).hello()
 }
 
 fn binding_patterns() = {
@@ -531,7 +536,7 @@ fn starting_a_workspace() = {
     comptime { println("Compile time: I appear second") }
 
     comptime {
-        let * = import(std).build
+        import std.build.*
 
         let build_options = BuildOptions {
             input_file: "comptime.chl",

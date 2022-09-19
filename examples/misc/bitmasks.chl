@@ -1,4 +1,4 @@
-let { printf, malloc, free } = import(std).c
+import std.c.{ printf, malloc, free }
 
 fn main() = {
     let n = 4

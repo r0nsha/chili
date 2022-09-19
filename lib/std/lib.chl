@@ -1,6 +1,6 @@
-pub let intrinsics @ { location } = import(intrinsics)
-pub let build = import(build)
-pub let c = import(c)
-pub let fmt @ { print, println } = import(fmt)
-pub let sys = import(sys)
-pub let process @ { panic } = import(process)
+pub import intrinsics.{ self, location }
+pub import build
+pub import c
+pub import fmt.{ self, print, println }
+pub import sys
+pub import process.{ self, panic }

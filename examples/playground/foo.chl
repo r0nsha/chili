@@ -1,2 +1,1 @@
 pub fn bar() = println("bar")
-pub import std
