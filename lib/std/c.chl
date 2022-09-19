@@ -1,4 +1,4 @@
-use intrinsics.{ os, Os_windows }
+use intrinsics.{os, Os_windows}
 
 # Types
 pub type c_char = u8

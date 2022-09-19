@@ -1,6 +1,6 @@
 use lib.{
-	c.{ printf, exit as c_exit },
-	intrinsics.{ os, Os_linux, Os_windows, caller_location },
+	c.{printf, exit as c_exit},
+	intrinsics.{os, Os_linux, Os_windows, caller_location},
 }
 
 pub fn exit(ec: int) -> never = {
@@ -27,7 +27,7 @@ pub fn panic(
 
 pub fn start(output_file: *str) -> () = {
     if os == Os_linux {
-        use c.{ waitpid, fork, execl }
+        use c.{waitpid, fork, execl}
 
         let pid = fork()
 
@@ -42,7 +42,7 @@ pub fn start(output_file: *str) -> () = {
             panic("fork failed")
         }
     } else if os == Os_windows {
-        use sys.{ windows as w }
+        use sys.{windows as w}
 
 		let si = w.types.STARTUPINFO {
 			cb: size_of!(w.types.STARTUPINFO) as _,
