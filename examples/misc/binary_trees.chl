@@ -1,5 +1,5 @@
-import std.fmt.println
-import std.c.{ printf, malloc }
+use std.fmt.println
+use std.c.{ printf, malloc }
 
 type Node = struct {
     l: *mut Node

@@ -406,14 +406,14 @@ fn tuples() = {
 fn imports() = {
     println("imports")
 
-    # You can import other modules using an import statement
-    import foo
+    # You can import other modules using the `use` statement
+    use foo
     foo.hello()
 
-    import std.fmt
+    use std.fmt
     fmt.println("Hello :)")
 
-    import foo.*
+    use foo.*
     hello()
 
     # The current module can be access via the implicit top-level `self`
@@ -421,7 +421,7 @@ fn imports() = {
 
     # Import can also be used as an expression, by wrapping the 
     # imported module with parentheses
-    import(foo).hello()
+    use(foo).hello()
 }
 
 fn binding_patterns() = {
@@ -454,18 +454,18 @@ fn binding_patterns() = {
     # Patterns also apply to module imports, and look exactly the same
     # as the struct unpack pattern.
     # Unpacked declarations can be aliased to name collision.
-    let { hello: my_hello } = import(foo)
+    let { hello: my_hello } = use(foo)
     my_hello()
 
-    # As a side note, the import function returns a module `value`,
+    # As a side note, the use function returns the module itself,
     # and as such, can be used directly.
-    import(foo).hello()
+    use(foo).hello()
 
     # The glob pattern unpacks all *public* fields/declarations from a 
     # given struct/module
 
     # The next line automatically unpacks the `hello` function.
-    let { * } = import(foo)
+    let { * } = use(foo)
     #     ^---- `hello` comes from here
 
     hello()
@@ -482,10 +482,10 @@ fn binding_patterns() = {
     std.c.printf("a=%d b=%d\n".data, a, b)
 
     # The curly braces can be elided if only an `*` is used
-    let * = import(foo)
+    let * = use(foo)
 
     # You can both alias and unpack a value using `@`
-    let foo @ { hello: second_hello } = import(foo)
+    let foo @ { hello: second_hello } = use(foo)
     foo.hello()
     second_hello()
 
@@ -493,7 +493,7 @@ fn binding_patterns() = {
     let std @ {
         fmt: { println },
         c: { printf }
-    } = import(std)
+    } = use(std)
 
     let ({first, last}, age) = ({ first: "John", last: "Doe"}, 42)
     std.c.printf("My name is %s %s and I'm %d years old\n".data, first.data, last.data, age)
@@ -536,7 +536,7 @@ fn starting_a_workspace() = {
     comptime { println("Compile time: I appear second") }
 
     comptime {
-        import std.build.*
+        use std.build.*
 
         let build_options = BuildOptions {
             input_file: "comptime.chl",

@@ -1,4 +1,4 @@
-import types.*
+use types.*
 
 let shell32 = "shell32"
 

@@ -1,4 +1,4 @@
-import build.Workspace
+use build.Workspace
 
 @intrinsic
 pub extern fn start_workspace(workspace: Workspace) -> (*str, bool)

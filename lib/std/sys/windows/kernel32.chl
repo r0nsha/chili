@@ -1,4 +1,4 @@
-import types.*
+use types.*
 
 let kernel32 = "kernel32"
 

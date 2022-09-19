@@ -1,4 +1,4 @@
-import std.c.{ printf, malloc, free }
+use std.c.{ printf, malloc, free }
 
 fn main() = {
     let n = 4

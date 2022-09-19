@@ -28,7 +28,7 @@ impl Parser {
             Ok(Some(self.parse_extern_binding(attrs, vis)))
         } else if eat!(self, Type) {
             Ok(Some(self.parse_type_binding(attrs, vis)))
-        } else if eat!(self, Import) {
+        } else if eat!(self, Use) {
             if is!(self, OpenParen) {
                 // This is considered Ok, since this could be a use expression
                 self.revert(1);

@@ -9,7 +9,7 @@ use crate::{
 
 impl Parser {
     pub fn parse_import(&mut self) -> DiagnosticResult<ast::Ast> {
-        let start_span = require!(self, Import, "import")?.span;
+        let start_span = require!(self, Use, "use")?.span;
 
         require!(self, OpenParen, "(")?;
 

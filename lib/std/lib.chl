@@ -1,6 +1,6 @@
-pub import intrinsics.{ self, location }
-pub import build
-pub import c
-pub import fmt.{ self, print, println }
-pub import sys
-pub import process.{ self, panic }
+pub use intrinsics.{ self, location }
+pub use build
+pub use c
+pub use fmt.{ self, print, println }
+pub use sys
+pub use process.{ self, panic }
