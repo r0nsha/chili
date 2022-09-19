@@ -232,54 +232,11 @@ impl Lower for hir::Cast {
             Type::Never | Type::Unit | Type::Bool => {
                 self.value.lower(sess, code, LowerContext { take_ptr: false });
             }
-            Type::Pointer(ref inner, _) => match inner.as_ref() {
-                Type::Slice(_) | Type::Str(_) => {
-                    let value_type_size = target_type.size_of(WORD_SIZE) as u32;
-                    let inner_type_size = target_type.element_type().unwrap().size_of(WORD_SIZE);
-
-                    sess.push_const(code, Value::Type(target_type.clone()));
-                    code.write_inst(Inst::BufferAlloc(value_type_size));
-
-                    self.value.lower(sess, code, LowerContext { take_ptr: false });
-
-                    // calculate the new slice's offset
-                    sess.push_const(code, Value::Uint(0));
-                    sess.push_const(code, Value::Uint(inner_type_size));
-                    code.write_inst(Inst::Mul);
-                    code.write_inst(Inst::Offset);
-
-                    let value_type = self.value.ty().normalize(sess.tcx);
-
-                    code.write_inst(Inst::BufferPut(0));
-
-                    // calculate the slice length, by doing `high - low`
-                    match &value_type {
-                        Type::Array(_, size) => {
-                            sess.push_const(code, Value::Uint(*size));
-                        }
-                        Type::Pointer(inner, _) => match inner.as_ref() {
-                            Type::Array(_, size) => {
-                                sess.push_const(code, Value::Uint(*size));
-                            }
-                            Type::Slice(_) | Type::Str(_) => {
-                                code.write_inst(Inst::ConstIndex(1));
-                            }
-                            _ => unreachable!("unexpected type `{:?}`", value_type),
-                        },
-                        ty => unreachable!("unexpected type `{:?}`", ty),
-                    }
-
-                    sess.push_const(code, Value::Uint(0));
-                    code.write_inst(Inst::Sub);
-
-                    code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
-                }
-                _ => {
-                    self.value.lower(sess, code, LowerContext { take_ptr: false });
-                    sess.push_const(code, Value::Type(target_type));
-                    code.write_inst(Inst::Cast);
-                }
-            },
+            Type::Pointer(_, _) => {
+                self.value.lower(sess, code, LowerContext { take_ptr: false });
+                sess.push_const(code, Value::Type(target_type));
+                code.write_inst(Inst::Cast);
+            }
             _ => {
                 self.value.lower(sess, code, LowerContext { take_ptr: false });
                 sess.push_const(code, Value::Type(target_type));

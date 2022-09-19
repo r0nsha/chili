@@ -26,7 +26,7 @@ use crate::{
     },
     infer::{
         cast::{can_cast_type, try_cast_const_value},
-        coerce::{OrCoerce, OrCoerceIntoTy},
+        coerce::{coerce_array_to_slice, OrCoerce, OrCoerceIntoTy},
         display::{DisplayType, OrReportErr},
         misc::IsConcrete,
         normalize::Normalize,
@@ -449,6 +449,27 @@ impl<'s> CheckSess<'s> {
                 ty: array_type,
                 span,
             }))
+        }
+    }
+
+    pub(crate) fn get_len_node(tcx: &TypeCtx, node: &hir::Node) -> Option<hir::Node> {
+        match node.ty().normalize(tcx) {
+            Type::Array(_, size) => Some(hir::Node::Const(hir::Const {
+                value: ConstValue::Int(size as _),
+                ty: tcx.common_types.uint,
+                span: node.span(),
+            })),
+            Type::Pointer(inner, _) => match inner.as_ref() {
+                Type::Slice(_) | Type::Str(_) => Some(hir::Node::MemberAccess(hir::MemberAccess {
+                    value: Box::new(node.clone()),
+                    member_name: ustr(BUILTIN_FIELD_LEN),
+                    member_index: 1,
+                    ty: tcx.common_types.uint,
+                    span: node.span(),
+                })),
+                _ => None,
+            },
+            _ => None,
         }
     }
 }
@@ -1070,31 +1091,20 @@ impl Check for ast::Ast {
 
                     high_node
                 } else {
-                    match &node_type {
-                        Type::Array(_, size) => hir::Node::Const(hir::Const {
-                            value: ConstValue::Int(*size as _),
-                            ty: uint,
-                            span: slice.span,
-                        }),
-                        Type::Pointer(inner, _) => match inner.as_ref() {
-                            Type::Slice(_) | Type::Str(_) => hir::Node::MemberAccess(hir::MemberAccess {
-                                value: Box::new(node.clone()),
-                                ty: uint,
-                                span: slice.span,
-                                member_name: ustr(BUILTIN_FIELD_LEN),
-                                member_index: 1,
-                            }),
-                            _ => {
+                    match CheckSess::get_len_node(&sess.tcx, &node) {
+                        Some(len_node) => len_node,
+                        None => match &node_type {
+                            Type::Pointer(_, _) => {
                                 return Err(Diagnostic::error()
                                     .with_message("slicing a pointer requires specifying the end index")
                                     .with_label(Label::primary(slice.span, "must specify end index")))
                             }
+                            _ => {
+                                return Err(Diagnostic::error()
+                                    .with_message(format!("cannot slice type `{}`", node_type.display(&sess.tcx)))
+                                    .with_label(Label::primary(slice.expr.span(), "cannot slice")))
+                            }
                         },
-                        _ => {
-                            return Err(Diagnostic::error()
-                                .with_message(format!("cannot slice type `{}`", node_type.display(&sess.tcx)))
-                                .with_label(Label::primary(slice.expr.span(), "cannot slice")))
-                        }
                     }
                 };
 
@@ -1861,7 +1871,7 @@ impl Check for ast::For {
                     value_name,
                     ast::Vis::Private,
                     value_type,
-                    Some(value_node),
+                    Some(value_node.clone()),
                     false,
                     BindingInfoKind::LetConst,
                     value_span,
@@ -1913,21 +1923,7 @@ impl Check for ast::For {
                 });
 
                 // index <= value.len
-                let value_len_node = match &value_node_type.maybe_deref_once() {
-                    Type::Array(_, size) => hir::Node::Const(hir::Const {
-                        value: ConstValue::Int(*size as _),
-                        ty: index_type,
-                        span: self.span,
-                    }),
-                    // This must be a Pointer(Slice)
-                    _ => hir::Node::MemberAccess(hir::MemberAccess {
-                        value: Box::new(value_id_node.clone()),
-                        member_name: ustr("len"),
-                        member_index: 1,
-                        ty: index_type,
-                        span: self.span,
-                    }),
-                };
+                let value_len_node = CheckSess::get_len_node(&sess.tcx, &value_node).unwrap();
 
                 let condition = hir::Node::Builtin(hir::Builtin::Lt(hir::Binary {
                     ty: bool_type,
@@ -2806,20 +2802,17 @@ impl Check for ast::Call {
                                                     let (bound_node, rvalue_node) =
                                                         sess.build_rvalue_ref(env, node, false, self.span)?;
 
-                                                    let slice_type = sess.tcx.bound(
-                                                        Type::slice_pointer(vararg_type.clone(), false),
-                                                        self.span,
-                                                    );
+                                                    let slice_type = Type::slice_pointer(vararg_type.clone(), false);
 
-                                                    let varargs_slice = hir::Node::Cast(hir::Cast {
-                                                        value: Box::new(rvalue_node),
-                                                        ty: slice_type,
-                                                        span: self.span,
-                                                    });
+                                                    let varargs_slice = coerce_array_to_slice(
+                                                        &mut sess.tcx,
+                                                        &rvalue_node,
+                                                        slice_type.clone(),
+                                                    );
 
                                                     let varargs_seq = hir::Node::Sequence(hir::Sequence {
                                                         statements: vec![bound_node, varargs_slice],
-                                                        ty: slice_type,
+                                                        ty: sess.tcx.bound(slice_type, self.span),
                                                         span: self.span,
                                                         is_scope: false,
                                                     });
@@ -2896,19 +2889,14 @@ impl Check for ast::Call {
                                 let (bound_node, rvalue_node) =
                                     sess.build_rvalue_ref(env, varargs_array_literal, false, self.span)?;
 
-                                let slice_type = sess
-                                    .tcx
-                                    .bound(Type::slice_pointer(vararg_type.clone(), false), self.span);
+                                let slice_type = Type::slice_pointer(vararg_type.clone(), false);
 
-                                let varargs_slice = hir::Node::Cast(hir::Cast {
-                                    value: Box::new(rvalue_node),
-                                    ty: slice_type,
-                                    span: self.span,
-                                });
+                                let varargs_slice =
+                                    coerce_array_to_slice(&mut sess.tcx, &rvalue_node, slice_type.clone());
 
                                 let varargs_seq = hir::Node::Sequence(hir::Sequence {
                                     statements: vec![bound_node, varargs_slice],
-                                    ty: slice_type,
+                                    ty: sess.tcx.bound(slice_type, self.span),
                                     span: self.span,
                                     is_scope: false,
                                 });

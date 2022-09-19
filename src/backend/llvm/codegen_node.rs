@@ -196,18 +196,18 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
     fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let value = self.value.codegen(generator, state);
 
-        let from_ty = &self.value.ty().normalize(generator.tcx);
-        let target_ty = &self.ty.normalize(generator.tcx);
+        let from_type = &self.value.ty().normalize(generator.tcx);
+        let target_type = &self.ty.normalize(generator.tcx);
 
-        if from_ty == target_ty {
+        if from_type == target_type {
             return value;
         }
 
         const INST_NAME: &str = "cast";
 
-        let cast_type = target_ty.llvm_type(generator);
+        let cast_type = target_type.llvm_type(generator);
 
-        match (from_ty, target_ty) {
+        match (from_type, target_type) {
             (Type::Bool, Type::Int(_)) | (Type::Bool, Type::Uint(_)) => generator
                 .builder
                 .build_int_z_extend(value.into_int_value(), cast_type.into_int_type(), INST_NAME)
@@ -240,26 +240,10 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
                 .build_float_cast(value.into_float_value(), cast_type.into_float_type(), INST_NAME)
                 .into(),
 
-            (Type::Pointer(left, _), Type::Pointer(right, _)) => match (left.as_ref(), right.as_ref()) {
-                (Type::Array(_, size), Type::Slice(right) | Type::Str(right)) => {
-                    let slice_type = generator.slice_type(right);
-                    let ptr = generator.build_alloca(state, slice_type.into());
-
-                    generator.build_slice(
-                        ptr,
-                        value.into_pointer_value(),
-                        generator.ptr_sized_int_type.const_zero(),
-                        generator.ptr_sized_int_type.const_int(*size as u64, false),
-                        right.as_ref(),
-                    );
-
-                    generator.build_load(ptr.into(), "")
-                }
-                (_, _) => generator
-                    .builder
-                    .build_pointer_cast(value.into_pointer_value(), cast_type.into_pointer_type(), INST_NAME)
-                    .into(),
-            },
+            (Type::Pointer(_, _), Type::Pointer(_, _)) => generator
+                .builder
+                .build_pointer_cast(value.into_pointer_value(), cast_type.into_pointer_type(), INST_NAME)
+                .into(),
 
             // pointer <=> int | uint
             (Type::Pointer(..), Type::Int(..) | Type::Uint(..)) => generator
@@ -275,8 +259,8 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Cast {
 
             _ => unreachable!(
                 "can't cast {} to {}",
-                from_ty.display(generator.tcx),
-                target_ty.display(generator.tcx)
+                from_type.display(generator.tcx),
+                target_type.display(generator.tcx)
             ),
         }
     }

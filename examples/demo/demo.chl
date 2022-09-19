@@ -1,4 +1,4 @@
-fn main() = {
+fn main() -> () = {
     primitives_and_variables()
     operators()
     control_flow_if()
@@ -309,7 +309,7 @@ fn functions() = {
     
     let array = [1 as int, 2, 3]
     
-    for_each(&array, fn(x: int) { 
+    for_each(&array, fn(x) { 
         std.c.printf("x = %d\n".data, x)
     })
 
