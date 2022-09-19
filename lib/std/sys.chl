@@ -1,1 +1,1 @@
-pub let windows = import sys/windows
+pub use windows

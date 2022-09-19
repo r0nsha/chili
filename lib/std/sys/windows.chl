@@ -1,4 +1,3 @@
-pub let shell32 = import windows/shell32
-pub let kernel32 = import windows/kernel32
-pub let types = import windows/types
-pub let util = import windows/util
+pub use shell32
+pub use kernel32
+pub use types

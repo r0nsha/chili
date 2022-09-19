@@ -16,11 +16,11 @@ use std::{
     cmp::Ordering,
     path::{Path, PathBuf},
 };
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::{Ustr, UstrMap};
 
 pub mod library;
 
-const SOURCE_FILE_EXT: &str = "chl";
+pub const SOURCE_FILE_EXT: &str = "chl";
 
 pub struct Workspace {
     pub name: String,
@@ -54,7 +54,7 @@ pub struct BindingInfo {
     pub module_id: ModuleId,
     // the name used for the binding
     pub name: Ustr,
-    pub visibility: ast::Visibility,
+    pub vis: ast::Vis,
     pub ty: TypeId,
     pub const_value: Option<ConstValue>,
     // what kind of access the binding has
@@ -132,7 +132,7 @@ impl BindingInfo {
 pub struct PartialBindingInfo {
     pub module_id: ModuleId,
     pub name: Ustr,
-    pub visibility: ast::Visibility,
+    pub vis: ast::Vis,
     pub ty: TypeId,
     pub const_value: Option<ConstValue>,
     pub is_mutable: bool,
@@ -149,7 +149,7 @@ impl PartialBindingInfo {
             id: BindingId::unknown(),
             module_id: self.module_id,
             name: self.name,
-            visibility: self.visibility,
+            vis: self.vis,
             ty: self.ty,
             const_value: self.const_value,
             is_mutable: self.is_mutable,
@@ -255,10 +255,23 @@ define_id_type!(BindingId);
 
 #[derive(Debug, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct ModuleInfo {
+    pub id: ModuleId,
     pub name: Ustr,
+    pub qualified_name: Ustr,
     pub file_path: Ustr,
     pub file_id: FileId,
     pub library_id: LibraryId,
+    pub parent: Option<ModuleId>,
+}
+
+impl WithId<ModuleId> for ModuleInfo {
+    fn id(&self) -> &ModuleId {
+        &self.id
+    }
+
+    fn id_mut(&mut self) -> &mut ModuleId {
+        &mut self.id
+    }
 }
 
 impl ModuleInfo {
@@ -275,10 +288,7 @@ pub struct ModulePath {
 
 impl ModulePath {
     pub fn new(library: Library, components: Vec<Ustr>) -> Self {
-        Self {
-            library: library.clone(),
-            components,
-        }
+        Self { library, components }
     }
 
     pub fn push(&mut self, component: Ustr) {
@@ -289,21 +299,27 @@ impl ModulePath {
         self.components.pop()
     }
 
+    #[allow(unused)]
     pub fn library(&self) -> &Library {
         &self.library
     }
 
+    #[allow(unused)]
     pub fn components(&self) -> &[Ustr] {
         &self.components
     }
 
-    pub fn name(&self) -> String {
+    pub fn qualified_name(&self) -> String {
         [self.library.name]
             .iter()
             .chain(self.components.iter())
             .map(ToString::to_string)
             .collect::<Vec<String>>()
             .join(".")
+    }
+
+    pub fn name(&self) -> Ustr {
+        self.components.last().copied().unwrap_or_else(|| self.library.name)
     }
 
     pub fn path(&self) -> PathBuf {
@@ -320,17 +336,6 @@ impl ModulePath {
         path.set_extension(SOURCE_FILE_EXT);
 
         path
-    }
-}
-
-impl From<&ModulePath> for ModuleInfo {
-    fn from(p: &ModulePath) -> Self {
-        Self {
-            name: ustr(&p.name()),
-            file_path: ustr(&p.path().to_str().unwrap()),
-            file_id: FileId::MAX,
-            library_id: p.library.id,
-        }
     }
 }
 

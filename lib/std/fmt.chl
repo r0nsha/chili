@@ -1,4 +1,4 @@
-let { printf } = import c
+use c.printf
 
 pub fn print(fmt: *str) -> () = {
     printf(fmt.data)

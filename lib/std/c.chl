@@ -1,4 +1,4 @@
-let { os, Os_windows } = import intrinsics
+use intrinsics.{os, Os_windows}
 
 # Types
 pub type c_char = u8

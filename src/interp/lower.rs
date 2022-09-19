@@ -884,7 +884,6 @@ fn const_value_to_value(const_value: &ConstValue, ty: TypeId, sess: &mut InterpS
 }
 
 fn find_and_lower_top_level_binding(id: BindingId, sess: &mut InterpSess) -> usize {
-    dbg!("{}", sess.workspace.binding_infos.get(id));
     let binding = sess
         .cache
         .bindings

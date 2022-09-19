@@ -14,7 +14,7 @@ impl Parser {
 
             self.skip_newlines();
 
-            let id = require!(self, Ident(_), "an identifier")?;
+            let id = self.require_ident()?;
             let name = id.name();
 
             let name_and_span = ast::NameAndSpan { name, span: id.span };

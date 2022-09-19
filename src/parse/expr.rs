@@ -16,7 +16,7 @@ impl Parser {
         let attrs = self.parse_attrs()?;
         let has_attrs = !attrs.is_empty();
 
-        let parse_binding_result = self.try_parse_any_binding(attrs, ast::Visibility::Private, false)?;
+        let parse_binding_result = self.try_parse_any_binding(attrs, ast::Vis::Private, false)?;
 
         match parse_binding_result {
             Some(binding) => Ok(Ast::Binding(binding?)),
@@ -326,7 +326,7 @@ impl Parser {
                 value: Box::new(value),
                 span: start_span.to(self.previous_span()),
             }))
-        } else if eat!(self, Import) {
+        } else if is!(self, Use) {
             self.parse_import()
         } else if is!(self, Comptime) {
             Ok(Ast::Comptime(self.parse_comptime()?))
@@ -483,7 +483,7 @@ impl Parser {
             CloseCurly,
             Semicolon | Newline,
             {
-                let id = require!(self, Ident(_), "an identifier")?;
+                let id = self.require_ident()?;
                 let name = id.name();
 
                 self.skip_newlines();
@@ -549,12 +549,12 @@ impl Parser {
     pub fn parse_for(&mut self) -> DiagnosticResult<Ast> {
         let start_span = self.previous_span();
 
-        let iter_ident = require!(self, Ident(_), "an identifier")?;
+        let iter_ident = self.require_ident()?;
 
         self.skip_newlines();
 
         let iter_index_ident = if eat!(self, Comma) {
-            Some(require!(self, Ident(_), "an identifier")?)
+            Some(self.require_ident()?)
         } else {
             None
         };

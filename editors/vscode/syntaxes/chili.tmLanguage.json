@@ -49,11 +49,11 @@
       "patterns": [
         {
           "name": "keyword.control.chili",
-          "match": "\\b(if|else|while|for|in|break|continue|return|defer)\\b"
+          "match": "\\b(if|else|while|for|in|break|continue|return)\\b"
         },
         {
           "name": "keyword.other.chili",
-          "match": "\\b(let|type|fn|import|extern|comptime|as|struct|union)\\b"
+          "match": "\\b(let|type|fn|use|extern|comptime|as|struct|union|self|super)\\b"
         },
         {
           "name": "storage.modifier.chili",
@@ -216,18 +216,6 @@
               "name": "punctuation.chili"
             }
           }
-        },
-        {
-          "comment": "import",
-          "captures": {
-            "1": {
-              "name": "keyword.other.chili"
-            },
-            "2": {
-              "name": "punctuation.chili"
-            }
-          },
-          "match": "(import)([\\(])"
         },
         {
           "comment": "function call",

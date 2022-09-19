@@ -4,16 +4,17 @@ mod expr;
 mod function;
 mod import;
 mod literal;
-mod pattern;
+mod pat;
 mod postfix;
 mod top_level;
 
 use crate::{
     ast::{self, Ast},
+    common::id_cache::IdCache,
     error::{diagnostic::Diagnostic, DiagnosticResult, Diagnostics, SyntaxError},
-    span::Span,
+    span::{FileId, Span},
     token::{lexer::Lexer, Token, TokenKind::*},
-    workspace::{library::Library, ModuleInfo, ModulePath},
+    workspace::{library::Library, ModuleId, ModuleInfo, ModulePath},
 };
 use bitflags::bitflags;
 use parking_lot::Mutex;
@@ -35,12 +36,12 @@ bitflags! {
 }
 
 macro_rules! is {
-    ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
+    ($parser:expr, $(|) ? $($pat : pat_param) | +) => {
         if $parser.eof() {
             false
         } else {
             match &$parser.peek().kind {
-                $( $pattern )|+ => true,
+                $( $pat )|+ => true,
                 _ => false
             }
         }
@@ -48,8 +49,8 @@ macro_rules! is {
 }
 
 macro_rules! eat {
-    ($parser:expr, $(|) ? $($pattern : pat_param) | +) => {
-        if is!($parser, $( $pattern )|+) {
+    ($parser:expr, $(|) ? $($pat : pat_param) | +) => {
+        if is!($parser, $( $pat )|+) {
             $parser.bump();
             true
         } else {
@@ -59,8 +60,8 @@ macro_rules! eat {
 }
 
 macro_rules! require {
-    ($parser:expr, $(|) ? $($pattern : pat_param) | +, $msg:expr) => {
-        if is!($parser, $( $pattern )|+) {
+    ($parser:expr, $(|) ? $($pat : pat_param) | +, $msg:expr) => {
+        if is!($parser, $( $pat )|+) {
             Ok($parser.bump().clone())
         } else {
             Err(SyntaxError::expected($parser.span(), $msg))
@@ -101,9 +102,25 @@ pub fn spawn_parser(
     tx: Sender<Box<ParserResult>>,
     cache: Arc<Mutex<ParserCache>>,
     module_path: ModulePath,
+    parent: Option<ModuleId>,
 ) {
     thread_pool.clone().execute(move || {
-        Parser::new(thread_pool, tx, Arc::clone(&cache), module_path).parse();
+        let mut module_info = ModuleInfo {
+            id: ModuleId::unknown(),
+            name: module_path.name(),
+            qualified_name: ustr(&module_path.qualified_name()),
+            file_path: ustr(&module_path.path().to_str().unwrap()),
+            file_id: FileId::MAX,
+            library_id: module_path.library().id,
+            parent,
+        };
+
+        let mut cache_lock = cache.lock();
+        let id = cache_lock.module_infos.insert_with_id(module_info);
+        module_info.id = id;
+        drop(cache_lock);
+
+        Parser::new(thread_pool, tx, Arc::clone(&cache), module_path, module_info).parse();
     });
 }
 
@@ -120,6 +137,7 @@ pub struct Parser {
 
 #[derive(Debug)]
 pub struct ParserCache {
+    pub module_infos: IdCache<ModuleId, ModuleInfo>,
     pub libraries: UstrMap<Library>,
     pub include_paths: Vec<PathBuf>,
     pub diagnostics: Diagnostics,
@@ -140,6 +158,7 @@ impl Parser {
         tx: Sender<Box<ParserResult>>,
         cache: Arc<Mutex<ParserCache>>,
         module_path: ModulePath,
+        module_info: ModuleInfo,
     ) -> Self {
         Self {
             cache,
@@ -147,7 +166,7 @@ impl Parser {
             tx,
             tokens: vec![],
             current: 0,
-            module_info: ModuleInfo::from(&module_path),
+            module_info,
             module_path,
             restrictions: Restrictions::empty(),
         }
@@ -173,14 +192,15 @@ impl Parser {
                             .diagnostics
                             .add_file(self.module_info.file_path.to_string(), unindent(&source));
 
+                        cache.module_infos.get_mut(self.module_info.id).unwrap().file_id = file_id;
+                        self.module_info.file_id = file_id;
+
                         (file_id, source)
                     }
                     Err(_) => return ParserResult::ParserFailed,
                 }
             }
         };
-
-        self.module_info.file_id = file_id;
 
         match Lexer::new(file_id, &source).scan() {
             Ok(tokens) => {
@@ -260,5 +280,9 @@ impl Parser {
         while is!(self, Newline) {
             self.bump();
         }
+    }
+
+    pub fn require_ident(&mut self) -> DiagnosticResult<Token> {
+        require!(self, Ident(_), "an identifier")
     }
 }

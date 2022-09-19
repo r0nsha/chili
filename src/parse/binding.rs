@@ -1,18 +1,22 @@
 use super::*;
-use crate::{ast::pattern::Pattern, types::FunctionTypeKind};
+use crate::{
+    ast::pat::{GlobPat, NamePat, Pat, StructPat, StructSubPat},
+    types::FunctionTypeKind,
+    workspace::BindingId,
+};
 
 impl Parser {
     pub fn try_parse_any_binding(
         &mut self,
         attrs: Vec<ast::Attr>,
-        visibility: ast::Visibility,
+        vis: ast::Vis,
         is_top_level: bool,
     ) -> DiagnosticResult<Option<DiagnosticResult<ast::Binding>>> {
         if eat!(self, Let) {
-            Ok(Some(self.parse_binding(attrs, visibility)))
+            Ok(Some(self.parse_binding(attrs, vis)))
         } else if eat!(self, Fn) {
             if is!(self, Ident(_)) {
-                Ok(Some(self.parse_function_binding(attrs, visibility)))
+                Ok(Some(self.parse_function_binding(attrs, vis)))
             } else if is_top_level {
                 Err(SyntaxError::expected(self.span(), "an identifier"))
             } else {
@@ -21,22 +25,26 @@ impl Parser {
                 Ok(None)
             }
         } else if eat!(self, Extern) {
-            Ok(Some(self.parse_extern_binding(attrs, visibility)))
+            Ok(Some(self.parse_extern_binding(attrs, vis)))
         } else if eat!(self, Type) {
-            Ok(Some(self.parse_type_binding(attrs, visibility)))
+            Ok(Some(self.parse_type_binding(attrs, vis)))
+        } else if eat!(self, Use) {
+            if is!(self, OpenParen) {
+                // This is considered Ok, since this could be a use expression
+                self.revert(1);
+                Ok(None)
+            } else {
+                Ok(Some(self.parse_import_binding(attrs, vis)))
+            }
         } else {
             Ok(None)
         }
     }
 
-    pub fn parse_binding(
-        &mut self,
-        attrs: Vec<ast::Attr>,
-        visibility: ast::Visibility,
-    ) -> DiagnosticResult<ast::Binding> {
+    pub fn parse_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
-        let pattern = self.parse_pattern()?;
+        let pat = self.parse_pat()?;
 
         let type_expr = if eat!(self, Colon) {
             Some(Box::new(self.parse_expression(false, true)?))
@@ -48,16 +56,16 @@ impl Parser {
 
         let mut value = self.parse_expression(false, true)?;
 
-        match &pattern {
-            Pattern::Name(pattern) => Self::assign_expr_name_if_needed(&mut value, pattern.name),
+        match &pat {
+            Pat::Name(pat) => Self::assign_expr_name_if_needed(&mut value, pat.name),
             _ => (),
         }
 
         Ok(ast::Binding {
             attrs,
-            visibility,
+            vis,
             kind: ast::BindingKind::Let {
-                pattern,
+                pat,
                 type_expr,
                 value: Box::new(value),
             },
@@ -65,14 +73,10 @@ impl Parser {
         })
     }
 
-    pub fn parse_function_binding(
-        &mut self,
-        attrs: Vec<ast::Attr>,
-        visibility: ast::Visibility,
-    ) -> DiagnosticResult<ast::Binding> {
+    pub fn parse_function_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
-        let id = require!(self, Ident(_), "an identifier")?;
+        let id = self.require_ident()?;
         let name = id.name();
 
         let name_and_span = ast::NameAndSpan { name, span: id.span };
@@ -85,7 +89,7 @@ impl Parser {
 
         Ok(ast::Binding {
             attrs,
-            visibility,
+            vis,
             kind: ast::BindingKind::Function {
                 name: name_and_span,
                 sig,
@@ -95,15 +99,11 @@ impl Parser {
         })
     }
 
-    pub fn parse_extern_binding(
-        &mut self,
-        attrs: Vec<ast::Attr>,
-        visibility: ast::Visibility,
-    ) -> DiagnosticResult<ast::Binding> {
+    pub fn parse_extern_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
         if eat!(self, Fn) {
-            let id = require!(self, Ident(_), "an identifier")?;
+            let id = self.require_ident()?;
             let name = id.name();
 
             let name_and_span = ast::NameAndSpan { name, span: id.span };
@@ -112,7 +112,7 @@ impl Parser {
 
             Ok(ast::Binding {
                 attrs,
-                visibility,
+                vis,
                 kind: ast::BindingKind::ExternFunction {
                     name: name_and_span,
                     sig,
@@ -122,7 +122,7 @@ impl Parser {
         } else if eat!(self, Let) {
             let is_mutable = eat!(self, Mut);
 
-            let id = require!(self, Ident(_), "an identifier")?;
+            let id = self.require_ident()?;
             let name = id.name();
 
             let name_and_span = ast::NameAndSpan { name, span: id.span };
@@ -133,7 +133,7 @@ impl Parser {
 
             Ok(ast::Binding {
                 attrs,
-                visibility,
+                vis,
                 kind: ast::BindingKind::ExternVariable {
                     name: name_and_span,
                     is_mutable,
@@ -146,14 +146,10 @@ impl Parser {
         }
     }
 
-    pub fn parse_type_binding(
-        &mut self,
-        attrs: Vec<ast::Attr>,
-        visibility: ast::Visibility,
-    ) -> DiagnosticResult<ast::Binding> {
+    pub fn parse_type_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
-        let id = require!(self, Ident(_), "an identifier")?;
+        let id = self.require_ident()?;
         let name = id.name();
 
         require!(self, Eq, "=")?;
@@ -163,12 +159,178 @@ impl Parser {
 
         Ok(ast::Binding {
             attrs,
-            visibility,
+            vis,
             kind: ast::BindingKind::Type {
                 name: ast::NameAndSpan { name, span: id.span },
                 type_expr: Box::new(type_expr),
             },
             span: start_span.to(self.previous_span()),
         })
+    }
+
+    pub fn parse_import_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
+        let start_span = self.previous_span();
+
+        let ident = self.require_ident()?;
+        let name = ident.name();
+
+        let import_expr = self.search_import_name(name, ident.span)?;
+
+        let pat = self.parse_import_binding_pat(Some(ident))?;
+
+        Ok(ast::Binding {
+            attrs,
+            vis,
+            kind: ast::BindingKind::Let {
+                pat,
+                type_expr: None,
+                value: Box::new(import_expr),
+            },
+            span: start_span.to(self.previous_span()),
+        })
+    }
+
+    fn parse_import_binding_pat(&mut self, ident: Option<Token>) -> DiagnosticResult<Pat> {
+        let ident = if let Some(ident) = ident {
+            ident
+        } else {
+            self.require_ident()?
+        };
+
+        if eat!(self, Dot) {
+            if eat!(self, Ident(_)) {
+                let sym = self.previous().clone();
+                let name = sym.name();
+
+                let subpat = self.parse_import_binding_subpat(name, sym)?;
+                let span = subpat.span();
+
+                Ok(Pat::Struct(StructPat {
+                    subpats: vec![subpat],
+                    span,
+                    glob: None,
+                }))
+            } else if eat!(self, Star) {
+                Ok(Pat::Struct(StructPat {
+                    subpats: vec![],
+                    span: ident.span.to(self.previous_span()),
+                    glob: Some(GlobPat {
+                        span: self.previous_span(),
+                    }),
+                }))
+            } else if eat!(self, OpenCurly) {
+                self.skip_newlines();
+
+                let start_span = self.previous_span();
+
+                if eat!(self, CloseCurly) {
+                    Ok(Pat::Struct(StructPat {
+                        subpats: vec![],
+                        span: ident.span.to(self.previous_span()),
+                        glob: None,
+                    }))
+                } else {
+                    let mut subpats = vec![];
+                    let mut glob: Option<GlobPat> = None;
+
+                    while !eat!(self, CloseCurly) && !self.eof() {
+                        self.skip_newlines();
+
+                        if eat!(self, Star) {
+                            glob = Some(GlobPat {
+                                span: self.previous_span(),
+                            });
+                            require!(self, CloseCurly, "}")?;
+                            break;
+                        } else {
+                            self.skip_newlines();
+
+                            let sym = self.require_ident()?;
+                            let name = sym.name();
+
+                            self.skip_newlines();
+
+                            let subpat = self.parse_import_binding_subpat(name, sym)?;
+
+                            subpats.push(subpat);
+
+                            if eat!(self, Comma) {
+                                self.skip_newlines();
+                                continue;
+                            } else if eat!(self, CloseCurly) {
+                                break;
+                            } else {
+                                let span = self.previous_span().after();
+                                return Err(SyntaxError::expected(span, ", or }"));
+                            }
+                        }
+                    }
+
+                    self.skip_newlines();
+
+                    Ok(Pat::Struct(StructPat {
+                        subpats,
+                        span: start_span.to(self.previous_span()),
+                        glob,
+                    }))
+                }
+            } else {
+                Err(SyntaxError::expected(self.span(), "an identifier, * or {"))
+            }
+        } else if eat!(self, As) {
+            let alias = self.require_ident()?;
+            let name = alias.name();
+
+            Ok(Pat::Name(NamePat {
+                id: BindingId::unknown(),
+                name,
+                span: alias.span,
+                is_mutable: false,
+                ignore: false,
+            }))
+        } else {
+            Ok(Pat::Name(NamePat {
+                id: BindingId::unknown(),
+                name: ident.name(),
+                span: ident.span,
+                is_mutable: false,
+                ignore: false,
+            }))
+        }
+    }
+
+    fn parse_import_binding_subpat(&mut self, name: Ustr, sym: Token) -> DiagnosticResult<StructSubPat> {
+        if is!(self, Dot) {
+            // Nested subpath: foo.bar.baz.qux
+            let name_and_span = ast::NameAndSpan { name, span: sym.span };
+            let pat = self.parse_import_binding_pat(Some(sym))?;
+            Ok(StructSubPat::NameAndPat(name_and_span, pat))
+        } else if eat!(self, As) {
+            // Aliased subpath: foo as qux
+            let name_and_span = ast::NameAndSpan { name, span: sym.span };
+
+            let alias_tok = self.require_ident()?;
+            let alias = alias_tok.name();
+
+            Ok(StructSubPat::NameAndPat(
+                name_and_span,
+                Pat::Name(NamePat {
+                    id: BindingId::unknown(),
+                    name: alias,
+                    span: alias_tok.span,
+                    is_mutable: false,
+                    ignore: false,
+                }),
+            ))
+        } else {
+            // Subpath: foo
+            Ok(StructSubPat::Name(NamePat {
+                id: BindingId::unknown(),
+                name,
+                span: sym.span,
+                is_mutable: false,
+                ignore: false,
+            }))
+        }
     }
 }

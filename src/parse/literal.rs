@@ -89,7 +89,7 @@ impl Parser {
             CloseCurly,
             Comma,
             {
-                let id_token = require!(self, Ident(_), "an identifier")?;
+                let id_token = self.require_ident()?;
 
                 self.skip_newlines();
 

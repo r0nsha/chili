@@ -2,14 +2,15 @@ mod attrs;
 mod const_fold;
 mod entry;
 mod env;
+mod intrinsics;
 mod lvalue_access;
-mod pattern;
-pub mod symbols;
+mod pat;
 mod top_level;
 
-use self::pattern::get_qualified_name;
+use self::pat::get_qualified_name;
 use crate::{
-    ast::{self, pattern::Pattern},
+    ast::{self, pat::Pat},
+    check::intrinsics::{can_dispatch_intrinsic_at_comptime, dispatch_intrinsic},
     common::{
         builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
         target::TargetMetrics,
@@ -35,6 +36,7 @@ use crate::{
     },
     interp::interp::Interp,
     span::Span,
+    sym,
     types::{
         align_of::AlignOf, is_sized::IsSized, size_of::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeParam,
         FunctionTypeVarargs, StructType, StructTypeField, StructTypeKind, Type, TypeId,
@@ -74,7 +76,8 @@ pub fn check(workspace: &mut Workspace, module: Vec<ast::Module>) -> CheckData {
 pub(super) struct QueuedModule {
     pub(super) module_type: TypeId,
     pub(super) all_complete: bool,
-    pub(super) queued_bindings: HashSet<usize>, // Binding index -> Completion status
+    pub(super) queued_bindings: HashSet<usize>, // Binding indices
+    pub(super) queued_comptime: HashSet<usize>, // Comptime indices
 }
 
 pub(super) struct CheckSess<'s> {
@@ -85,7 +88,7 @@ pub(super) struct CheckSess<'s> {
 
     pub tcx: TypeCtx,
 
-    // The ast's being processed
+    // The module's being processed
     pub modules: &'s [ast::Module],
 
     pub cache: hir::Cache,
@@ -303,7 +306,7 @@ impl<'s> CheckSess<'s> {
             .workspace
             .module_infos
             .iter()
-            .find(|(_, m)| m.name == module_name)
+            .find(|(_, m)| m.qualified_name == module_name)
             .map(|(id, _)| ModuleId::from(id))
             .unwrap_or_else(|| panic!("couldn't find module '{}'", module_name));
 
@@ -358,7 +361,7 @@ impl<'s> CheckSess<'s> {
                 .with_label(Label::primary(span, "cannot be used within the current scope"))
         };
 
-        match env.find_binding(ustr(symbols::SYM_TRACK_CALLER_LOCATION_PARAM)) {
+        match env.find_binding(ustr(sym::TRACK_CALLER_LOCATION_PARAM)) {
             Some(id) => match self.function_frame() {
                 Some(frame) => {
                     let binding_info = self.workspace.binding_infos.get(id).unwrap();
@@ -393,7 +396,7 @@ impl<'s> CheckSess<'s> {
                 let (id, bound_node) = self.bind_name(
                     env,
                     rvalue_name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     ty,
                     Some(value),
                     is_mutable,
@@ -466,12 +469,8 @@ impl Check for ast::Binding {
         sess.check_attrs_are_assigned_to_valid_binding(&attrs, self)?;
 
         match &self.kind {
-            ast::BindingKind::Let {
-                pattern,
-                type_expr,
-                value,
-            } => {
-                let ty = check_optional_type_expr(type_expr, sess, env, pattern.span())?;
+            ast::BindingKind::Let { pat, type_expr, value } => {
+                let ty = check_optional_type_expr(type_expr, sess, env, pat.span())?;
 
                 let mut value_node = value.check(sess, env, Some(ty))?;
 
@@ -499,31 +498,31 @@ impl Check for ast::Binding {
                 let value_is_module = binding_type.is_module();
 
                 let is_static =
-                    env.scope_level().is_global() && !value_node.is_const() || pattern.iter().any(|p| p.is_mutable);
+                    env.scope_level().is_global() && !value_node.is_const() || pat.iter().any(|p| p.is_mutable);
 
                 // Bindings of type `{module}` cannot be assigned to mutable bindings
                 if value_is_module {
-                    pattern.iter().filter(|pattern| pattern.is_mutable).for_each(|pattern| {
+                    pat.iter().filter(|pat| pat.is_mutable).for_each(|pat| {
                         sess.workspace.diagnostics.push(
                             Diagnostic::error()
                                 .with_message("variable of type `{module}` must be immutable")
-                                .with_label(Label::primary(pattern.span, "variable is mutable"))
+                                .with_label(Label::primary(pat.span, "variable is mutable"))
                                 .with_note("try removing the `mut` from the declaration"),
                         );
                     });
                 } else if binding_type.is_unsized() {
                     sess.workspace.diagnostics.push(TypeError::binding_is_unsized(
-                        &pattern.to_string(),
+                        &pat.to_string(),
                         binding_type.display(&sess.tcx),
-                        pattern.span(),
+                        pat.span(),
                     ))
                 }
 
                 let value_span = value_node.span();
-                let (_, bound_node) = sess.bind_pattern(
+                let (_, bound_node) = sess.bind_pat(
                     env,
-                    &pattern,
-                    self.visibility,
+                    &pat,
+                    self.vis,
                     ty,
                     Some(value_node),
                     if is_static {
@@ -592,7 +591,7 @@ impl Check for ast::Binding {
                 sess.bind_name(
                     env,
                     name,
-                    self.visibility,
+                    self.vis,
                     node.ty(),
                     Some(node),
                     false,
@@ -686,7 +685,7 @@ impl Check for ast::Binding {
                 sess.bind_name(
                     env,
                     name,
-                    self.visibility,
+                    self.vis,
                     ty,
                     Some(function_value),
                     false,
@@ -794,7 +793,7 @@ impl Check for ast::Binding {
                 sess.bind_name(
                     env,
                     name,
-                    self.visibility,
+                    self.vis,
                     ty,
                     Some(value),
                     *is_mutable,
@@ -817,7 +816,7 @@ impl Check for ast::Binding {
                         .bind_name(
                             env,
                             name,
-                            self.visibility,
+                            self.vis,
                             type_node.ty(),
                             Some(type_node),
                             false,
@@ -885,13 +884,9 @@ impl Check for ast::Ast {
                     .find(|m| m.info.file_path == import_path)
                     .unwrap_or_else(|| panic!("couldn't find ast for module with path: {}", import_path));
 
-                let module_type = sess.check_module(module)?;
+                sess.check_module(module)?;
 
-                Ok(hir::Node::Const(hir::Const {
-                    value: ConstValue::Unit(()),
-                    ty: module_type,
-                    span: import.span,
-                }))
+                Ok(sess.module_node(module.id, import.span))
             }
             ast::Ast::Builtin(builtin) => match &builtin.kind {
                 ast::BuiltinKind::SizeOf(expr) => {
@@ -1175,13 +1170,14 @@ impl Check for ast::Ast {
                         _ => (),
                     },
                     Type::Module(module_id) => {
-                        return sess.check_top_level_binding(
+                        return sess.check_top_level_name(
                             access.member,
                             *module_id,
                             CallerInfo {
                                 module_id: env.module_id(),
                                 span: access.member_span,
                             },
+                            true,
                         )
                     }
                     _ => (),
@@ -1323,13 +1319,14 @@ impl Check for ast::Ast {
                         }
                         None => {
                             // this is either a top level binding, a builtin binding, or it doesn't exist
-                            sess.check_top_level_binding(
+                            sess.check_top_level_name(
                                 ident.name,
                                 env.module_id(),
                                 CallerInfo {
                                     module_id: env.module_id(),
                                     span: ident.span,
                                 },
+                                false,
                             )
                         }
                     }
@@ -1546,12 +1543,12 @@ impl Check for ast::Ast {
                 let node = sig.check(sess, env, Some(sess.tcx.common_types.anytype))?;
 
                 for param in sig.params.iter() {
-                    match &param.pattern {
-                        Pattern::Name(_) => (),
-                        Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) | Pattern::Hybrid(_) => {
+                    match &param.pat {
+                        Pat::Name(_) => (),
+                        Pat::Struct(_) | Pat::Tuple(_) | Pat::Hybrid(_) => {
                             return Err(Diagnostic::error()
                                 .with_message("expected an indentifier or _")
-                                .with_label(Label::primary(param.pattern.span(), "expected an identifier or _"))
+                                .with_label(Label::primary(param.pat.span(), "expected an identifier or _"))
                                 .with_note("binding patterns are not allowed in function type parameters"))
                         }
                     }
@@ -1696,7 +1693,7 @@ impl Check for ast::For {
                 let (index_id, index_binding) = sess.bind_name(
                     env,
                     index_binding.name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     index_type,
                     Some(hir::Node::Const(hir::Const {
                         value: ConstValue::Int(0),
@@ -1723,7 +1720,7 @@ impl Check for ast::For {
                 let (iter_id, iter_binding) = sess.bind_name(
                     env,
                     self.iter_binding.name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     iter_type,
                     Some(start_node),
                     false,
@@ -1862,7 +1859,7 @@ impl Check for ast::For {
                 let (value_id, value_binding) = sess.bind_name(
                     env,
                     value_name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     value_type,
                     Some(value_node),
                     false,
@@ -1888,7 +1885,7 @@ impl Check for ast::For {
                 let (index_id, index_binding) = sess.bind_name(
                     env,
                     index_binding.name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     index_type,
                     Some(hir::Node::Const(hir::Const {
                         value: ConstValue::Int(0),
@@ -1945,7 +1942,7 @@ impl Check for ast::For {
                 let (_, iter_binding) = sess.bind_name(
                     env,
                     self.iter_binding.name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     iter_type,
                     Some(hir::Node::Builtin(hir::Builtin::Offset(hir::Offset {
                         value: Box::new(value_id_node),
@@ -2630,24 +2627,6 @@ impl Check for ast::Unary {
 }
 impl Check for ast::Call {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
-        fn is_callee_const_intrinsic(sess: &mut CheckSess, callee: &hir::Node) -> Option<hir::Intrinsic> {
-            if let Some(ConstValue::Function(f)) = callee.as_const_value() {
-                let function = sess.cache.functions.get(f.id).unwrap();
-                match &function.kind {
-                    hir::FunctionKind::Intrinsic(intrinsic) => match intrinsic {
-                        hir::Intrinsic::Location
-                        | hir::Intrinsic::CallerLocation
-                        | hir::Intrinsic::CompilerError
-                        | hir::Intrinsic::CompilerWarning => Some(*intrinsic),
-                        hir::Intrinsic::StartWorkspace | hir::Intrinsic::Os | hir::Intrinsic::Arch => None,
-                    },
-                    _ => None,
-                }
-            } else {
-                None
-            }
-        }
-
         fn validate_call_args(sess: &mut CheckSess, args: &[hir::Node]) -> DiagnosticResult<()> {
             for arg in args.iter() {
                 match arg.ty().normalize(&sess.tcx) {
@@ -2714,7 +2693,7 @@ impl Check for ast::Call {
                 // If the function was annotated by track_caller, its first argument
                 // should be the inserted location parameter: track_caller@location
                 let param_offset = match function_type.params.first() {
-                    Some(param) if param.name == symbols::SYM_TRACK_CALLER_LOCATION_PARAM => {
+                    Some(param) if param.name == sym::TRACK_CALLER_LOCATION_PARAM => {
                         let ty = sess.location_type()?;
 
                         let arg = match sess.get_track_caller_location_param_id(env, self.span) {
@@ -2969,62 +2948,8 @@ impl Check for ast::Call {
 
                 let ty = sess.tcx.bound(function_type.return_type.as_ref().clone(), self.span);
 
-                if let Some(intrinsic) = is_callee_const_intrinsic(sess, &callee) {
-                    match intrinsic {
-                        hir::Intrinsic::Location => {
-                            let value = sess.build_location_value(env, self.span)?;
-
-                            Ok(hir::Node::Const(hir::Const {
-                                value,
-                                ty,
-                                span: self.span,
-                            }))
-                        }
-                        hir::Intrinsic::CallerLocation => {
-                            sess.get_track_caller_location_param_id(env, self.span).map(|id| {
-                                hir::Node::Id(hir::Id {
-                                    id,
-                                    ty,
-                                    span: self.span,
-                                })
-                            })
-                        }
-                        hir::Intrinsic::CompilerError => {
-                            let first_arg = args.first().unwrap();
-
-                            if let Some(ConstValue::Str(msg)) = args.first().unwrap().as_const_value() {
-                                Err(Diagnostic::error()
-                                    .with_message(msg)
-                                    .with_label(Label::primary(self.span, msg)))
-                            } else {
-                                Err(Diagnostic::error()
-                                    .with_message("argument `msg` must be a string literal")
-                                    .with_label(Label::primary(first_arg.span(), "not a string literal")))
-                            }
-                        }
-                        hir::Intrinsic::CompilerWarning => {
-                            let first_arg = args.first().unwrap();
-
-                            if let Some(ConstValue::Str(msg)) = args.first().unwrap().as_const_value() {
-                                sess.workspace.diagnostics.push(
-                                    Diagnostic::warning()
-                                        .with_message(msg)
-                                        .with_label(Label::primary(self.span, msg)),
-                                );
-
-                                Ok(hir::Node::Const(hir::Const {
-                                    value: ConstValue::Unit(()),
-                                    ty: sess.tcx.common_types.unit,
-                                    span: self.span,
-                                }))
-                            } else {
-                                Err(Diagnostic::error()
-                                    .with_message("argument `msg` must be a string literal")
-                                    .with_label(Label::primary(first_arg.span(), "not a string literal")))
-                            }
-                        }
-                        hir::Intrinsic::StartWorkspace | hir::Intrinsic::Os | hir::Intrinsic::Arch => unreachable!(),
-                    }
+                if let Some(intrinsic) = can_dispatch_intrinsic_at_comptime(sess, &callee) {
+                    dispatch_intrinsic(sess, env, &intrinsic, &args, ty, self.span)
                 } else {
                     Ok(hir::Node::Call(hir::Call {
                         callee: Box::new(callee),
@@ -3316,7 +3241,7 @@ impl Check for ast::StructType {
             let (binding_id, _) = sess.bind_name(
                 env,
                 name,
-                ast::Visibility::Private,
+                ast::Vis::Private,
                 struct_type_type_var,
                 Some(hir::Node::Const(hir::Const {
                     value: ConstValue::Type(struct_type_var),
@@ -3627,20 +3552,20 @@ fn check_function<'s>(
 
     for (index, param_type) in function_type.params.iter().enumerate() {
         let (param, bound_node) = match sig.params.get(index) {
-            Some(param) if !symbols::is_implicitly_generated_param(&param_type.name) => {
+            Some(param) if !sym::is_implicitly_generated_param(&param_type.name) => {
                 let ty = sess.tcx.bound(
                     param_type.ty.clone(),
-                    param.type_expr.as_ref().map_or(param.pattern.span(), |e| e.span()),
+                    param.type_expr.as_ref().map_or(param.pat.span(), |e| e.span()),
                 );
 
-                let (bound_id, bound_node) = sess.bind_pattern(
+                let (bound_id, bound_node) = sess.bind_pat(
                     env,
-                    &param.pattern,
-                    ast::Visibility::Private,
+                    &param.pat,
+                    ast::Vis::Private,
                     ty,
                     None,
                     BindingInfoKind::LetConst,
-                    param.pattern.span(),
+                    param.pat.span(),
                     if param.type_expr.is_some() {
                         BindingInfoFlags::IS_USER_DEFINED
                     } else {
@@ -3652,7 +3577,7 @@ fn check_function<'s>(
                     hir::FunctionParam {
                         id: bound_id,
                         ty,
-                        span: param.pattern.span(),
+                        span: param.pat.span(),
                     },
                     bound_node,
                 )
@@ -3665,7 +3590,7 @@ fn check_function<'s>(
                 let (bound_id, bound_node) = sess.bind_name(
                     env,
                     param_type.name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     ty,
                     None,
                     false,
@@ -3701,7 +3626,7 @@ fn check_function<'s>(
                 let (bound_id, _) = sess.bind_name(
                     env,
                     varargs.name,
-                    ast::Visibility::Private,
+                    ast::Vis::Private,
                     ty,
                     None,
                     false,
@@ -3855,7 +3780,7 @@ fn check_function_sig<'s>(
     // Whenever a function declaration is annotated with @track_caller, we implicitly
     // insert a location parameter at the start - track_caller@location: Location
     if track_caller == TrackCaller::Yes {
-        let name = ustr(symbols::SYM_TRACK_CALLER_LOCATION_PARAM);
+        let name = ustr(sym::TRACK_CALLER_LOCATION_PARAM);
         let ty = sess.location_type()?.normalize(&sess.tcx);
 
         if let Some(already_defined_span) = defined_params.insert(name, sig.span) {
@@ -3870,21 +3795,21 @@ fn check_function_sig<'s>(
     }
 
     for param in sig.params.iter() {
-        let param_span = param.pattern.span();
+        let param_span = param.pat.span();
 
-        let name = match &param.pattern {
-            Pattern::Name(p) => p.name,
-            Pattern::StructUnpack(_) | Pattern::TupleUnpack(_) => ustr("_"),
-            Pattern::Hybrid(p) => p.name_pattern.name,
+        let name = match &param.pat {
+            Pat::Name(p) => p.name,
+            Pat::Struct(_) | Pat::Tuple(_) => ustr("_"),
+            Pat::Hybrid(p) => p.name_pat.name,
         };
 
         let param_type = check_optional_type_expr(&param.type_expr, sess, env, param_span)?;
 
-        for pattern in param.pattern.iter() {
-            let name = pattern.name;
+        for pat in param.pat.iter() {
+            let name = pat.name;
 
-            if let Some(already_defined_span) = defined_params.insert(name, pattern.span) {
-                return Err(SyntaxError::duplicate_binding(name, pattern.span, already_defined_span));
+            if let Some(already_defined_span) = defined_params.insert(name, pat.span) {
+                return Err(SyntaxError::duplicate_binding(name, pat.span, already_defined_span));
             }
         }
 
@@ -4015,8 +3940,8 @@ fn check_function_sig_has_type_annotations<'s>(sess: &mut CheckSess<'s>, sig: &a
         .map(|param| {
             param.type_expr.is_none().then(|| {
                 Diagnostic::error()
-                    .with_message(format!("missing type for function parameter `{}`", param.pattern))
-                    .with_label(Label::primary(param.pattern.span(), "missing type annotation"))
+                    .with_message(format!("missing type for function parameter `{}`", param.pat))
+                    .with_label(Label::primary(param.pat.span(), "missing type annotation"))
             })
         })
         .flatten()
@@ -4090,8 +4015,8 @@ fn check_function_param_types<'s>(
             sess,
             &mut diagnostics,
             &param_type.ty.normalize(&sess.tcx),
-            &param.pattern,
-            param.pattern.span(),
+            &param.pat,
+            param.pat.span(),
         );
     }
 

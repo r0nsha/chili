@@ -96,4 +96,11 @@ impl Diagnostic {
         self.add_note(note);
         self
     }
+
+    pub fn with_notes(mut self, notes: &[impl ToString]) -> Self {
+        for note in notes {
+            self.add_note(note.to_string());
+        }
+        self
+    }
 }

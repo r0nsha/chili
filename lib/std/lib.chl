@@ -1,7 +1,6 @@
-pub let intrinsics @ { location } = import intrinsics
-pub let build = import build
-pub let c = import c
-pub let fmt @ { print, println } = import fmt
-pub let panicking @ { panic } = import panicking
-pub let sys = import sys
-pub let process = import process
+pub use intrinsics.{self, location}
+pub use build
+pub use c
+pub use fmt.{self, print, println}
+pub use sys
+pub use process.{self, panic}

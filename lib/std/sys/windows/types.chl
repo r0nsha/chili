@@ -1,6 +1,3 @@
-# TODO (ICE): this stack overflows
-# let c = import std/c
-
 # TODO: Switch these to use types from std/c
 pub type BYTE = u8
 pub type CHAR = u8

@@ -1,11 +1,33 @@
-let { 
-    intrinsics: { os, Os_linux, Os_windows },
-    c: { printf },
-} = import lib
+use lib.{
+	c.{printf, exit as c_exit},
+	intrinsics.{os, Os_linux, Os_windows, caller_location},
+}
+
+pub fn exit(ec: int) -> never = {
+	c_exit(ec as _)
+}
+
+@track_caller
+pub fn panic(
+    fmt: *str = "unknown reason",
+) -> never = {
+    # TODO: use our own println function.
+    let { file, line, column } = caller_location()
+
+    printf(
+        "panic: \"%s\" at %s:%u:%u\n".data, 
+        fmt.data,
+        file.data,
+        line,
+        column
+    )
+
+    exit(1)
+}
 
 pub fn start(output_file: *str) -> () = {
     if os == Os_linux {
-        let { waitpid, fork, execl } = import c
+        use c.{waitpid, fork, execl}
 
         let pid = fork()
 
@@ -20,7 +42,7 @@ pub fn start(output_file: *str) -> () = {
             panic("fork failed")
         }
     } else if os == Os_windows {
-        let { windows: w } = import sys
+        use sys.{windows as w}
 
 		let si = w.types.STARTUPINFO {
 			cb: size_of!(w.types.STARTUPINFO) as _,
