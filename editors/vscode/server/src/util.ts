@@ -1,11 +1,40 @@
-import * as fs from "fs";
 import * as path from "path";
-import * as tmp from "tmp";
 import { Position } from "vscode-languageserver-protocol";
 import { TextEncoder, promisify } from "node:util";
+import { connection } from "./server";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const exec = promisify(require("node:child_process").exec);
+
+export async function runCompiler(
+  path: string,
+  flags: string
+): Promise<string> {
+  let stdout = "";
+
+  try {
+    const output = await exec(`chili ${path} --check ${flags}`);
+    // console.log(output);
+    if (output.stderr != null && output.stderr != "") {
+      console.error(output.stderr);
+    } else {
+      stdout = output.stdout;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (e: any) {
+    console.log(e);
+    stdout = e.stdout ?? "";
+  }
+
+  return stdout;
+}
+
+export function libRootFlagForPath(file_path: string): string {
+  const protocol_end = file_path.indexOf("://");
+  if (protocol_end == -1) return " --include-paths " + file_path;
+  // Not protocol.length + 3, include the last '/'
+  return " --include-paths " + path.dirname(file_path.slice(protocol_end + 2));
+}
 
 export function lowerBoundBinarySearch(arr: number[], num: number): number {
   let low = 0;
@@ -78,43 +107,6 @@ export function findLineBreaks(utf16_text: string): Array<number> {
   return lineBreaks;
 }
 
-export async function runCompiler(
-  tmpFile: tmp.FileResult,
-  text: string,
-  flags: string
-): Promise<string> {
-  try {
-    fs.writeFileSync(tmpFile.name, text);
-  } catch (error) {
-    console.log(error);
-  }
-
-  let stdout = "";
-
-  try {
-    const output = await exec(`chili ${tmpFile.name} --check ${flags}`);
-    // console.log(output);
-    if (output.stderr != null && output.stderr != "") {
-      console.error(output.stderr);
-    } else {
-      stdout = output.stdout;
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (e: any) {
-    console.log(e);
-    stdout = e.stdout ?? "";
-  }
-
-  return stdout;
-}
-
-export function libRootFlagForPath(file_path: string): string {
-  const protocol_end = file_path.indexOf("://");
-  if (protocol_end == -1) return " --include-paths " + file_path;
-  // Not protocol.length + 3, include the last '/'
-  return " --include-paths " + path.dirname(file_path.slice(protocol_end + 2));
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function throttle(fn: (...args: any) => void, delay: number) {
   let shouldWait = false;
@@ -142,4 +134,15 @@ export function throttle(fn: (...args: any) => void, delay: number) {
 
     setTimeout(timeoutFunc, delay);
   };
+}
+
+export function getPathFromUri(uri: string): string | null {
+  const prefix = "file://";
+
+  if (uri.startsWith(prefix)) {
+    return uri.replace(prefix, "");
+  } else {
+    connection.window.showErrorMessage(`path ${uri} is not supported`);
+    return null;
+  }
 }

@@ -26,16 +26,16 @@ import {
   convertPosition,
   convertSpan,
   findLineBreaks,
+  getPathFromUri,
   libRootFlagForPath,
   runCompiler,
   throttle,
 } from "./util";
 import * as fs from "fs";
-import * as tmp from "tmp";
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
-const connection = createConnection(ProposedFeatures.all);
+export const connection = createConnection(ProposedFeatures.all);
 
 // Create a simple text document manager.
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
@@ -45,18 +45,18 @@ let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
 
 // The example settings
-interface ExampleSettings {
+interface Settings {
   maxNumberOfProblems: number;
 }
 
 // The global settings, used when the `workspace/configuration` request is not supported by the client.
 // Please note that this is not the case when using this server with the client provided in this example
 // but could happen with other clients.
-const defaultSettings: ExampleSettings = { maxNumberOfProblems: 1000 };
-let globalSettings: ExampleSettings = defaultSettings;
+const defaultSettings: Settings = { maxNumberOfProblems: 1000 };
+let globalSettings: Settings = defaultSettings;
 
 // Cache the settings of all open documents
-const documentSettings: Map<string, Thenable<ExampleSettings>> = new Map();
+const documentSettings: Map<string, Thenable<Settings>> = new Map();
 
 connection.onInitialize(({ capabilities }: InitializeParams) => {
   // Does the client support the `workspace/configuration` request?
@@ -122,7 +122,7 @@ connection.onInitialized(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
+function getDocumentSettings(resource: string): Thenable<Settings> {
   if (!hasConfigurationCapability) {
     return Promise.resolve(globalSettings);
   }
@@ -142,7 +142,7 @@ connection.onDidChangeConfiguration((change) => {
     // Reset all cached document settings
     documentSettings.clear();
   } else {
-    globalSettings = <ExampleSettings>(
+    globalSettings = <Settings>(
       (change.settings.languageServerExample || defaultSettings)
     );
   }
@@ -168,21 +168,13 @@ const createThrottledDocumentChangeEventHandler = (name: string) => {
   };
 };
 
-const tmpFiles: { [uri: string]: tmp.FileResult } = {};
-
-documents.onDidChangeContent(
-  createThrottledDocumentChangeEventHandler("changeContent")
-);
-// documents.onDidSave(createThrottledDocumentChangeEventHandler("save"));
-
-documents.onDidOpen((e) => {
-  tmpFiles[e.document.uri] = tmp.fileSync({
-    template: "chili_vscode_tmp_XXXXXX.chl",
-  });
-});
+// documents.onDidChangeContent(
+//   createThrottledDocumentChangeEventHandler("changeContent")
+// );
+documents.onDidOpen(createThrottledDocumentChangeEventHandler("open"));
+documents.onDidSave(createThrottledDocumentChangeEventHandler("save"));
 
 documents.onDidClose((e) => {
-  delete tmpFiles[e.document.uri];
   documentSettings.delete(e.document.uri);
 });
 
@@ -190,7 +182,7 @@ async function validateTextDocument(
   name: string,
   textDocument: ChiliTextDocument
 ): Promise<void> {
-  console.time(`validateTextDocument_${name}`);
+  // console.time(`validateTextDocument_${name}`);
 
   if (!hasDiagnosticRelatedInformationCapability) {
     console.error(
@@ -201,13 +193,14 @@ async function validateTextDocument(
 
   textDocument.chiliInlayHints = [];
 
-  const tmpFile = tmpFiles[textDocument.uri];
+  const path = getPathFromUri(textDocument.uri);
+  if (!path) return;
+
   const diagnostics: Diagnostic[] = [];
   const seenTypeHintPositions: Set<Span> = new Set();
 
   const stdout = await runCompiler(
-    tmpFile,
-    textDocument.getText(),
+    path,
     "--diagnostics " + libRootFlagForPath(textDocument.uri)
   );
 
@@ -222,7 +215,7 @@ async function validateTextDocument(
       for (const object of objects) {
         const file = object.span.file;
         const objectTextDocument: ChiliTextDocument | undefined =
-          file == tmpFile.name ? textDocument : documents.get(file);
+          file == path ? textDocument : documents.get(file);
 
         if (!objectTextDocument) {
           continue;
@@ -248,9 +241,12 @@ async function validateTextDocument(
             source: file,
           });
         } else if (object.type == "Hint") {
-          const file = object.span.file;
+          // const file = object.span.file;
 
-          if (file != tmpFile.name || seenTypeHintPositions.has(object.span)) {
+          // if (file != tmpFile.name || seenTypeHintPositions.has(object.span)) {
+          //   continue;
+          // }
+          if (seenTypeHintPositions.has(object.span)) {
             continue;
           }
 
@@ -289,11 +285,11 @@ async function validateTextDocument(
   // Send the computed diagnostics to VSCode.
   connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 
-  console.timeEnd(`validateTextDocument_${name}`);
+  // console.timeEnd(`validateTextDocument_${name}`);
 }
 
 connection.onHover(async (request) => {
-  console.time("onHover");
+  // console.time("onHover");
 
   const textDocument = documents.get(request.textDocument.uri);
 
@@ -306,13 +302,14 @@ connection.onHover(async (request) => {
   // console.log("request: ");
   // console.log(request);
 
-  const tmpFile = tmpFiles[textDocument.uri];
+  const path = getPathFromUri(textDocument.uri);
+  if (!path) return;
+
   const offset = convertPosition(request.position, text);
   // console.log("offset: " + index);
 
   const stdout = await runCompiler(
-    tmpFile,
-    text,
+    path,
     "--hover-info " + offset + libRootFlagForPath(request.textDocument.uri)
   );
   // console.log("got: ", stdout);
@@ -332,13 +329,13 @@ connection.onHover(async (request) => {
         language: "chili",
       };
 
-      console.timeEnd("onHover");
+      // console.timeEnd("onHover");
 
       return { contents };
     }
   }
 
-  console.timeEnd("onHover");
+  // console.timeEnd("onHover");
 
   return null;
 });
@@ -352,9 +349,9 @@ const goToDefinition: Parameters<typeof connection.onDefinition>[0] = async (
     return null;
   }
 
-  const text = textDocument.getText();
+  const path = getPathFromUri(textDocument.uri);
+  if (!path) return;
 
-  const tmpFile = tmpFiles[textDocument.uri];
   const offset = textDocument.offsetAt(request.position);
 
   // console.log("request: ");
@@ -362,8 +359,7 @@ const goToDefinition: Parameters<typeof connection.onDefinition>[0] = async (
   // console.log("offset: " + convertPosition(request.position, text));
 
   const stdout = await runCompiler(
-    tmpFile,
-    text,
+    path,
     "--goto-def " + offset + libRootFlagForPath(request.textDocument.uri)
   );
   // console.log("got: ", stdout);
@@ -376,9 +372,7 @@ const goToDefinition: Parameters<typeof connection.onDefinition>[0] = async (
 
     if (span) {
       const uri =
-        span.file == tmpFile.name
-          ? request.textDocument.uri
-          : "file://" + span.file;
+        span.file == path ? request.textDocument.uri : "file://" + span.file;
 
       const fileContents = fs.readFileSync(span.file).toString();
 
