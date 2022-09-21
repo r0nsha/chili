@@ -155,24 +155,24 @@ connection.onDidChangeConfiguration((change) => {
     );
 });
 
-const THROTTLE_MS = 500;
+// const THROTTLE_MS = 500;
 
-const createThrottledDocumentChangeEventHandler = (name: string) => {
-  const throttledValidateTextDocument = throttle(
-    validateTextDocument,
-    THROTTLE_MS
-  );
+// const createValidateDocumentEventHandler = (name: string) => {
+//   // const throttledValidateTextDocument = throttle(
+//   //   validateTextDocument,
+//   //   THROTTLE_MS
+//   // );
 
-  return <T>(e: TextDocumentChangeEvent<T>) => {
-    throttledValidateTextDocument(name, e.document);
-  };
-};
+//   return <T>(e: TextDocumentChangeEvent<T>) => {
+//     validateTextDocument(name, e.document);
+//   };
+// };
 
 // documents.onDidChangeContent(
 //   createThrottledDocumentChangeEventHandler("changeContent")
 // );
-documents.onDidOpen(createThrottledDocumentChangeEventHandler("open"));
-documents.onDidSave(createThrottledDocumentChangeEventHandler("save"));
+documents.onDidOpen((e) => validateTextDocument("open", e.document));
+documents.onDidSave((e) => validateTextDocument("save", e.document));
 
 documents.onDidClose((e) => {
   documentSettings.delete(e.document.uri);
