@@ -49,7 +49,7 @@ impl<'lx> Lexer<'lx> {
 
         let ch = self.bump();
 
-        let tt = if is_id_start(ch) {
+        let tt = if Self::is_id_start(ch) {
             self.eat_id()
         } else {
             match ch {
@@ -119,7 +119,15 @@ impl<'lx> Lexer<'lx> {
                 ' ' | '\r' | '\t' => self.eat_token()?,
                 '\n' => Newline,
                 SINGLE_QUOTE => self.eat_char()?,
-                DOUBLE_QUOTE => self.eat_str()?,
+                DOUBLE_QUOTE => {
+                    if self.peek() == DOUBLE_QUOTE && self.peek_next() == DOUBLE_QUOTE {
+                        self.bump();
+                        self.bump();
+                        self.eat_str(StrKind::Multiline)?
+                    } else {
+                        self.eat_str(StrKind::Normal)?
+                    }
+                }
                 '^' => {
                     if self.eat('=') {
                         CaretEq
@@ -209,7 +217,7 @@ impl<'lx> Lexer<'lx> {
         Ok(tt)
     }
 
-    fn eat_str(&mut self) -> DiagnosticResult<TokenKind> {
+    fn eat_str(&mut self, kind: StrKind) -> DiagnosticResult<TokenKind> {
         while self.peek() != DOUBLE_QUOTE && !self.is_eof() {
             if self.peek() == '\\' && self.peek_next() == '"' {
                 self.bump();
@@ -230,23 +238,40 @@ impl<'lx> Lexer<'lx> {
 
         self.expect(DOUBLE_QUOTE)?;
 
+        if let StrKind::Multiline = kind {
+            self.expect(DOUBLE_QUOTE)?;
+            self.expect(DOUBLE_QUOTE)?;
+        }
+
         let value = self.source.range(self.cursor.range());
+        let value = match kind {
+            StrKind::Normal => &value[1..value.len() - 1],
+            StrKind::Multiline => &value[3..value.len() - 3],
+        };
 
-        let mut chars = value.chars();
-
-        chars.next();
-        chars.next_back();
+        let chars = value.chars();
 
         let contents = chars.as_str().to_string();
-        let contents = unindent(contents.trim());
+
+        let contents = if let StrKind::Multiline = kind {
+            unindent(&contents)
+        } else {
+            if contents.contains('\n') {
+                return Err(Diagnostic::error()
+                    .with_message("string literal cannot contain new lines, use a multiline string instead")
+                    .with_label(Label::primary(
+                        self.cursor.span(),
+                        "string literal cannot contain new lines",
+                    ))
+                    .with_note("try wrapping the string with \"\"\"...\"\"\""));
+            }
+            contents
+        };
 
         let contents = unescape(&contents, self.cursor.span()).map_err(|e| match e {
-            UnescapeError::InvalidEscapeSequence(span) => {
-                let message = "unknown escape sequence";
-                Diagnostic::error()
-                    .with_message(message)
-                    .with_label(Label::primary(span, message))
-            }
+            UnescapeError::InvalidEscapeSequence(span) => Diagnostic::error()
+                .with_message("unknown escape sequence")
+                .with_label(Label::primary(span, "unknown escape sequence")),
         })?;
 
         Ok(Str(ustr(&contents)))
@@ -423,7 +448,7 @@ impl<'lx> Lexer<'lx> {
 
     #[inline]
     fn eat_id(&mut self) -> TokenKind {
-        while is_id_continue(self.peek()) {
+        while Self::is_id_continue(self.peek()) {
             self.bump();
         }
 
@@ -483,14 +508,20 @@ impl<'lx> Lexer<'lx> {
     fn is_eof(&self) -> bool {
         self.cursor.end_index() >= self.source.len()
     }
+
+    #[inline]
+    fn is_id_start(ch: char) -> bool {
+        UnicodeXID::is_xid_start(ch) || ch == '_'
+    }
+
+    #[inline]
+    fn is_id_continue(ch: char) -> bool {
+        UnicodeXID::is_xid_continue(ch) || ch == '_'
+    }
 }
 
-#[inline]
-fn is_id_start(ch: char) -> bool {
-    UnicodeXID::is_xid_start(ch) || ch == '_'
-}
-
-#[inline]
-fn is_id_continue(ch: char) -> bool {
-    UnicodeXID::is_xid_continue(ch) || ch == '_'
+#[derive(Debug, Clone, Copy)]
+enum StrKind {
+    Normal,
+    Multiline,
 }
