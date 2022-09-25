@@ -188,7 +188,7 @@
               "name": "entity.name.function.chili"
             }
           },
-          "match": "\\b(pub\\s*|pub\\(dir\\)\\s*)?(type)\\s*([[:alpha:]_][[:alnum:]_]*)\\b"
+          "match": "\\b(pub\\s*|pub\\(dir\\)\\s*)?(type)\\s+([[:alpha:]_][[:alnum:]_]*)\\b"
         },
         {
           "comment": "attribute",
