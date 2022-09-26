@@ -13,7 +13,7 @@ impl Parser {
         is_top_level: bool,
     ) -> DiagnosticResult<Option<DiagnosticResult<ast::Binding>>> {
         if eat!(self, Let) {
-            Ok(Some(self.parse_binding(attrs, vis)))
+            Ok(Some(self.parse_let_binding(attrs, vis)))
         } else if eat!(self, Fn) {
             if is!(self, Ident(_)) {
                 Ok(Some(self.parse_function_binding(attrs, vis)))
@@ -41,7 +41,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
+    fn parse_let_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
         let pat = self.parse_pat()?;
@@ -73,7 +73,7 @@ impl Parser {
         })
     }
 
-    pub fn parse_function_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
+    fn parse_function_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
         let id = self.require_ident()?;
@@ -99,7 +99,7 @@ impl Parser {
         })
     }
 
-    pub fn parse_extern_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
+    fn parse_extern_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
         if eat!(self, Fn) {
@@ -146,7 +146,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_type_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
+    fn parse_type_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
         let id = self.require_ident()?;
@@ -168,7 +168,7 @@ impl Parser {
         })
     }
 
-    pub fn parse_import_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
+    fn parse_import_binding(&mut self, attrs: Vec<ast::Attr>, vis: ast::Vis) -> DiagnosticResult<ast::Binding> {
         let start_span = self.previous_span();
 
         let ident = self.require_ident()?;
