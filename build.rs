@@ -12,9 +12,11 @@ fn main() {
         println!("cargo:rustc-link-lib=dylib=LLVM-12");
     }
 
+    const STDLIB: &str = "stdlib";
+
     let workspace_dir = std::env::current_dir().unwrap();
 
-    let lib_dir = workspace_dir.join("lib");
+    let stdlib_dir = workspace_dir.join(STDLIB);
 
     #[cfg(debug_assertions)]
     let target_dir = workspace_dir.join("target/debug");
@@ -32,8 +34,8 @@ fn main() {
             depth: 0,
         };
 
-        dir::copy(lib_dir, target_dir, &options).unwrap();
+        dir::copy(stdlib_dir, target_dir, &options).unwrap();
     }
 
-    println!("cargo:rerun-if-changed=./lib");
+    println!("cargo:rerun-if-changed=./{}", STDLIB);
 }

@@ -6,8 +6,6 @@ use std::{
 };
 use ustr::{ustr, Ustr};
 
-pub const LIB_NAME_STD: &str = "std";
-
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Hash)]
 pub struct Library {
     pub id: LibraryId, // Populated when inserted to the workspace's libraries cache
@@ -29,17 +27,14 @@ impl WithId<LibraryId> for Library {
 
 impl Library {
     pub fn std() -> Self {
-        const NAME: &str = LIB_NAME_STD;
-
         let mut root_dir = env::current_exe().unwrap().parent().unwrap().to_path_buf();
-        root_dir.push("lib");
-        root_dir.push(NAME);
+        root_dir.push("stdlib");
 
         let root_file = root_dir.join(Path::new("lib.chl"));
 
         Self {
             id: LibraryId::unknown(),
-            name: ustr(NAME),
+            name: ustr("std"),
             root_file,
             root_module_id: ModuleId::unknown(),
             is_main: false,

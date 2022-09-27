@@ -14,4 +14,4 @@ else
     cp ../../target/debug/chili chili
 fi
 
-cp -r ../../lib lib
+cp -r ../../stdlib stdlib
