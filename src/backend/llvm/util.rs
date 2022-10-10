@@ -422,36 +422,35 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                     _ => pointer,
                 };
 
-                let gep = self
-                    .builder
-                    .build_struct_gep(pointer, field_index, field_name)
-                    .unwrap_or_else(|_| panic!("{pointer:#?} . {field_name} (index: {field_index})"));
-
-                self.build_load(gep, field_name)
+                self.gep_struct_ptr(pointer, field_index, field_name)
             }
-
-            BasicValueEnum::StructValue(value) => self
-                .builder
-                .build_extract_value(value, field_index, field_name)
-                .unwrap_or_else(|| panic!("{:#?}", value)),
+            BasicValueEnum::StructValue(value) => match value.as_instruction_value() {
+                Some(inst) => match inst.get_opcode() {
+                    InstructionOpcode::Load => {
+                        let pointer = inst.get_operand(0).unwrap().left().unwrap().into_pointer_value();
+                        self.gep_struct_ptr(pointer, field_index, field_name)
+                    }
+                    _ => self
+                        .builder
+                        .build_extract_value(value, field_index, field_name)
+                        .unwrap_or_else(|| panic!("{:#?}", value)),
+                },
+                None => self
+                    .builder
+                    .build_extract_value(value, field_index, field_name)
+                    .unwrap_or_else(|| panic!("{:#?}", value)),
+            },
             _ => panic!("{:#?}", value),
         }
-        // match value.as_instruction_value() {
-        //     Some(instruction) if matches!(instruction.get_opcode(), InstructionOpcode::Load) => {
-        //         let pointer = instruction.get_operand(0).unwrap().left().unwrap().into_pointer_value();
+    }
 
-        //         let gep = self
-        //             .builder
-        //             .build_struct_gep(pointer, field_index, field_name)
-        //             .unwrap_or_else(|_| panic!("{pointer:#?} . {field_name} (index: {field_index})"));
+    fn gep_struct_ptr(&self, pointer: PointerValue<'ctx>, field_index: u32, field_name: &str) -> BasicValueEnum<'ctx> {
+        let gep = self
+            .builder
+            .build_struct_gep(pointer, field_index, field_name)
+            .unwrap_or_else(|_| panic!("{pointer:#?} . {field_name} (index: {field_index})"));
 
-        //         self.build_load(gep)
-        //     }
-        //     _ => self
-        //         .builder
-        //         .build_extract_value(value.into_struct_value(), field_index, field_name)
-        //         .unwrap_or_else(|| panic!("{:#?}", value)),
-        // }
+        self.build_load(gep, field_name)
     }
 
     pub(super) fn build_struct(
