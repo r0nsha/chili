@@ -8,12 +8,12 @@ fn main() = {
 
 fn fizzbuzz(i) = {
     if i % 3 == 0 && i % 5 == 0 {
-        printf("FizzBuzz\n".data)
+        printf("FizzBuzz\n".ptr)
     } else if i % 3 == 0 {
-        printf("Fizz\n".data)
+        printf("Fizz\n".ptr)
     } else if i % 5 == 0 {
-        printf("Buzz\n".data)
+        printf("Buzz\n".ptr)
     } else {
-        printf("%d\n".data, i)
+        printf("%d\n".ptr, i)
     }
 }

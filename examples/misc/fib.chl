@@ -9,5 +9,5 @@ fn fib(n) = {
 }
 
 fn main() = {
-    printf("result = %lu\n".data, fib(24))
+    printf("result = %lu\n".ptr, fib(24))
 }

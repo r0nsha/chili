@@ -11,10 +11,7 @@ use self::pat::get_qualified_name;
 use crate::{
     ast::{self, pat::Pat},
     check::intrinsics::{can_dispatch_intrinsic_at_comptime, dispatch_intrinsic},
-    common::{
-        builtin::{BUILTIN_FIELD_DATA, BUILTIN_FIELD_LEN},
-        target::TargetMetrics,
-    },
+    common::target::TargetMetrics,
     error::{
         diagnostic::{Diagnostic, Label},
         DiagnosticResult, SyntaxError, TypeError,
@@ -462,7 +459,7 @@ impl<'s> CheckSess<'s> {
             Type::Pointer(inner, _) => match inner.as_ref() {
                 Type::Slice(_) | Type::Str(_) => Some(hir::Node::MemberAccess(hir::MemberAccess {
                     value: Box::new(node.clone()),
-                    member_name: ustr(BUILTIN_FIELD_LEN),
+                    member_name: ustr(sym::BUILTIN_FIELD_LEN),
                     member_index: 1,
                     ty: tcx.common_types.uint,
                     span: node.span(),
@@ -1149,7 +1146,7 @@ impl Check for ast::Ast {
                 match &node_type {
                     Type::Pointer(inner, is_mutable) => match inner.as_ref() {
                         Type::Slice(inner) | Type::Str(inner) => {
-                            if access.member.as_str() == BUILTIN_FIELD_LEN {
+                            if access.member.as_str() == sym::BUILTIN_FIELD_LEN {
                                 let ty = sess.tcx.common_types.uint;
 
                                 if let Some(ConstValue::Str(s)) = node.as_const_value() {
@@ -1167,7 +1164,7 @@ impl Check for ast::Ast {
                                         member_index: 1,
                                     }));
                                 }
-                            } else if access.member.as_str() == BUILTIN_FIELD_DATA {
+                            } else if access.member.as_str() == sym::BUILTIN_FIELD_PTR {
                                 return Ok(hir::Node::MemberAccess(hir::MemberAccess {
                                     value: Box::new(node),
                                     member_name: access.member,
@@ -1271,7 +1268,7 @@ impl Check for ast::Ast {
                             ty.display(&sess.tcx),
                         )),
                     },
-                    Type::Array(_, size) if access.member.as_str() == BUILTIN_FIELD_LEN => {
+                    Type::Array(_, size) if access.member.as_str() == sym::BUILTIN_FIELD_LEN => {
                         Ok(hir::Node::Const(hir::Const {
                             value: ConstValue::Int(*size as _),
                             ty: sess.tcx.common_types.uint,

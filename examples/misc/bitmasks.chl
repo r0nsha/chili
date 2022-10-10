@@ -3,17 +3,17 @@ use std.c.{printf, malloc, free}
 fn main() = {
     let n = 4
     let mut storage = 66
-    printf("storage=%d\n".data, storage)
+    printf("storage=%d\n".ptr, storage)
 
     storage |= 1 << n 
-    printf("storage=%d\n".data, storage)
+    printf("storage=%d\n".ptr, storage)
 
     storage &= !(1 << n)
-    printf("storage=%d\n".data, storage)
+    printf("storage=%d\n".ptr, storage)
     
     storage ^= 1 << n
-    printf("storage=%d\n".data, storage)
+    printf("storage=%d\n".ptr, storage)
     
     let bit = storage & (1 << n)
-    printf("bit=%d\n".data, bit)
+    printf("bit=%d\n".ptr, bit)
 }

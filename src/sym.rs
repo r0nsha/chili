@@ -20,6 +20,9 @@ pub const FLOAT: &str = "float";
 pub const STR: &str = "str";
 pub const NEVER: &str = "never";
 
+pub const BUILTIN_FIELD_LEN: &str = "len";
+pub const BUILTIN_FIELD_PTR: &str = "ptr";
+
 pub const TRACK_CALLER_LOCATION_PARAM: &str = "track_caller@location";
 
 pub fn is_implicitly_generated_param(name: &str) -> bool {

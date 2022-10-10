@@ -191,7 +191,7 @@ fn control_flow_while() = {
     let mut i = 3
 
     while i > 0 {
-        std.c.printf("Countdown: %d\n".data, i)
+        std.c.printf("Countdown: %d\n".ptr, i)
         i -= 1
     }
 
@@ -220,7 +220,7 @@ fn control_flow_for() = {
     println("control_flow_for")
 
     for item, index in [42, 3.14, 666.0] {
-        std.c.printf("array[%d]: %f\n".data, index, item)
+        std.c.printf("array[%d]: %f\n".ptr, index, item)
     }
 }
 
@@ -230,13 +230,13 @@ fn pointers_and_references() = {
     let foo = 5
 
     # Take the address of `foo` immutably with `&`
-    std.c.printf("foo = %d, addr = %p\n".data, foo, &foo)
+    std.c.printf("foo = %d, addr = %p\n".ptr, foo, &foo)
 
     let addr = &foo
 
     # Dereference using a postfix `.*`
     let bar = addr.* + 42
-    std.c.printf("bar = %d\n".data, bar)
+    std.c.printf("bar = %d\n".ptr, bar)
 
     # `&` references are immutable.
     # You can take a mutable reference by using `&mut`
@@ -249,7 +249,7 @@ fn pointers_and_references() = {
     let y = &mut x
 
     y.* += 95
-    std.c.printf("x = %d, y = %d\n".data, x, y.*)
+    std.c.printf("x = %d, y = %d\n".ptr, x, y.*)
 }
 
 fn slices() = {
@@ -263,7 +263,7 @@ fn slices() = {
     
     fn print_slice(slice: *[]int) = {
         for x in slice {
-           std.c.printf("%d\n".data, x)
+           std.c.printf("%d\n".ptr, x)
         }
         println("")
     }
@@ -289,11 +289,11 @@ fn functions() = {
 
     # Declaring a named function
     fn answer() -> i32 = 42
-    std.c.printf("answer = %d\n".data, answer())
+    std.c.printf("answer = %d\n".ptr, answer())
 
     # Function types can be fully inferred
     fn five() = 5
-    std.c.printf("five = %d\n".data, five())
+    std.c.printf("five = %d\n".ptr, five())
 
 
     # A function can also be used as an expression, which makes it anonymous.
@@ -310,13 +310,13 @@ fn functions() = {
     let array = [1 as int, 2, 3]
     
     for_each(&array, fn(x) { 
-        std.c.printf("x = %d\n".data, x)
+        std.c.printf("x = %d\n".ptr, x)
     })
 
     # When a function has only one *expected* argument, is can be elided, 
     # and will implicitly be called `it`.
     for_each(&array, fn { 
-        std.c.printf("it = %d\n".data, it)
+        std.c.printf("it = %d\n".ptr, it)
     })
 
     # Trailing functions:
@@ -324,14 +324,14 @@ fn functions() = {
     # that function argument can be put after the call. This doesn't
     # have any semantic implications, it's only syntax sugar.
     for_each(&array) fn { 
-        std.c.printf("it = %d\n".data, it)
+        std.c.printf("it = %d\n".ptr, it)
     }
 
     # Functions can have default arguments
     # - Parameters with a default value must come last
     # - Default values must be compile-time known
     fn mul(a: i32, b: i32 = 2) = a * b
-    std.c.printf("mul(5) = %d\n".data, mul(5))
+    std.c.printf("mul(5) = %d\n".ptr, mul(5))
 }
 
 fn variadic_functions() = {
@@ -342,7 +342,7 @@ fn variadic_functions() = {
     # You can even pass none. Under the hood, the compiler will build a slice of the
     # arguments passed in.
     fn printints(args: int...) = for a in args {
-        std.c.printf("%d\n".data, a)
+        std.c.printf("%d\n".ptr, a)
     }
 
     println("printing integers:")
@@ -370,7 +370,7 @@ fn structs() = {
     }
 
     # Access a struct's fields by using `.field`
-    fn print_point(p: Point) = std.c.printf("x=%d y=%d\n".data, p.x, p.y)
+    fn print_point(p: Point) = std.c.printf("x=%d y=%d\n".ptr, p.x, p.y)
 
     # Named initialization
     let my_point = Point { x: 1, y: 2 }
@@ -392,7 +392,7 @@ fn tuples() = {
     type Point = (i32, i32)
 
     # Access a tuple's elements by using `.index`
-    fn print_point(p: Point) = std.c.printf("x=%d y=%d\n".data, p.0, p.1)
+    fn print_point(p: Point) = std.c.printf("x=%d y=%d\n".ptr, p.0, p.1)
 
     # Construct a tuple by listing its elements between parentheses
     let point = (5, 10)
@@ -435,20 +435,20 @@ fn binding_patterns() = {
     # This pattern's sub-patterns are positional, so the first identifier maps
     # to the first element, etc.
     let (x, y) = (1, 2)
-    std.c.printf("%d %d\n".data, x, y)
+    std.c.printf("%d %d\n".ptr, x, y)
 
     # All patterns are not exhaustive, and can be partially applied
     let (x) = (5, 6)
-    std.c.printf("%d\n".data, x)
+    std.c.printf("%d\n".ptr, x)
 
     # Struct unpack:
     let { x, y } = { x: 40, y: 33 }
-    std.c.printf("%d %d\n".data, x, y)
+    std.c.printf("%d %d\n".ptr, x, y)
 
     # This pattern's sub-patterns are named, so it is order-free.
     # Here we unpack the `y` field, even though it is the second one in the struct. 
     let { y } = { x: 40, y: 33 }
-    std.c.printf("%d\n".data, x)
+    std.c.printf("%d\n".ptr, x)
 
     # Module unpack:
     # Patterns also apply to module imports, and look exactly the same
@@ -473,13 +473,13 @@ fn binding_patterns() = {
     let { * } = { a: 3, b: 4 }
     #     ^---- `a` and `b` come from here
 
-    std.c.printf("a=%d b=%d\n".data, a, b)
+    std.c.printf("a=%d b=%d\n".ptr, a, b)
 
     # Glob patterns can be partially applied
     let { a, * } = { a: 8, b: 99 }
     #        ^---- only `b` is unpacked here
 
-    std.c.printf("a=%d b=%d\n".data, a, b)
+    std.c.printf("a=%d b=%d\n".ptr, a, b)
 
     # The curly braces can be elided if only an `*` is used
     let * = use(foo)
@@ -496,10 +496,10 @@ fn binding_patterns() = {
     } = use(std)
 
     let ({first, last}, age) = ({ first: "John", last: "Doe"}, 42)
-    std.c.printf("My name is %s %s and I'm %d years old\n".data, first.data, last.data, age)
+    std.c.printf("My name is %s %s and I'm %d years old\n".ptr, first.ptr, last.ptr, age)
 
     let { name: { first, last }, age } = { name: { first: "Rick", last: "Sanchez" }, age: 9000 }
-    printf("My name is %s %s and I'm %d years old\n".data, first.data, last.data, age)
+    printf("My name is %s %s and I'm %d years old\n".ptr, first.ptr, last.ptr, age)
 }
 
 fn builtin_functions() = {
@@ -510,15 +510,15 @@ fn builtin_functions() = {
     # Note that builtin functions will be removed once 
     # polymorphic functions are implemented.
 
-    std.c.printf("size_of(i32) = %d\n".data, size_of!(i32))
-    std.c.printf("align_of(u8) = %d\n".data, align_of!(u8))
+    std.c.printf("size_of(i32) = %d\n".ptr, size_of!(i32))
+    std.c.printf("align_of(u8) = %d\n".ptr, align_of!(u8))
 }
 
 fn extern_functions() = {
     # To use a function or variable declared externally of our program,
     # likely in some static/dynamic library, we declare an `extern` function.
     extern fn printf(fmt: *u8, args...) -> i32
-    printf("Hello from my '%s'\n".data, "printf".data)
+    printf("Hello from my '%s'\n".ptr, "printf".ptr)
 
     # Extern variables are declared like so:
     # extern let baz: int

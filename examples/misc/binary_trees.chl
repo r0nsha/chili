@@ -40,5 +40,5 @@ fn main() = {
 
     let depth = max_depth + 1
     let node = node_create(depth)
-    printf("stretch tree of depth: %d\ncheck: %d\n".data, depth, node_check(node))
+    printf("stretch tree of depth: %d\ncheck: %d\n".ptr, depth, node_check(node))
 }

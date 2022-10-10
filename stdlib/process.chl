@@ -15,9 +15,9 @@ pub fn panic(
     let { file, line, column } = caller_location()
 
     printf(
-        "panic: \"%s\" at %s:%u:%u\n".data, 
-        fmt.data,
-        file.data,
+        "panic: \"%s\" at %s:%u:%u\n".ptr, 
+        fmt.ptr,
+        file.ptr,
         line,
         column
     )
@@ -33,7 +33,7 @@ pub fn start(output_file: *str) -> () = {
 
         if pid == 0 {
             # child process
-            execl(output_file.data, 0)
+            execl(output_file.ptr, 0)
         } else if pid > 0 {
             # parent process
             waitpid(pid, (0 as int) as _, 0)
@@ -73,7 +73,7 @@ pub fn start(output_file: *str) -> () = {
 		}
 
 		if w.kernel32.CreateProcessA(
-			output_file.data,
+			output_file.ptr,
 			0 as uint as _, # null
 			0 as uint as _, # null
 			0 as uint as _, # null
@@ -87,7 +87,7 @@ pub fn start(output_file: *str) -> () = {
 			w.kernel32.WaitForSingleObject(pi.hProcess, w.types.INFINITE)
 			w.kernel32.CloseHandle(pi.hProcess)
 		} else {
-			printf("error = %d\n".data, w.kernel32.GetLastError())
+			printf("error = %d\n".ptr, w.kernel32.GetLastError())
 			panic("CreateProcessA failed")
 		}
     } else {

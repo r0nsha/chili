@@ -1,5 +1,4 @@
 pub mod build_options;
-pub mod builtin;
 pub mod id_cache;
 pub mod mem;
 pub mod path;
