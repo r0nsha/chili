@@ -288,7 +288,8 @@ impl Parser {
         } else if eat!(self, Amp) {
             let start_span = self.previous_span();
 
-            let op = ast::UnaryOp::Ref(eat!(self, Mut));
+            let is_mutable = eat!(self, Mut);
+            let op = ast::UnaryOp::Ref(is_mutable);
             let value = self.parse_operand()?;
 
             Ok(Ast::Unary(ast::Unary {

@@ -58,52 +58,54 @@ impl<'s> LintSess<'s> {
         let ty = node.ty().normalize(self.tcx);
 
         match node {
-            hir::Node::MemberAccess(access) => match self.check_node_can_be_mutably_referenced_inner(node, true) {
-                Ok(_) => match ty {
-                    Type::Tuple(tys) => {
-                        let index = access.member_name.parse::<usize>().unwrap();
-                        let ty = tys[index].normalize(self.tcx);
+            hir::Node::MemberAccess(access) => {
+                match self.check_node_can_be_mutably_referenced_inner(&access.value, true) {
+                    Ok(_) => match ty {
+                        Type::Tuple(tys) => {
+                            let index = access.member_name.parse::<usize>().unwrap();
+                            let ty = tys[index].normalize(self.tcx);
 
-                        match ty {
-                            Type::Pointer(_, false) => Err(ImmutableReference { ty, span: node.span() }),
-                            _ => Ok(()),
+                            match ty {
+                                Type::Pointer(_, false) => Err(ImmutableReference { ty, span: node.span() }),
+                                _ => Ok(()),
+                            }
                         }
-                    }
-                    Type::Struct(struct_ty) => {
-                        let ty = struct_ty
-                            .fields
-                            .iter()
-                            .find(|f| f.name == access.member_name)
-                            .map(|f| f.ty.normalize(self.tcx))
-                            .unwrap();
+                        Type::Struct(struct_ty) => {
+                            let ty = struct_ty
+                                .fields
+                                .iter()
+                                .find(|f| f.name == access.member_name)
+                                .map(|f| f.ty.normalize(self.tcx))
+                                .unwrap();
 
-                        match ty {
-                            Type::Pointer(_, false) => Err(ImmutableReference { ty, span: node.span() }),
-                            _ => Ok(()),
+                            match ty {
+                                Type::Pointer(_, false) => Err(ImmutableReference { ty, span: node.span() }),
+                                _ => Ok(()),
+                            }
                         }
-                    }
-                    Type::Module(module_id) => {
-                        let binding_info = self.find_binding_info_in_module(module_id, access.member_name);
-                        let ty = binding_info.ty.normalize(self.tcx);
+                        Type::Module(module_id) => {
+                            let binding_info = self.find_binding_info_in_module(module_id, access.member_name);
+                            let ty = binding_info.ty.normalize(self.tcx);
 
-                        match ty {
-                            Type::Pointer(_, false) => Err(ImmutableReference { ty, span: node.span() }),
-                            _ => {
-                                if binding_info.is_mutable {
-                                    Ok(())
-                                } else {
-                                    Err(ImmutableBinding {
-                                        id: binding_info.id,
-                                        span: node.span(),
-                                    })
+                            match ty {
+                                Type::Pointer(_, false) => Err(ImmutableReference { ty, span: node.span() }),
+                                _ => {
+                                    if binding_info.is_mutable {
+                                        Ok(())
+                                    } else {
+                                        Err(ImmutableBinding {
+                                            id: binding_info.id,
+                                            span: node.span(),
+                                        })
+                                    }
                                 }
                             }
                         }
-                    }
-                    _ => Ok(()),
-                },
-                Err(err) => Err(err),
-            },
+                        _ => Ok(()),
+                    },
+                    Err(err) => Err(err),
+                }
+            }
             hir::Node::Id(id) => {
                 match ty {
                     Type::Pointer(_, is_mutable) => {
