@@ -87,6 +87,7 @@ pub enum TokenKind {
     // Keywords
     If,
     Else,
+    Loop,
     While,
     For,
     Break,
@@ -130,6 +131,7 @@ impl From<&str> for TokenKind {
             "false" => False,
             "if" => If,
             "else" => Else,
+            "loop" => Loop,
             "while" => While,
             "for" => For,
             "break" => Break,
@@ -208,6 +210,7 @@ impl TokenKind {
             RightArrow => "->",
             If => "if",
             Else => "else",
+            Loop => "loop",
             While => "while",
             For => "for",
             Break => "break",

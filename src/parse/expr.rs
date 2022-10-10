@@ -344,6 +344,8 @@ impl Parser {
             }))
         } else if eat!(self, If) {
             self.parse_if()
+        } else if eat!(self, Loop) {
+            self.parse_loop()
         } else if eat!(self, While) {
             self.parse_while()
         } else if eat!(self, For) {
@@ -525,6 +527,19 @@ impl Parser {
 
         Ok(Ast::Builtin(ast::Builtin {
             kind,
+            span: start_span.to(self.previous_span()),
+        }))
+    }
+
+    pub fn parse_loop(&mut self) -> DiagnosticResult<Ast> {
+        let start_span = self.previous_span();
+
+        self.skip_newlines();
+
+        let block = self.parse_block()?;
+
+        Ok(Ast::Loop(ast::Loop {
+            block,
             span: start_span.to(self.previous_span()),
         }))
     }

@@ -942,6 +942,7 @@ impl Check for ast::Ast {
             },
             ast::Ast::Comptime(const_) => const_.check(sess, env, expected_type),
             ast::Ast::Function(function) => function.check(sess, env, expected_type),
+            ast::Ast::Loop(loop_) => loop_.check(sess, env, expected_type),
             ast::Ast::While(while_) => while_.check(sess, env, expected_type),
             ast::Ast::For(for_) => for_.check(sess, env, expected_type),
             ast::Ast::Break(term) => {
@@ -1591,6 +1592,28 @@ impl Check for ast::Ast {
     }
 }
 
+impl Check for ast::Loop {
+    fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
+        env.push_scope(ScopeKind::Loop);
+        sess.loop_depth += 1;
+
+        let block_node = self.block.check(sess, env, None)?;
+
+        sess.loop_depth -= 1;
+        env.pop_scope();
+
+        Ok(hir::Node::Control(hir::Control::While(hir::While {
+            condition: Box::new(hir::Node::Const(hir::Const {
+                value: ConstValue::Bool(true),
+                ty: sess.tcx.common_types.bool,
+                span: self.span,
+            })),
+            body: Box::new(block_node),
+            ty: sess.tcx.common_types.never,
+            span: self.span,
+        })))
+    }
+}
 impl Check for ast::While {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
         let bool_type = sess.tcx.common_types.bool;

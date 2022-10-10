@@ -75,6 +75,7 @@ pub enum Ast {
     Builtin(Builtin),
     Comptime(Comptime),
     Function(Function),
+    Loop(Loop),
     While(While),
     For(For),
     Break(Empty),
@@ -117,6 +118,7 @@ macro_rules! ast_field_dispatch {
                     Self::Builtin(x) => x.$field,
                     Self::Comptime(x) => x.$field,
                     Self::Function(x) => x.$field,
+                    Self::Loop(x) => x.$field,
                     Self::While(x) => x.$field,
                     Self::For(x) => x.$field,
                     Self::Break(x) => x.$field,
@@ -156,6 +158,7 @@ macro_rules! ast_field_dispatch {
                         Self::Builtin(x) => &mut x.$field,
                         Self::Comptime(x) => &mut x.$field,
                         Self::Function(x) => &mut x.$field,
+                        Self::Loop(x) => &mut x.$field,
                         Self::While(x) => &mut x.$field,
                         Self::For(x) => &mut x.$field,
                         Self::Break(x) => &mut x.$field,
@@ -391,6 +394,12 @@ pub struct Assign {
 pub struct Cast {
     pub expr: Box<Ast>,
     pub target_type: Box<Ast>,
+    pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Loop {
+    pub block: Block,
     pub span: Span,
 }
 

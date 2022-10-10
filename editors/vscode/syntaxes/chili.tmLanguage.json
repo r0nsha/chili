@@ -49,7 +49,7 @@
       "patterns": [
         {
           "name": "keyword.control.chili",
-          "match": "\\b(if|else|while|for|in|break|continue|return)\\b"
+          "match": "\\b(if|else|while|loop|for|in|break|continue|return)\\b"
         },
         {
           "name": "keyword.other.chili",
