@@ -1,6 +1,6 @@
 use self::{
     bytecode::{BytecodeReader, Op},
-    value::FunctionValue,
+    value::{FunctionValue, IntrinsicFunction, Pointer},
 };
 use super::{
     ffi::RawPointer,
@@ -8,22 +8,68 @@ use super::{
     vm::{
         byte_seq::{ByteSeq, PutValue},
         disassemble::bytecode_reader_write_single_inst,
-        stack::Stack,
         value::{Buffer, Function, Value},
     },
+    workspace::{BuildTargetValue, OptimizationLevelValue, WorkspaceValue},
+};
+use crate::{
+    common::{
+        build_options::{BuildOptions, CodegenOptions, OptimizationLevel},
+        target::TargetPlatform,
+    },
+    types::{FloatType, InferType, IntType, Type, UintType},
 };
 use bumpalo::Bump;
 use colored::Colorize;
-use std::{fmt::Display, ptr};
+use path_absolutize::Absolutize;
+use std::{ffi::c_void, fmt::Display, path::PathBuf, ptr};
 use ustr::ustr;
+
+macro_rules! cast_to_int {
+    ($value:expr => $name:ident, $to:ty) => {
+        match $value {
+            Value::I8(v) => Value::$name(v as $to),
+            Value::I16(v) => Value::$name(v as $to),
+            Value::I32(v) => Value::$name(v as $to),
+            Value::I64(v) => Value::$name(v as $to),
+            Value::Int(v) => Value::$name(v as $to),
+            Value::U8(v) => Value::$name(v as $to),
+            Value::U16(v) => Value::$name(v as $to),
+            Value::U32(v) => Value::$name(v as $to),
+            Value::U64(v) => Value::$name(v as $to),
+            Value::Uint(v) => Value::$name(v as $to),
+            Value::F32(v) => Value::$name(v as $to),
+            Value::F64(v) => Value::$name(v as $to),
+            Value::Bool(v) => Value::$name(v as $to),
+            _ => panic!("invalid value {}", $value.to_string()),
+        }
+    };
+}
+
+// Note (Ron): We have a variant for floats since bool can't be cast to float
+macro_rules! cast_to_float {
+    ($value:expr => $name:ident, $to:ty) => {
+        match $value {
+            Value::I8(v) => Value::$name(v as $to),
+            Value::I16(v) => Value::$name(v as $to),
+            Value::I32(v) => Value::$name(v as $to),
+            Value::I64(v) => Value::$name(v as $to),
+            Value::Int(v) => Value::$name(v as $to),
+            Value::U8(v) => Value::$name(v as $to),
+            Value::U16(v) => Value::$name(v as $to),
+            Value::U32(v) => Value::$name(v as $to),
+            Value::U64(v) => Value::$name(v as $to),
+            Value::Uint(v) => Value::$name(v as $to),
+            Value::F32(v) => Value::$name(v as $to),
+            Value::F64(v) => Value::$name(v as $to),
+            _ => panic!("invalid value {}", $value.to_string()),
+        }
+    };
+}
 
 pub mod byte_seq;
 pub mod bytecode;
-mod cast;
 pub mod disassemble;
-mod index;
-mod intrinsics;
-mod stack;
 pub mod value;
 
 const FRAMES_MAX: usize = 64;
@@ -31,6 +77,91 @@ const STACK_MAX: usize = FRAMES_MAX * (std::u8::MAX as usize) + 1;
 
 pub type Constants = Vec<Value>;
 pub type Globals = Vec<Value>;
+
+#[derive(Debug)]
+pub struct Stack<T, const CAPACITY: usize> {
+    inner: Vec<T>,
+}
+
+impl<T: ToString, const CAPACITY: usize> Stack<T, CAPACITY> {
+    pub fn new() -> Self {
+        Self {
+            inner: Vec::with_capacity(CAPACITY),
+        }
+    }
+
+    pub fn push(&mut self, value: T) {
+        debug_assert!(self.inner.len() <= self.inner.capacity(), "stack overflow");
+        self.inner.push(value);
+    }
+
+    #[inline]
+    pub fn pop(&mut self) -> T {
+        self.inner.pop().unwrap()
+    }
+
+    #[inline]
+    pub fn peek(&self, offset: usize) -> &T {
+        &self.inner[self.len() - 1 - offset]
+    }
+
+    #[inline]
+    pub fn peek_mut(&mut self, offset: usize) -> &mut T {
+        let len = self.len();
+        &mut self.inner[len - 1 - offset]
+    }
+
+    #[allow(unused)]
+    #[inline]
+    pub fn last(&self) -> &T {
+        self.inner.last().unwrap()
+    }
+
+    #[inline]
+    pub fn last_mut(&mut self) -> &mut T {
+        self.inner.last_mut().unwrap()
+    }
+
+    #[inline]
+    pub fn swap(&mut self, a: usize, b: usize) {
+        self.inner.swap(a, b)
+    }
+
+    #[inline]
+    pub fn get(&self, index: usize) -> &T {
+        &self.inner[index]
+    }
+
+    #[inline]
+    pub fn get_mut(&mut self, index: usize) -> &mut T {
+        &mut self.inner[index]
+    }
+
+    #[inline]
+    pub fn set(&mut self, index: usize, value: T) {
+        self.inner[index] = value;
+    }
+
+    #[inline]
+    pub fn truncate(&mut self, len: usize) {
+        self.inner.truncate(len)
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    #[inline]
+    pub fn iter(&self) -> std::slice::Iter<T> {
+        self.inner.iter()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct StackFrame<'a> {
@@ -562,6 +693,191 @@ impl<'vm> VM<'vm> {
         let new_cursor = cursor as isize + offset as isize;
 
         reader.set_cursor(new_cursor as usize);
+    }
+
+    #[inline]
+    fn index(&mut self, value: Value, index: usize) {
+        match value {
+            Value::Pointer(ref ptr) => match ptr {
+                Pointer::Buffer(buf) => {
+                    let buf = unsafe { &**buf };
+                    let value = buf.get_value_at_index(index);
+                    self.stack.push(value);
+                }
+                _ => panic!("invalid value {}", value.to_string()),
+            },
+            Value::Buffer(buf) => {
+                let value = buf.get_value_at_index(index);
+                self.stack.push(value);
+            }
+            _ => panic!("invalid value {}", value.to_string()),
+        }
+    }
+
+    #[inline]
+    fn index_ptr(&mut self, value: Value, index: usize) {
+        match value {
+            Value::Pointer(ref ptr) => match ptr {
+                Pointer::Buffer(buf) => {
+                    let buf = unsafe { &mut **buf };
+                    let ptr = buf.bytes.offset_mut(index).as_mut_ptr();
+                    let value = Value::Pointer(Pointer::from_type_and_ptr(buf.ty.element_type().unwrap(), ptr as _));
+                    self.stack.push(value);
+                }
+                _ => panic!("invalid value {}", value.to_string()),
+            },
+            Value::Buffer(_) => self.offset(value, index),
+            _ => panic!("invalid value {}", value.to_string()),
+        }
+    }
+
+    #[inline]
+    fn offset(&mut self, value: Value, offset: usize) {
+        match value {
+            Value::Pointer(ptr) => match ptr {
+                Pointer::Buffer(buf) => {
+                    let buf = unsafe { &mut *buf };
+                    let ptr = buf.bytes.offset_mut(offset).as_mut_ptr();
+                    let value = Value::Pointer(Pointer::from_type_and_ptr(&buf.ty, ptr as _));
+                    self.stack.push(value);
+                }
+                ptr => {
+                    let ptr = if ptr.is_pointer() {
+                        unsafe { &*ptr.into_pointer() }
+                    } else {
+                        &ptr
+                    };
+
+                    let raw = ptr.as_inner_raw();
+                    let offset = unsafe { raw.add(offset) };
+
+                    self.stack
+                        .push(Value::Pointer(Pointer::from_kind_and_ptr(ptr.kind(), offset)))
+                }
+            },
+            Value::Buffer(buf) => {
+                let bytes = buf.bytes.offset(offset);
+                let ptr = &bytes[0];
+                self.stack.push(Value::Pointer(Pointer::from_type_and_ptr(
+                    &buf.ty,
+                    ptr as *const u8 as *mut u8 as _,
+                )));
+            }
+            _ => panic!("invalid value {}", value.to_string()),
+        }
+    }
+
+    fn dispatch_intrinsic(&mut self, intrinsic: IntrinsicFunction) {
+        match intrinsic {
+            IntrinsicFunction::StartWorkspace => {
+                let value = self.stack.pop();
+                let workspace_value = WorkspaceValue::from(&value);
+
+                let source_file = PathBuf::from(workspace_value.build_options.input_file.as_str())
+                    .absolutize_from(self.interp.build_options.root_dir())
+                    .unwrap()
+                    .to_path_buf();
+
+                let output_file = PathBuf::from(workspace_value.build_options.output_file.as_str())
+                    .absolutize_from(self.interp.build_options.root_dir())
+                    .unwrap()
+                    .to_path_buf();
+
+                let build_options = BuildOptions {
+                    source_file,
+                    output_file: Some(output_file),
+                    target_platform: match &workspace_value.build_options.target {
+                        BuildTargetValue::Auto => TargetPlatform::current().unwrap(),
+                        BuildTargetValue::Linux => TargetPlatform::LinuxAmd64,
+                        BuildTargetValue::Windows => TargetPlatform::WindowsAmd64,
+                    },
+                    optimization_level: match &workspace_value.build_options.optimization_level {
+                        OptimizationLevelValue::Debug => OptimizationLevel::Debug,
+                        OptimizationLevelValue::Release => OptimizationLevel::Release,
+                    },
+                    emit_times: self.interp.build_options.emit_times,
+                    emit_hir: self.interp.build_options.emit_hir,
+                    emit_bytecode: self.interp.build_options.emit_bytecode,
+                    diagnostic_options: self.interp.build_options.diagnostic_options.clone(),
+                    codegen_options: CodegenOptions::Codegen {
+                        emit_llvm_ir: self.interp.build_options.codegen_options.emit_llvm_ir(),
+                    },
+                    include_paths: vec![],
+                    check_mode: false,
+                };
+
+                let result = crate::driver::start_workspace(workspace_value.name.to_string(), build_options);
+
+                let (output_file, ok) = if let Some(output_file) = &result.output_file {
+                    // TODO: Remove null terminator after implementing printing/formatting
+                    (
+                        self.bump
+                            .alloc_slice_copy(format!("{}\0", output_file.to_str().unwrap()).as_bytes()),
+                        true,
+                    )
+                } else {
+                    (self.bump.alloc_slice_copy(b""), false)
+                };
+
+                let result_type = Type::Tuple(vec![Type::str_pointer(), Type::Bool]);
+
+                let result_value = Value::Buffer(Buffer::from_values(
+                    [Value::Buffer(Buffer::from_str_bytes(output_file)), Value::Bool(ok)],
+                    result_type,
+                ));
+
+                self.stack.push(result_value);
+            }
+        }
+    }
+
+    #[inline]
+    fn cast_op(&mut self) {
+        let ty = self.stack.pop().into_type();
+        let value = self.stack.pop();
+
+        let new_value = match ty {
+            Type::Int(IntType::I8) => cast_to_int!(value => I8, i8),
+            Type::Int(IntType::I16) => cast_to_int!(value => I16, i16),
+            Type::Int(IntType::I32) => cast_to_int!(value => I32, i32),
+            Type::Int(IntType::I64) => cast_to_int!(value => I64, i64),
+            Type::Int(IntType::Int) | Type::Infer(_, InferType::AnyInt) => {
+                cast_to_int!(value => Int, isize)
+            }
+            Type::Uint(UintType::U8) => cast_to_int!(value => U8, u8),
+            Type::Uint(UintType::U16) => cast_to_int!(value => U16, u16),
+            Type::Uint(UintType::U32) => cast_to_int!(value => U32, u32),
+            Type::Uint(UintType::U64) => cast_to_int!(value => U64, u64),
+            Type::Uint(UintType::Uint) => cast_to_int!(value => Uint, usize),
+            Type::Float(FloatType::F32) => cast_to_float!(value => F32, f32),
+            Type::Float(FloatType::F64) => cast_to_float!(value => F64, f64),
+            Type::Float(FloatType::Float) | Type::Infer(_, InferType::AnyFloat) => {
+                cast_to_float!(value => F64, f64)
+            }
+            Type::Pointer(inner, _) => {
+                let raw_ptr = match value {
+                    Value::Int(value) => value as RawPointer,
+                    Value::Uint(value) => value as RawPointer,
+                    Value::Pointer(ptr) => match ptr {
+                        Pointer::Buffer(buf) => {
+                            if buf.is_null() {
+                                std::ptr::null_mut::<c_void>()
+                            } else {
+                                unsafe { &mut *buf }.bytes.as_mut_ptr() as _
+                            }
+                        }
+                        _ => ptr.as_inner_raw(),
+                    },
+                    _ => panic!("invalid value {}", value.to_string()),
+                };
+
+                let new_ptr = Pointer::from_type_and_ptr(&inner, raw_ptr);
+                Value::Pointer(new_ptr)
+            }
+            _ => panic!("{:?}", ty),
+        };
+
+        self.stack.push(new_value);
     }
 
     #[allow(unused)]
