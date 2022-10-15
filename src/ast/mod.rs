@@ -1,6 +1,5 @@
 pub mod pat;
 
-use self::pat::NamePat;
 use crate::{
     common::path::{resolve_relative_path, try_resolve_relative_path, RelativeTo},
     define_id_type,
@@ -9,8 +8,7 @@ use crate::{
     types::*,
     workspace::{ModuleId, ModuleInfo},
 };
-use paste::paste;
-use pat::Pat;
+use pat::{NamePat, Pat};
 use std::{
     ffi::OsStr,
     fmt::{self, Display},
@@ -106,93 +104,85 @@ pub enum Ast {
     Error(Empty),
 }
 
-macro_rules! ast_field_dispatch {
-    ($field:ident, $ty:ty) => {
-        impl Ast {
-            #[inline(always)]
-            pub fn $field(&self) -> $ty {
-                match self {
-                    Self::Binding(x) => x.$field,
-                    Self::Cast(x) => x.$field,
-                    Self::Import(x) => x.$field,
-                    Self::Builtin(x) => x.$field,
-                    Self::Comptime(x) => x.$field,
-                    Self::Function(x) => x.$field,
-                    Self::Loop(x) => x.$field,
-                    Self::While(x) => x.$field,
-                    Self::For(x) => x.$field,
-                    Self::Break(x) => x.$field,
-                    Self::Continue(x) => x.$field,
-                    Self::Return(x) => x.$field,
-                    Self::If(x) => x.$field,
-                    Self::Block(x) => x.$field,
-                    Self::Binary(x) => x.$field,
-                    Self::Unary(x) => x.$field,
-                    Self::Subscript(x) => x.$field,
-                    Self::Slice(x) => x.$field,
-                    Self::Call(x) => x.$field,
-                    Self::MemberAccess(x) => x.$field,
-                    Self::Ident(x) => x.$field,
-                    Self::ArrayLiteral(x) => x.$field,
-                    Self::TupleLiteral(x) => x.$field,
-                    Self::StructLiteral(x) => x.$field,
-                    Self::Literal(x) => x.$field,
-                    Self::PointerType(x) => x.$field,
-                    Self::ArrayType(x) => x.$field,
-                    Self::SliceType(x) => x.$field,
-                    Self::StructType(x) => x.$field,
-                    Self::FunctionType(x) => x.$field,
-                    Self::SelfType(x) => x.$field,
-                    Self::Placeholder(x) => x.$field,
-                    Self::Error(x) => x.$field,
-                }
-            }
-
-            paste! {
-                #[inline(always)]
-                pub fn [< $field:snake _mut >](&mut self) -> &mut $ty {
-                    match self {
-                        Self::Binding(x) => &mut x.$field,
-                        Self::Cast(x) => &mut x.$field,
-                        Self::Import(x) => &mut x.$field,
-                        Self::Builtin(x) => &mut x.$field,
-                        Self::Comptime(x) => &mut x.$field,
-                        Self::Function(x) => &mut x.$field,
-                        Self::Loop(x) => &mut x.$field,
-                        Self::While(x) => &mut x.$field,
-                        Self::For(x) => &mut x.$field,
-                        Self::Break(x) => &mut x.$field,
-                        Self::Continue(x) => &mut x.$field,
-                        Self::Return(x) => &mut x.$field,
-                        Self::If(x) => &mut x.$field,
-                        Self::Block(x) => &mut x.$field,
-                        Self::Binary(x) => &mut x.$field,
-                        Self::Unary(x) => &mut x.$field,
-                        Self::Subscript(x) => &mut x.$field,
-                        Self::Slice(x) => &mut x.$field,
-                        Self::Call(x) => &mut x.$field,
-                        Self::MemberAccess(x) => &mut x.$field,
-                        Self::Ident(x) => &mut x.$field,
-                        Self::ArrayLiteral(x) => &mut x.$field,
-                        Self::TupleLiteral(x) => &mut x.$field,
-                        Self::StructLiteral(x) => &mut x.$field,
-                        Self::Literal(x) => &mut x.$field,
-                        Self::PointerType(x) => &mut x.$field,
-                        Self::ArrayType(x) => &mut x.$field,
-                        Self::SliceType(x) => &mut x.$field,
-                        Self::StructType(x) => &mut x.$field,
-                        Self::FunctionType(x) => &mut x.$field,
-                        Self::SelfType(x) => &mut x.$field,
-                        Self::Placeholder(x) => &mut x.$field,
-                        Self::Error(x) => &mut x.$field,
-                    }
-                }
-            }
+impl Ast {
+    #[inline(always)]
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Binding(x) => x.span,
+            Self::Cast(x) => x.span,
+            Self::Import(x) => x.span,
+            Self::Builtin(x) => x.span,
+            Self::Comptime(x) => x.span,
+            Self::Function(x) => x.span,
+            Self::Loop(x) => x.span,
+            Self::While(x) => x.span,
+            Self::For(x) => x.span,
+            Self::Break(x) => x.span,
+            Self::Continue(x) => x.span,
+            Self::Return(x) => x.span,
+            Self::If(x) => x.span,
+            Self::Block(x) => x.span,
+            Self::Binary(x) => x.span,
+            Self::Unary(x) => x.span,
+            Self::Subscript(x) => x.span,
+            Self::Slice(x) => x.span,
+            Self::Call(x) => x.span,
+            Self::MemberAccess(x) => x.span,
+            Self::Ident(x) => x.span,
+            Self::ArrayLiteral(x) => x.span,
+            Self::TupleLiteral(x) => x.span,
+            Self::StructLiteral(x) => x.span,
+            Self::Literal(x) => x.span,
+            Self::PointerType(x) => x.span,
+            Self::ArrayType(x) => x.span,
+            Self::SliceType(x) => x.span,
+            Self::StructType(x) => x.span,
+            Self::FunctionType(x) => x.span,
+            Self::SelfType(x) => x.span,
+            Self::Placeholder(x) => x.span,
+            Self::Error(x) => x.span,
         }
-    };
-}
+    }
 
-ast_field_dispatch!(span, Span);
+    #[inline(always)]
+    pub fn span_mut(&mut self) -> &mut Span {
+        match self {
+            Self::Binding(x) => &mut x.span,
+            Self::Cast(x) => &mut x.span,
+            Self::Import(x) => &mut x.span,
+            Self::Builtin(x) => &mut x.span,
+            Self::Comptime(x) => &mut x.span,
+            Self::Function(x) => &mut x.span,
+            Self::Loop(x) => &mut x.span,
+            Self::While(x) => &mut x.span,
+            Self::For(x) => &mut x.span,
+            Self::Break(x) => &mut x.span,
+            Self::Continue(x) => &mut x.span,
+            Self::Return(x) => &mut x.span,
+            Self::If(x) => &mut x.span,
+            Self::Block(x) => &mut x.span,
+            Self::Binary(x) => &mut x.span,
+            Self::Unary(x) => &mut x.span,
+            Self::Subscript(x) => &mut x.span,
+            Self::Slice(x) => &mut x.span,
+            Self::Call(x) => &mut x.span,
+            Self::MemberAccess(x) => &mut x.span,
+            Self::Ident(x) => &mut x.span,
+            Self::ArrayLiteral(x) => &mut x.span,
+            Self::TupleLiteral(x) => &mut x.span,
+            Self::StructLiteral(x) => &mut x.span,
+            Self::Literal(x) => &mut x.span,
+            Self::PointerType(x) => &mut x.span,
+            Self::ArrayType(x) => &mut x.span,
+            Self::SliceType(x) => &mut x.span,
+            Self::StructType(x) => &mut x.span,
+            Self::FunctionType(x) => &mut x.span,
+            Self::SelfType(x) => &mut x.span,
+            Self::Placeholder(x) => &mut x.span,
+            Self::Error(x) => &mut x.span,
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Empty {

@@ -271,127 +271,143 @@ pub enum Literal {
     ArrayFill(ArrayFillLiteral),
 }
 
-macro_rules! node_field_dispatch {
-    ($field:ident, $ty:ty) => {
-        impl Node {
-            #[inline(always)]
-            pub fn $field(&self) -> $ty {
-                match self {
-                    Self::Const(x) => x.$field,
-                    Self::Binding(x) => x.$field,
-                    Self::Id(x) => x.$field,
-                    Self::Assign(x) => x.$field,
-                    Self::MemberAccess(x) => x.$field,
-                    Self::Call(x) => x.$field,
-                    Self::Cast(x) => x.$field,
-                    Self::Sequence(x) => x.$field,
-                    Self::Control(x) => x.$field(),
-                    Self::Builtin(x) => x.$field(),
-                    Self::Literal(x) => x.$field(),
-                }
-            }
+impl Node {
+    #[inline(always)]
+    pub fn ty(&self) -> TypeId {
+        match self {
+            Self::Const(x) => x.ty,
+            Self::Binding(x) => x.ty,
+            Self::Id(x) => x.ty,
+            Self::Assign(x) => x.ty,
+            Self::MemberAccess(x) => x.ty,
+            Self::Call(x) => x.ty,
+            Self::Cast(x) => x.ty,
+            Self::Sequence(x) => x.ty,
+            Self::Control(x) => x.ty(),
+            Self::Builtin(x) => x.ty(),
+            Self::Literal(x) => x.ty(),
         }
-    };
+    }
 
-    () => {
-        node_field_dispatch!(ty, TypeId);
-        node_field_dispatch!(span, Span);
-    };
+    #[inline(always)]
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Const(x) => x.span,
+            Self::Binding(x) => x.span,
+            Self::Id(x) => x.span,
+            Self::Assign(x) => x.span,
+            Self::MemberAccess(x) => x.span,
+            Self::Call(x) => x.span,
+            Self::Cast(x) => x.span,
+            Self::Sequence(x) => x.span,
+            Self::Control(x) => x.span(),
+            Self::Builtin(x) => x.span(),
+            Self::Literal(x) => x.span(),
+        }
+    }
 }
 
-node_field_dispatch!();
-
-macro_rules! control_field_dispatch {
-    ($field:ident, $ty:ty) => {
-        impl Control {
-            pub fn $field(&self) -> $ty {
-                match self {
-                    Self::If(x) => x.$field,
-                    Self::While(x) => x.$field,
-                    Self::Return(x) => x.$field,
-                    Self::Break(x) => x.$field,
-                    Self::Continue(x) => x.$field,
-                }
-            }
+impl Control {
+    pub fn ty(&self) -> TypeId {
+        match self {
+            Self::If(x) => x.ty,
+            Self::While(x) => x.ty,
+            Self::Return(x) => x.ty,
+            Self::Break(x) => x.ty,
+            Self::Continue(x) => x.ty,
         }
-    };
+    }
 
-    () => {
-        control_field_dispatch!(ty, TypeId);
-        control_field_dispatch!(span, Span);
-    };
+    pub fn span(&self) -> Span {
+        match self {
+            Self::If(x) => x.span,
+            Self::While(x) => x.span,
+            Self::Return(x) => x.span,
+            Self::Break(x) => x.span,
+            Self::Continue(x) => x.span,
+        }
+    }
 }
 
-control_field_dispatch!();
-
-macro_rules! builtin_field_dispatch {
-    ($field:ident, $ty:ty) => {
-        impl Builtin {
-            pub fn $field(&self) -> $ty {
-                match self {
-                    Self::Add(x) => x.$field,
-                    Self::Sub(x) => x.$field,
-                    Self::Mul(x) => x.$field,
-                    Self::Div(x) => x.$field,
-                    Self::Rem(x) => x.$field,
-                    Self::Shl(x) => x.$field,
-                    Self::Shr(x) => x.$field,
-
-                    Self::And(x) => x.$field,
-                    Self::Or(x) => x.$field,
-
-                    Self::Lt(x) => x.$field,
-                    Self::Le(x) => x.$field,
-                    Self::Gt(x) => x.$field,
-                    Self::Ge(x) => x.$field,
-                    Self::Eq(x) => x.$field,
-                    Self::Ne(x) => x.$field,
-
-                    Self::BitAnd(x) => x.$field,
-                    Self::BitOr(x) => x.$field,
-                    Self::BitXor(x) => x.$field,
-
-                    Self::Not(x) => x.$field,
-                    Self::Neg(x) => x.$field,
-                    Self::Deref(x) => x.$field,
-
-                    Self::Ref(x) => x.$field,
-                    Self::Offset(x) => x.$field,
-                    Self::Slice(x) => x.$field,
-                }
-            }
+impl Builtin {
+    pub fn ty(&self) -> TypeId {
+        match self {
+            Self::Add(x) => x.ty,
+            Self::Sub(x) => x.ty,
+            Self::Mul(x) => x.ty,
+            Self::Div(x) => x.ty,
+            Self::Rem(x) => x.ty,
+            Self::Shl(x) => x.ty,
+            Self::Shr(x) => x.ty,
+            Self::And(x) => x.ty,
+            Self::Or(x) => x.ty,
+            Self::Lt(x) => x.ty,
+            Self::Le(x) => x.ty,
+            Self::Gt(x) => x.ty,
+            Self::Ge(x) => x.ty,
+            Self::Eq(x) => x.ty,
+            Self::Ne(x) => x.ty,
+            Self::BitAnd(x) => x.ty,
+            Self::BitOr(x) => x.ty,
+            Self::BitXor(x) => x.ty,
+            Self::Not(x) => x.ty,
+            Self::Neg(x) => x.ty,
+            Self::Deref(x) => x.ty,
+            Self::Ref(x) => x.ty,
+            Self::Offset(x) => x.ty,
+            Self::Slice(x) => x.ty,
         }
-    };
+    }
 
-    () => {
-        builtin_field_dispatch!(ty, TypeId);
-        builtin_field_dispatch!(span, Span);
-    };
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Add(x) => x.span,
+            Self::Sub(x) => x.span,
+            Self::Mul(x) => x.span,
+            Self::Div(x) => x.span,
+            Self::Rem(x) => x.span,
+            Self::Shl(x) => x.span,
+            Self::Shr(x) => x.span,
+            Self::And(x) => x.span,
+            Self::Or(x) => x.span,
+            Self::Lt(x) => x.span,
+            Self::Le(x) => x.span,
+            Self::Gt(x) => x.span,
+            Self::Ge(x) => x.span,
+            Self::Eq(x) => x.span,
+            Self::Ne(x) => x.span,
+            Self::BitAnd(x) => x.span,
+            Self::BitOr(x) => x.span,
+            Self::BitXor(x) => x.span,
+            Self::Not(x) => x.span,
+            Self::Neg(x) => x.span,
+            Self::Deref(x) => x.span,
+            Self::Ref(x) => x.span,
+            Self::Offset(x) => x.span,
+            Self::Slice(x) => x.span,
+        }
+    }
 }
 
-builtin_field_dispatch!();
-
-macro_rules! literal_field_dispatch {
-    ($field:ident, $ty:ty) => {
-        impl Literal {
-            pub fn $field(&self) -> $ty {
-                match self {
-                    Self::Struct(x) => x.$field,
-                    Self::Tuple(x) => x.$field,
-                    Self::Array(x) => x.$field,
-                    Self::ArrayFill(x) => x.$field,
-                }
-            }
+impl Literal {
+    pub fn ty(&self) -> TypeId {
+        match self {
+            Self::Struct(x) => x.ty,
+            Self::Tuple(x) => x.ty,
+            Self::Array(x) => x.ty,
+            Self::ArrayFill(x) => x.ty,
         }
-    };
+    }
 
-    () => {
-        literal_field_dispatch!(ty, TypeId);
-        literal_field_dispatch!(span, Span);
-    };
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Struct(x) => x.span,
+            Self::Tuple(x) => x.span,
+            Self::Array(x) => x.span,
+            Self::ArrayFill(x) => x.span,
+        }
+    }
 }
-
-literal_field_dispatch!();
 
 impl Node {
     pub fn is_const(&self) -> bool {
