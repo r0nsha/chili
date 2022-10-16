@@ -308,6 +308,7 @@ impl Node {
 }
 
 impl Control {
+    #[inline(always)]
     pub fn ty(&self) -> TypeId {
         match self {
             Self::If(x) => x.ty,
@@ -318,6 +319,7 @@ impl Control {
         }
     }
 
+    #[inline(always)]
     pub fn span(&self) -> Span {
         match self {
             Self::If(x) => x.span,
@@ -330,6 +332,7 @@ impl Control {
 }
 
 impl Builtin {
+    #[inline(always)]
     pub fn ty(&self) -> TypeId {
         match self {
             Self::Add(x) => x.ty,
@@ -359,6 +362,7 @@ impl Builtin {
         }
     }
 
+    #[inline(always)]
     pub fn span(&self) -> Span {
         match self {
             Self::Add(x) => x.span,
@@ -390,6 +394,7 @@ impl Builtin {
 }
 
 impl Literal {
+    #[inline(always)]
     pub fn ty(&self) -> TypeId {
         match self {
             Self::Struct(x) => x.ty,
@@ -399,6 +404,7 @@ impl Literal {
         }
     }
 
+    #[inline(always)]
     pub fn span(&self) -> Span {
         match self {
             Self::Struct(x) => x.span,
@@ -410,10 +416,12 @@ impl Literal {
 }
 
 impl Node {
+    #[inline(always)]
     pub fn is_const(&self) -> bool {
         matches!(self, Self::Const(_))
     }
 
+    #[inline(always)]
     pub fn into_const_value(self) -> Option<ConstValue> {
         match self {
             Self::Const(c) => Some(c.value),
@@ -421,6 +429,7 @@ impl Node {
         }
     }
 
+    #[inline(always)]
     pub fn as_const_value(&self) -> Option<&ConstValue> {
         match self {
             Self::Const(c) => Some(&c.value),
@@ -428,6 +437,7 @@ impl Node {
         }
     }
 
+    #[inline(always)]
     pub fn noop(ty: TypeId, span: Span) -> Self {
         Self::Sequence(Sequence {
             ty,
@@ -437,6 +447,7 @@ impl Node {
         })
     }
 
+    #[inline(always)]
     pub fn force_into_sequence(self) -> Sequence {
         match self {
             Self::Sequence(x) => x,
