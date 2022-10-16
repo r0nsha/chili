@@ -47,14 +47,14 @@ impl Parser {
         let pat = self.parse_pat()?;
 
         let type_expr = if eat!(self, Colon) {
-            Some(Box::new(self.parse_expression(false, true)?))
+            Some(Box::new(self.parse_expression(false, false)?))
         } else {
             None
         };
 
         require!(self, Eq, "=")?;
 
-        let mut value = self.parse_expression(false, true)?;
+        let mut value = self.parse_expression(false, false)?;
 
         match &pat {
             Pat::Name(pat) => Self::assign_expr_name_if_needed(&mut value, pat.name),
@@ -85,7 +85,7 @@ impl Parser {
 
         require!(self, Eq, "=")?;
 
-        let body = Box::new(self.parse_expression(false, true)?);
+        let body = Box::new(self.parse_expression(false, false)?);
 
         Ok(ast::Binding {
             attrs,
@@ -129,7 +129,7 @@ impl Parser {
 
             require!(self, Colon, ":")?;
 
-            let type_expr = self.parse_expression(false, true)?;
+            let type_expr = self.parse_expression(false, false)?;
 
             Ok(ast::Binding {
                 attrs,
@@ -154,7 +154,7 @@ impl Parser {
 
         require!(self, Eq, "=")?;
 
-        let mut type_expr = self.parse_expression(false, true)?;
+        let mut type_expr = self.parse_expression(false, false)?;
         Self::assign_expr_name_if_needed(&mut type_expr, name);
 
         Ok(ast::Binding {

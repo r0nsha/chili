@@ -7,7 +7,7 @@ fn build() = {
         target: BuildTarget_auto,
         optimization_level: OptimizationLevel_debug,
 	}
-	
+
 	let workspace = Workspace {
 		name: "hello",
 		build_options
