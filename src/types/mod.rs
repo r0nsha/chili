@@ -144,7 +144,7 @@ impl FunctionTypeKind {
 #[derive(Debug, PartialEq, Clone)]
 pub struct StructType {
     pub name: Ustr,
-    pub binding_id: Option<BindingId>,
+    pub id: Option<BindingId>,
     pub fields: Vec<StructTypeField>,
     pub kind: StructTypeKind,
 }
@@ -173,10 +173,10 @@ impl From<StructType> for Type {
 }
 
 impl StructType {
-    pub fn empty(name: Ustr, binding_id: Option<BindingId>, kind: StructTypeKind) -> Self {
+    pub fn empty(name: Ustr, id: Option<BindingId>, kind: StructTypeKind) -> Self {
         Self {
             name,
-            binding_id,
+            id,
             fields: vec![],
             kind,
         }
@@ -185,7 +185,7 @@ impl StructType {
     pub fn temp(fields: Vec<StructTypeField>, kind: StructTypeKind) -> Self {
         Self {
             name: ustr(""),
-            binding_id: None,
+            id: None,
             fields,
             kind,
         }

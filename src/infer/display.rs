@@ -62,7 +62,7 @@ fn display_type(ty: &Type, tcx: &TypeCtx) -> String {
 
 impl DisplayType for StructType {
     fn display(&self, tcx: &TypeCtx) -> String {
-        if self.binding_id.is_some() {
+        if self.id.is_some() {
             self.name.to_string()
         } else {
             format!(

@@ -129,7 +129,7 @@ impl UnifyType<FunctionType> for FunctionType {
 
 impl UnifyType<StructType> for StructType {
     fn unify(&self, other: &StructType, tcx: &mut TypeCtx) -> UnifyTypeResult {
-        match (self.binding_id, other.binding_id) {
+        match (self.id, other.id) {
             (None, None) => {
                 if self.fields.len() != other.fields.len() || self.kind != other.kind {
                     Err(UnifyTypeErr::Mismatch)

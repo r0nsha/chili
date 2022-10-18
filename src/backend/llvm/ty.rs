@@ -71,7 +71,7 @@ impl<'g, 'ctx> IntoLlvmType<'g, 'ctx> for Type {
                 )
                 .into(),
             Type::Struct(struct_type) => {
-                let struct_type = if struct_type.binding_id.is_some() {
+                let struct_type = if struct_type.id.is_some() {
                     generator.get_or_create_named_struct_type(struct_type)
                 } else {
                     generator.create_anonymous_struct_type(struct_type)
@@ -181,7 +181,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 
     fn get_or_create_named_struct_type(&mut self, struct_type: &StructType) -> inkwell::types::StructType<'ctx> {
-        match self.types.get(&struct_type.binding_id.unwrap()) {
+        match self.types.get(&struct_type.id.unwrap()) {
             Some(t) => t.into_struct_type(),
             None => self.create_named_struct_type(struct_type),
         }
@@ -190,7 +190,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     fn create_named_struct_type(&mut self, struct_ty: &StructType) -> inkwell::types::StructType<'ctx> {
         let struct_type = self.context.opaque_struct_type(&struct_ty.name);
 
-        self.types.insert(struct_ty.binding_id.unwrap(), struct_type.into());
+        self.types.insert(struct_ty.id.unwrap(), struct_type.into());
 
         let fields = self.create_struct_type_fields(struct_ty);
         struct_type.set_body(&fields, struct_ty.is_packed_struct());

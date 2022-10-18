@@ -3243,7 +3243,7 @@ impl Check for ast::StructType {
 
         env.push_scope(ScopeKind::Block);
 
-        let binding_id = if is_named {
+        let id = if is_named {
             sess.self_types.push(struct_type_var);
 
             let (binding_id, _) = sess.bind_name(
@@ -3316,7 +3316,7 @@ impl Check for ast::StructType {
 
         let struct_type = Type::Struct(StructType {
             name,
-            binding_id,
+            id,
             kind: self.kind,
             fields: struct_type_fields,
         });
@@ -3431,7 +3431,7 @@ fn check_anonymous_struct_literal(
 
     let mut struct_ty = StructType {
         name,
-        binding_id: None,
+        id: None,
         kind: StructTypeKind::Struct,
         fields: vec![],
     };

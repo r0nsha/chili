@@ -91,10 +91,10 @@ impl NormalizeCtx {
             Type::Slice(inner) => Type::Slice(Box::new(self.normalize_kind(tcx, inner))),
             Type::Str(inner) => Type::Str(Box::new(self.normalize_kind(tcx, inner))),
             Type::Tuple(tys) => Type::Tuple(tys.iter().map(|kind| self.normalize_kind(tcx, kind)).collect()),
-            Type::Struct(struct_type) => match struct_type.binding_id {
+            Type::Struct(struct_type) => match struct_type.id {
                 Some(binding_id) if binding_id == self.parent_binding_id => kind.clone(),
                 _ => {
-                    let binding_id = struct_type.binding_id.unwrap_or(BindingId::unknown());
+                    let binding_id = struct_type.id.unwrap_or(BindingId::unknown());
 
                     let old_id = self.parent_binding_id;
                     self.parent_binding_id = binding_id;
@@ -111,7 +111,7 @@ impl NormalizeCtx {
 
                     let struct_type = Type::Struct(StructType {
                         name: struct_type.name,
-                        binding_id: struct_type.binding_id,
+                        id: struct_type.id,
                         fields,
                         kind: struct_type.kind,
                     });
