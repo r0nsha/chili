@@ -12,13 +12,13 @@ pub type BuildOptions = struct {
     optimization_level: OptimizationLevel
 }
 
-# TODO: turn into enum
+// TODO: turn into enum
 pub type BuildTarget = uint
 pub let BuildTarget_auto: BuildTarget = 0
 pub let BuildTarget_linux: BuildTarget = 1
 pub let BuildTarget_windows: BuildTarget = 2
 
-# TODO: turn into enum
+// TODO: turn into enum
 pub type OptimizationLevel = uint
 pub let OptimizationLevel_debug: OptimizationLevel = 0
 pub let OptimizationLevel_release: OptimizationLevel = 1

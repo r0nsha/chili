@@ -22,129 +22,129 @@ fn main() -> () = {
 fn primitives_and_variables() = {
     println("primitives_and_variables")
     
-    # Primitive types:
+    // Primitive types:
 
-    # boolean
-    # --------
-    # types: 
-    #      bool
-    #
-    # examples: true, false
+    // boolean
+    // --------
+    // types: 
+    //      bool
+    //
+    // examples: true, false
 
-    # signed and unsigned integers
-    # --------
-    # types: 
-    #      i8, i16, i32, i64, int (machine-sized), 
-    #      u8, u16, u32, u64, uint (machine-sized)
-    #
-    # examples: 5, 100_000, etc.
+    // signed and unsigned integers
+    // --------
+    // types: 
+    //      i8, i16, i32, i64, int (machine-sized), 
+    //      u8, u16, u32, u64, uint (machine-sized)
+    //
+    // examples: 5, 100_000, etc.
 
-    # floats
-    # --------
-    # types: f16, f32, f64, float (machine-sized)
-    #
-    # examples: 5.0, 3.14, 90_051.22, etc.
+    // floats
+    // --------
+    // types: f16, f32, f64, float (machine-sized)
+    //
+    // examples: 5.0, 3.14, 90_051.22, etc.
 
-    # strings
-    # --------
-    # type: *str
-    #
-    # examples: "Hello World"
+    // strings
+    // --------
+    // type: *str
+    //
+    // examples: "Hello World"
 
-    # A variable declaration follows the syntax
-    # let [pattern]: [type] = [value]
+    // A variable declaration follows the syntax
+    // let [pattern]: [type] = [value]
     let num: int = 5
     let pi: float = 3.14
     let hello: *str = "Hello"
 
-    # The variable's type can be be inferred by its value
+    // The variable's type can be be inferred by its value
     let num = 5
     let pi = 3.14
     let hello = "Hello"
 
-    # Variables are immutable by default, meaning you can't reassign them twice.
-    # Uncomment the next line to get a compiler error:
-    # num = 42
+    // Variables are immutable by default, meaning you can't reassign them twice.
+    // Uncomment the next line to get a compiler error:
+    // num = 42
 
-    # To declare a variable as mutable, add the `mut` keyword after the `let`
+    // To declare a variable as mutable, add the `mut` keyword after the `let`
     let mut foo = 42
     foo = 1
 
-    # Variables can also be shadowed, meaning you can declare the same name twice (in local scope)
+    // Variables can also be shadowed, meaning you can declare the same name twice (in local scope)
     let foo = true
 }
 
 fn operators() = {
     println("operators")
     
-    # Not
+    // Not
     let x = !true
 
-    # Negate
+    // Negate
     let x = -5
 
-    # Addition
+    // Addition
     let mut x = 1 + 2
     x += 3
 
-    # Subtraction
+    // Subtraction
     let mut x = 1 - 2
     x -= 3
 
-    # Multiplication
+    // Multiplication
     let mut x = 1 * 2
     x *= 3
     
-    # Division
+    // Division
     let mut x = 1 / 2
     x /= 3
     
-    # And
+    // And
     let mut x = true && false
     x &&= false
     
-    # Or
+    // Or
     let mut x = true || false
     x ||= false
     
-    # Equal
+    // Equal
     let x = 1 == 2
 
-    # Not equal
+    // Not equal
     let x = 1 != 2
 
-    # Less than
+    // Less than
     let x = 1 < 2
 
-    # Less than or equal
+    // Less than or equal
     let x = 1 <= 2
 
-    # Greater than
+    // Greater than
     let x = 1 > 2
 
-    # Greater than or equal
+    // Greater than or equal
     let x = 1 >= 2
         
-    # Bitwise not
+    // Bitwise not
     let x = !1
 
-    # Bitwise and
+    // Bitwise and
     let mut x = 1 & 2
     x &= 3
     
-    # Bitwise or
+    // Bitwise or
     let mut x = 1 | 2
     x |= 3
 
-    # Bitwise xor
+    // Bitwise xor
     let mut x = 1 ^ 2
     x ^= 3
 
-    # Shift left
+    // Shift left
     let mut x = 1 << 2
     x <<= 3
 
-    # Shift right
+    // Shift right
     let mut x = 1 >> 2
     x >>= 3
 }
@@ -152,7 +152,7 @@ fn operators() = {
 fn control_flow_if() = {
     println("control_flow_if")
 
-    # If can be used as a statement
+    // If can be used as a statement
     let is_nice = true
 
     if is_nice {
@@ -161,11 +161,11 @@ fn control_flow_if() = {
         println("Oof...")
     }
 
-    # If is an expression, which yields 
-    # the last value of the block, depending on the condition
+    // If is an expression, which yields 
+    // the last value of the block, depending on the condition
     let answer = if true { 42 } else { -1 }
 
-    # Since everything is an expression, you can compose blocks and ifs easily
+    // Since everything is an expression, you can compose blocks and ifs easily
     let some_condition = true
     let calculation = if some_condition { 
         let this = {
@@ -177,8 +177,8 @@ fn control_flow_if() = {
 
         let result = 42
 
-        # The last expression in a block is yielded from the block,
-        42 # You can make the 42 not be yielded, by adding a `` after it
+        // The last expression in a block is yielded from the block,
+        42 // You can make the 42 not be yielded, by adding a `` after it
     } else { 
         -1 
     }
@@ -199,21 +199,21 @@ fn control_flow_while() = {
 }
 
 fn arrays() = {
-    # An array is a sequence of data, which its size is statically known at compile-time.
-    # Arrays are bounds checked, meaning you can't index them out of bounds.
+    // An array is a sequence of data, which its size is statically known at compile-time.
+    // Arrays are bounds checked, meaning you can't index them out of bounds.
     println("arrays")
 
     let array: [3]int = [1, 2, 3]
 
-    # As before, we can infer the variables type
+    // As before, we can infer the variables type
     let words = ["Hello", ",", "World"]
 
-    # Indexing the array
+    // Indexing the array
     let one = array[0]
     let world = words[2]
 
-    # Uncomment to get an error:
-    # let what_are_you_doing = words[5]
+    // Uncomment to get an error:
+    // let what_are_you_doing = words[5]
 }
 
 fn control_flow_for() = {
@@ -229,21 +229,21 @@ fn pointers_and_references() = {
 
     let foo = 5
 
-    # Take the address of `foo` immutably with `&`
+    // Take the address of `foo` immutably with `&`
     std.c.printf("foo = %d, addr = %p\n".ptr, foo, &foo)
 
     let addr = &foo
 
-    # Dereference using a postfix `.*`
+    // Dereference using a postfix `.*`
     let bar = addr.* + 42
     std.c.printf("bar = %d\n".ptr, bar)
 
-    # `&` references are immutable.
-    # You can take a mutable reference by using `&mut`
-    # In order to take something mutably, is also has to be mutable.
-    # Uncomment the next two lines to get a compiler error:
-    # let x = 5
-    # let y = &mut x
+    // `&` references are immutable.
+    // You can take a mutable reference by using `&mut`
+    // In order to take something mutably, is also has to be mutable.
+    // Uncomment the next two lines to get a compiler error:
+    // let x = 5
+    // let y = &mut x
 
     let mut x = 5
     let y = &mut x
@@ -253,11 +253,11 @@ fn pointers_and_references() = {
 }
 
 fn slices() = {
-    # println("slices")
+    // println("slices")
 
-    # Slices are useful when you want to represent an array
-    # that doesn't have statically known size, safely, since they are
-    # bounds checked. They are essentially a pointer to some underlying data, and a length.
+    // Slices are useful when you want to represent an array
+    // that doesn't have statically known size, safely, since they are
+    // bounds checked. They are essentially a pointer to some underlying data, and a length.
 
     let array = [1, 2, 3, 4, 5]
     
@@ -268,18 +268,18 @@ fn slices() = {
         println("")
     }
 
-    # Slicing the all elements of the array implicitly
+    // Slicing the all elements of the array implicitly
     print_slice(&array[...])
     
-    # Slicing the elements 1-3 of the array
+    // Slicing the elements 1-3 of the array
     let slice = &array[1...3]
     print_slice(slice)
     
-    # Slicing the first 3 elements of the array
+    // Slicing the first 3 elements of the array
     let slice = &array[...3]
     print_slice(slice)
     
-    # Slicing the last 3 elements of the array
+    // Slicing the last 3 elements of the array
     let slice = &array[3...]
     print_slice(slice)
 }
@@ -287,21 +287,21 @@ fn slices() = {
 fn functions() = {
     println("functions")
 
-    # Declaring a named function
+    // Declaring a named function
     fn answer() -> i32 = 42
     std.c.printf("answer = %d\n".ptr, answer())
 
-    # Function types can be fully inferred
+    // Function types can be fully inferred
     fn five() = 5
     std.c.printf("five = %d\n".ptr, five())
 
 
-    # A function can also be used as an expression, which makes it anonymous.
-    # If a function expression has no parameters, the parentheses can be omitted
+    // A function can also be used as an expression, which makes it anonymous.
+    // If a function expression has no parameters, the parentheses can be omitted
     let hello = fn { "Hello" }
     println(hello())
 
-    # Functions are first-class values, and can be passed to other functions
+    // Functions are first-class values, and can be passed to other functions
     fn for_each(array: *[]int, f: fn(x: int)) = 
         for x in array {
             f(x)
@@ -313,23 +313,23 @@ fn functions() = {
         std.c.printf("x = %d\n".ptr, x)
     })
 
-    # When a function has only one *expected* argument, is can be elided, 
-    # and will implicitly be called `it`.
+    // When a function has only one *expected* argument, is can be elided, 
+    // and will implicitly be called `it`.
     for_each(&array, fn { 
         std.c.printf("it = %d\n".ptr, it)
     })
 
-    # Trailing functions:
-    # When a function expects another function as its last argument,
-    # that function argument can be put after the call. This doesn't
-    # have any semantic implications, it's only syntax sugar.
+    // Trailing functions:
+    // When a function expects another function as its last argument,
+    // that function argument can be put after the call. This doesn't
+    // have any semantic implications, it's only syntax sugar.
     for_each(&array) fn { 
         std.c.printf("it = %d\n".ptr, it)
     }
 
-    # Functions can have default arguments
-    # - Parameters with a default value must come last
-    # - Default values must be compile-time known
+    // Functions can have default arguments
+    // - Parameters with a default value must come last
+    // - Default values must be compile-time known
     fn mul(a: i32, b: i32 = 2) = a * b
     std.c.printf("mul(5) = %d\n".ptr, mul(5))
 }
@@ -337,10 +337,10 @@ fn functions() = {
 fn variadic_functions() = {
     println("variadic functions")
 
-    # Variadic parameters are treated as a boundless number of optional parameters.
-    # When passing arguments for a variadic parameter, you can pass as many as you want.
-    # You can even pass none. Under the hood, the compiler will build a slice of the
-    # arguments passed in.
+    // Variadic parameters are treated as a boundless number of optional parameters.
+    // When passing arguments for a variadic parameter, you can pass as many as you want.
+    // You can even pass none. Under the hood, the compiler will build a slice of the
+    // arguments passed in.
     fn printints(args: int...) = for a in args {
         std.c.printf("%d\n".ptr, a)
     }
@@ -348,7 +348,7 @@ fn variadic_functions() = {
     println("printing integers:")
     printints(1, 2, 3)
 
-    # You can also "spread" a slice or an array as the variadic argument
+    // You can also "spread" a slice or an array as the variadic argument
     println("printing spreaded slice:")
     let slice: *[]int = &[4, 5, 6]
     printints(slice...)
@@ -361,7 +361,7 @@ fn variadic_functions() = {
 fn structs() = {
     println("structs")
 
-    # Struct fields are either separated by semicolons or newlines
+    // Struct fields are either separated by semicolons or newlines
     type Foo = struct { bar: i32; baz: f32 }
 
     type Point = struct { 
@@ -369,17 +369,17 @@ fn structs() = {
         y: int 
     }
 
-    # Access a struct's fields by using `.field`
+    // Access a struct's fields by using `.field`
     fn print_point(p: Point) = std.c.printf("x=%d y=%d\n".ptr, p.x, p.y)
 
-    # Named initialization
+    // Named initialization
     let my_point = Point { x: 1, y: 2 }
     print_point(my_point)
 
-    # Anonymous initialization
+    // Anonymous initialization
     print_point({ x: 1, y: 2 })
 
-    # If a value is the same name as an identifer, you can omit the value as a shorthand
+    // If a value is the same name as an identifer, you can omit the value as a shorthand
     let x = 3
     let y = 4
     print_point({ x, y })
@@ -388,25 +388,25 @@ fn structs() = {
 fn tuples() = {
     println("tuples")
     
-    # Tuples are essentially anonymous structs, with positional elements
+    // Tuples are essentially anonymous structs, with positional elements
     type Point = (i32, i32)
 
-    # Access a tuple's elements by using `.index`
+    // Access a tuple's elements by using `.index`
     fn print_point(p: Point) = std.c.printf("x=%d y=%d\n".ptr, p.0, p.1)
 
-    # Construct a tuple by listing its elements between parentheses
+    // Construct a tuple by listing its elements between parentheses
     let point = (5, 10)
     print_point(point)
 
-    # An empty tuple `()` is also called also the `unit` value. Its size is 0.
-    # We usually use the unit value to represent some kind of `void`.
+    // An empty tuple `()` is also called also the `unit` value. Its size is 0.
+    // We usually use the unit value to represent some kind of `void`.
     let unit = ()
 }
 
 fn imports() = {
     println("imports")
 
-    # You can import other modules using the `use` statement
+    // You can import other modules using the `use` statement
     use foo
     foo.hello()
 
@@ -416,80 +416,80 @@ fn imports() = {
     use foo.*
     hello()
 
-    # The current module can be access via the implicit top-level `self`
-    # The parent module (if there is any), can be access via the implicit, top-level `super`
+    // The current module can be access via the implicit top-level `self`
+    // The parent module (if there is any), can be access via the implicit, top-level `super`
 
-    # Import can also be used as an expression, by wrapping the 
-    # imported module with parentheses
+    // Import can also be used as an expression, by wrapping the 
+    // imported module with parentheses
     use(foo).hello()
 }
 
 fn binding_patterns() = {
     println("binding_patterns")
 
-    # Unpack patterns are used for conveniently using inner elements of
-    # compound structures such as tuples, structs and modules.
-    # Note that nested patterns are currently not supported.
+    // Unpack patterns are used for conveniently using inner elements of
+    // compound structures such as tuples, structs and modules.
+    // Note that nested patterns are currently not supported.
 
-    # Tuple unpack:
-    # This pattern's sub-patterns are positional, so the first identifier maps
-    # to the first element, etc.
+    // Tuple unpack:
+    // This pattern's sub-patterns are positional, so the first identifier maps
+    // to the first element, etc.
     let (x, y) = (1, 2)
     std.c.printf("%d %d\n".ptr, x, y)
 
-    # All patterns are not exhaustive, and can be partially applied
+    // All patterns are not exhaustive, and can be partially applied
     let (x) = (5, 6)
     std.c.printf("%d\n".ptr, x)
 
-    # Struct unpack:
+    // Struct unpack:
     let { x, y } = { x: 40, y: 33 }
     std.c.printf("%d %d\n".ptr, x, y)
 
-    # This pattern's sub-patterns are named, so it is order-free.
-    # Here we unpack the `y` field, even though it is the second one in the struct. 
+    // This pattern's sub-patterns are named, so it is order-free.
+    // Here we unpack the `y` field, even though it is the second one in the struct. 
     let { y } = { x: 40, y: 33 }
     std.c.printf("%d\n".ptr, x)
 
-    # Module unpack:
-    # Patterns also apply to module imports, and look exactly the same
-    # as the struct unpack pattern.
-    # Unpacked declarations can be aliased to name collision.
+    // Module unpack:
+    // Patterns also apply to module imports, and look exactly the same
+    // as the struct unpack pattern.
+    // Unpacked declarations can be aliased to name collision.
     let { hello: my_hello } = use(foo)
     my_hello()
 
-    # As a side note, the use function returns the module itself,
-    # and as such, can be used directly.
+    // As a side note, the use function returns the module itself,
+    // and as such, can be used directly.
     use(foo).hello()
 
-    # The glob pattern unpacks all *public* fields/declarations from a 
-    # given struct/module
+    // The glob pattern unpacks all *public* fields/declarations from a 
+    // given struct/module
 
-    # The next line automatically unpacks the `hello` function.
+    // The next line automatically unpacks the `hello` function.
     let { * } = use(foo)
-    #     ^---- `hello` comes from here
+    //     ^---- `hello` comes from here
 
     hello()
 
     let { * } = { a: 3, b: 4 }
-    #     ^---- `a` and `b` come from here
+    //     ^---- `a` and `b` come from here
 
     std.c.printf("a=%d b=%d\n".ptr, a, b)
 
-    # Glob patterns can be partially applied
+    // Glob patterns can be partially applied
     let { a, * } = { a: 8, b: 99 }
-    #        ^---- only `b` is unpacked here
+    //        ^---- only `b` is unpacked here
 
     std.c.printf("a=%d b=%d\n".ptr, a, b)
 
-    # The curly braces can be elided if only an `*` is used
+    // The curly braces can be elided if only an `*` is used
     let * = use(foo)
 
-    # You can both alias and unpack a value using `@`
+    // You can both alias and unpack a value using `@`
     let foo @ { hello: second_hello } = use(foo)
     foo.hello()
     second_hello()
 
-    # Patterns can be arbitrarily nested!
+    // Patterns can be arbitrarily nested!
     let std @ {
         fmt: { println },
         c: { printf }
@@ -503,30 +503,30 @@ fn binding_patterns() = {
 }
 
 fn builtin_functions() = {
-    # There are two builtin functions
-    # size_of!(Type)  : returns a type's size
-    # align_of!(Type) : returns a type's alignment
+    // There are two builtin functions
+    // size_of!(Type)  : returns a type's size
+    // align_of!(Type) : returns a type's alignment
 
-    # Note that builtin functions will be removed once 
-    # polymorphic functions are implemented.
+    // Note that builtin functions will be removed once 
+    // polymorphic functions are implemented.
 
     std.c.printf("size_of(i32) = %d\n".ptr, size_of!(i32))
     std.c.printf("align_of(u8) = %d\n".ptr, align_of!(u8))
 }
 
 fn extern_functions() = {
-    # To use a function or variable declared externally of our program,
-    # likely in some static/dynamic library, we declare an `extern` function.
+    // To use a function or variable declared externally of our program,
+    // likely in some static/dynamic library, we declare an `extern` function.
     extern fn printf(fmt: *u8, args...) -> i32
     printf("Hello from my '%s'\n".ptr, "printf".ptr)
 
-    # Extern variables are declared like so:
-    # extern let baz: int
+    // Extern variables are declared like so:
+    // extern let baz: int
 }
 
 fn running_code_at_compile_time() = {
-    # Use a comptime block to run arbitrary code to return at compile time!
-    # Comptime blocks translate to a no-op at runtime
+    // Use a comptime block to run arbitrary code to return at compile time!
+    // Comptime blocks translate to a no-op at runtime
     println("running_code_at_compile_time")
     comptime { println("Compile time: I appear first") }
 }
