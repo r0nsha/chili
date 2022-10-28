@@ -75,7 +75,7 @@ pub extern fn putchar(char: c_int) -> c_int
 pub extern fn getchar() -> c_int
 
 @lib(c)
-pub extern fn printf(input: *c_char, args...) -> c_int
+pub extern fn printf(input: *c_char, args..) -> c_int
 
 @lib(c)
 pub extern fn strcpy(dest: *mut c_char, src: *c_char) -> *c_char
@@ -129,7 +129,7 @@ pub extern fn fork() -> pid_t
 pub extern fn waitpid(pid: pid_t, status: *mut c_int, options: c_int) -> pid_t
 
 @lib(c)
-pub extern fn execl(path: *c_char, args...) -> c_int
+pub extern fn execl(path: *c_char, args..) -> c_int
 
 @lib(c)
 pub extern fn abort() -> never

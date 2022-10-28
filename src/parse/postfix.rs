@@ -160,7 +160,7 @@ impl Parser {
             Comma,
             {
                 let value = self.parse_expression(false, true)?;
-                let spread = eat!(self, DotDotDot);
+                let spread = eat!(self, DotDot);
 
                 ast::CallArg { value, spread }
             },
@@ -177,7 +177,7 @@ impl Parser {
     fn parse_subscript_or_slice(&mut self, expr: Ast) -> DiagnosticResult<Ast> {
         let start_span = expr.span();
 
-        if eat!(self, DotDotDot) {
+        if eat!(self, DotDot) {
             let high = if eat!(self, CloseBracket) {
                 None
             } else {
@@ -195,7 +195,7 @@ impl Parser {
         } else {
             let index = self.parse_expression(false, true)?;
 
-            if eat!(self, DotDotDot) {
+            if eat!(self, DotDot) {
                 let high = if eat!(self, CloseBracket) {
                     None
                 } else {

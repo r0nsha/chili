@@ -79,7 +79,7 @@ impl Parser {
                     None
                 };
 
-                if eat!(self, DotDotDot) {
+                if eat!(self, DotDot) {
                     let name = if let Some(name) = pat.as_name() {
                         name.clone()
                     } else {

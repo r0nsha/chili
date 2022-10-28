@@ -201,7 +201,7 @@ pub fn coerce_node(tcx: &mut TypeCtx, node: &mut hir::Node, to: Type, kind: Coer
 pub fn coerce_array_to_slice(tcx: &mut TypeCtx, node: &hir::Node, to: Type) -> hir::Node {
     // Slice coercion from *[N]T to *[]T
     // Essentially doing
-    // `&array.*[...]`
+    // `&array.*[..]`
     //
     // Steps:
     // - Deref the array

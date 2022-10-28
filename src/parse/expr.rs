@@ -583,7 +583,7 @@ impl Parser {
 
         let iter_start = self.parse_expression_res(self.restrictions | Restrictions::NO_STRUCT_LITERAL, false, true)?;
 
-        let iterator = if eat!(self, DotDotDot) {
+        let iterator = if eat!(self, DotDot) {
             self.skip_newlines();
 
             let iter_end =

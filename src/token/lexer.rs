@@ -98,10 +98,8 @@ impl<'lx> Lexer<'lx> {
                     }
                 }
                 '.' => {
-                    if self.peek() == '.' && self.peek_next() == '.' {
-                        self.bump();
-                        self.bump();
-                        DotDotDot
+                    if self.eat('.') {
+                        DotDot
                     } else {
                         Dot
                     }
