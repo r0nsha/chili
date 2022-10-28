@@ -484,7 +484,7 @@ impl Parser {
         let fields = parse_delimited_list!(
             self,
             CloseCurly,
-            Semicolon | Newline,
+            Comma,
             {
                 let id = self.require_ident()?;
                 let name = id.name();
@@ -498,13 +498,15 @@ impl Parser {
                 let mut ty = self.parse_expression(false, false)?;
                 Self::assign_expr_name_if_needed(&mut ty, name);
 
+                self.skip_newlines();
+
                 ast::StructTypeField {
                     name,
                     ty,
                     span: id.span,
                 }
             },
-            "a new line, ; or }"
+            "a , or }"
         );
 
         Ok(fields)

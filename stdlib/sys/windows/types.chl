@@ -40,36 +40,36 @@ pub type LPSTARTUPINFO = *STARTUPINFO
 pub type LPPROCESS_INFORMATION = *PROCESS_INFORMATION
 
 pub type SECURITY_ATTRIBUTES = struct {
-    nLength: DWORD
-    lpSecurityDescriptor: LPVOID
+    nLength: DWORD,
+    lpSecurityDescriptor: LPVOID,
     bInheritHandle: BOOL
 }
 
 pub type STARTUPINFO = struct {
-    cb: DWORD
-    lpReserved: LPSTR
-    lpDesktop: LPSTR
-    lpTitle: LPSTR
-    dwX: DWORD
-    dwY: DWORD
-    dwXSize: DWORD
-    dwYSize: DWORD
-    dwXCountChars: DWORD
-    dwYCountChars: DWORD
-    dwFillAttribute: DWORD
-    dwFlags: DWORD
-    wShowWindow: WORD
-    cbReserved2: WORD
-    lpReserved2: LPBYTE
-    hStdInput: HANDLE
-    hStdOutput: HANDLE
+    cb: DWORD,
+    lpReserved: LPSTR,
+    lpDesktop: LPSTR,
+    lpTitle: LPSTR,
+    dwX: DWORD,
+    dwY: DWORD,
+    dwXSize: DWORD,
+    dwYSize: DWORD,
+    dwXCountChars: DWORD,
+    dwYCountChars: DWORD,
+    dwFillAttribute: DWORD,
+    dwFlags: DWORD,
+    wShowWindow: WORD,
+    cbReserved2: WORD,
+    lpReserved2: LPBYTE,
+    hStdInput: HANDLE,
+    hStdOutput: HANDLE,
     hStdError: HANDLE
 }
 
 pub type PROCESS_INFORMATION = struct {
-    hProcess: HANDLE
-    hThread: HANDLE
-    dwProcessId: DWORD
+    hProcess: HANDLE,
+    hThread: HANDLE,
+    dwProcessId: DWORD,
     dwThreadId: DWORD
 }
 

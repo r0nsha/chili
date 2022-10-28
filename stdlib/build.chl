@@ -1,14 +1,14 @@
 pub use intrinsics.start_workspace
 
 pub type Workspace = struct {
-    name: *str
+    name: *str,
     build_options: BuildOptions
 }
 
 pub type BuildOptions = struct {
-    input_file: *str
-    output_file: *str
-    target: BuildTarget
+    input_file: *str,
+    output_file: *str,
+    target: BuildTarget,
     optimization_level: OptimizationLevel
 }
 

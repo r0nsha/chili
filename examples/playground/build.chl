@@ -12,7 +12,7 @@ fn build() = {
 		name: "hello",
 		build_options
 	}
-
+	
 	let (executable, ok) = start_workspace(workspace)
 
 	if ok {

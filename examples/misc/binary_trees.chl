@@ -2,7 +2,7 @@ use std.fmt.println
 use std.c.{printf, malloc}
 
 type Node = struct {
-    l: *mut Node
+    l: *mut Node,
     r: *mut Node
 }
 

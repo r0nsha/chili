@@ -361,11 +361,11 @@ fn variadic_functions() = {
 fn structs() = {
     println("structs")
 
-    // Struct fields are either separated by semicolons or newlines
-    type Foo = struct { bar: i32; baz: f32 }
+    // Struct fields are comma separated
+    type Foo = struct { bar: i32, baz: f32 }
 
     type Point = struct { 
-        x: int
+        x: int,
         y: int 
     }
 
