@@ -44,13 +44,6 @@ impl Parser {
             self.parse_struct_unpack()
         } else if eat!(self, OpenParen) {
             self.parse_tuple_unpack()
-        } else if eat!(self, Star) {
-            let span = self.previous_span();
-            Ok(Pat::Struct(StructPat {
-                subpats: vec![],
-                span,
-                glob: Some(GlobPat { span }),
-            }))
         } else {
             Err(SyntaxError::expected(self.span(), expectation))
         }
