@@ -1,5 +1,4 @@
-// use std.build.*
-let { * } = use(std).build
+use std.build.*
 
 fn build() = {
 	let build_options = BuildOptions {
