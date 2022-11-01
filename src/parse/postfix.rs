@@ -144,7 +144,6 @@ impl Parser {
                 span: start_span.to(token.span),
             }),
 
-            // OpenParen => self.parse_call(expr)?,
             _ => return Err(SyntaxError::expected(self.span(), "an identifier, number or *")),
         };
 
