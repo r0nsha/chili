@@ -57,7 +57,7 @@ impl<'s> Stopwatch<'s> {
 macro_rules! time {
     ($enabled:expr, $label:literal, $body:expr) => {{
         if $enabled {
-            let sw = crate::common::Stopwatch::start_new($label);
+            let sw = $crate::common::Stopwatch::start_new($label);
             let res = $body;
             sw.print();
             res
@@ -67,7 +67,7 @@ macro_rules! time {
     }};
     ($enabled:expr, $label:expr, $body:expr) => {{
         if $enabled {
-            let sw = crate::common::Stopwatch::start_new($label);
+            let sw = $crate::common::Stopwatch::start_new($label);
             let res = $body;
             sw.print();
             res

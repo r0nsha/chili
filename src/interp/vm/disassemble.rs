@@ -28,16 +28,16 @@ pub fn dump_bytecode_to_file(interp: &Interp, code: &Bytecode) {
         for (slot, value) in interp.globals.iter().enumerate() {
             write!(&mut w, "${} = ", slot).unwrap();
             value.disassemble(&mut w, interp);
-            write!(&mut w, "\n").unwrap();
+            writeln!(&mut w).unwrap();
         }
 
-        write!(&mut w, "\nfunctions:\n").unwrap();
+        writeln!(&mut w, "\nfunctions:").unwrap();
 
         let last_function_index = interp.functions.len() - 1;
         for (index, (_, function)) in interp.functions.iter().enumerate() {
-            write!(
+            writeln!(
                 &mut w,
-                "fn {}\n",
+                "fn {}",
                 if function.name.is_empty() {
                     "<anon>"
                 } else {
@@ -49,7 +49,7 @@ pub fn dump_bytecode_to_file(interp: &Interp, code: &Bytecode) {
             function.code.reader().disassemble(&mut w, interp);
 
             if index < last_function_index {
-                write!(&mut w, "\n").unwrap();
+                writeln!(&mut w).unwrap();
             }
         }
 
@@ -58,7 +58,7 @@ pub fn dump_bytecode_to_file(interp: &Interp, code: &Bytecode) {
         for (slot, constant) in interp.constants.iter().enumerate() {
             write!(&mut w, "%{}\t", slot).unwrap();
             constant.disassemble(&mut w, interp);
-            write!(&mut w, "\n").unwrap();
+            writeln!(&mut w).unwrap();
         }
     }
 }
@@ -87,7 +87,7 @@ impl<'a, W: Write> Disassemble<W> for BytecodeReader<'a> {
 
         while reader.has_remaining() {
             bytecode_reader_write_single_inst(&mut reader, w);
-            write!(w, "\n").unwrap();
+            writeln!(w).unwrap();
         }
     }
 }
