@@ -31,3 +31,4 @@ hir.pretty.chl
 examples/**/out
 examples/demo/comptime
 examples/demo/demo
+*.vim
