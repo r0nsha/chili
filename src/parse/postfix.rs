@@ -163,35 +163,45 @@ impl Parser {
             Ok((value, spread))
         }
 
+        fn get_named_arg_id(parser: &mut Parser) -> Option<Token> {
+            if eat!(parser, Ident(_)) {
+                let id_token = *parser.previous();
+
+                if eat!(parser, Colon) {
+                    Some(id_token)
+                } else {
+                    parser.revert(1);
+                    None
+                }
+            } else {
+                None
+            }
+        }
+
         while !eat!(self, CloseParen) && !self.eof() {
             self.skip_newlines();
 
-            if eat!(self, Ident(_)) {
-                let id_token = *self.previous();
-
+            if let Some(id_token) = get_named_arg_id(self) {
                 let name = ast::NameAndSpan {
                     name: id_token.name(),
                     span: id_token.span,
                 };
 
-                if eat!(self, Colon) {
-                    let (value, spread) = parse_arg_value(self)?;
-                    named_args.push(ast::CallNamedArg { name, value, spread });
-                } else if !named_args.is_empty() {
+                let (value, spread) = parse_arg_value(self)?;
+                named_args.push(ast::CallNamedArg { name, value, spread });
+            } else {
+                let (value, spread) = parse_arg_value(self)?;
+
+                if named_args.is_empty() {
+                    args.push(ast::CallArg { value, spread });
+                } else {
                     return Err(Diagnostic::error()
                         .with_message("positional arguments must come before named arguments")
                         .with_label(Label::primary(
-                            name.span,
+                            value.span(),
                             "positional argument comes after named arguments",
                         )));
-                } else {
-                    self.revert(1);
-                    let (value, spread) = parse_arg_value(self)?;
-                    args.push(ast::CallArg { value, spread });
                 }
-            } else {
-                let (value, spread) = parse_arg_value(self)?;
-                args.push(ast::CallArg { value, spread });
             }
 
             if eat!(self, Comma) {
