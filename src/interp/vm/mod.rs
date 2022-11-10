@@ -318,8 +318,8 @@ impl<'vm> VM<'vm> {
                         _ => panic!(
                             "invalid types in binary operation `{}` : `{}` and `{}`",
                             stringify!(+),
-                            a.to_string(),
-                            b.to_string()
+                            a,
+                            b
                         ),
                     }
                 }
@@ -344,8 +344,8 @@ impl<'vm> VM<'vm> {
                         _ => panic!(
                             "invalid types in binary operation `{}` : `{}` and `{}`",
                             stringify!(-),
-                            a.to_string(),
-                            b.to_string()
+                            a,
+                            b
                         ),
                     }
                 }
@@ -369,8 +369,8 @@ impl<'vm> VM<'vm> {
                         _ => panic!(
                             "invalid types in binary operation `{}` : `{}` and `{}`",
                             stringify!(*),
-                            a.to_string(),
-                            b.to_string()
+                            a,
+                            b
                         ),
                     }
                 }
@@ -394,8 +394,8 @@ impl<'vm> VM<'vm> {
                         _ => panic!(
                             "invalid types in binary operation `{}` : `{}` and `{}`",
                             stringify!(%),
-                            a.to_string(),
-                            b.to_string()
+                            a,
+                            b
                         ),
                     }
                 }
@@ -419,14 +419,14 @@ impl<'vm> VM<'vm> {
                         _ => panic!(
                             "invalid types in binary operation `{}` : `{}` and `{}`",
                             stringify!(%),
-                            a.to_string(),
-                            b.to_string()
+                            a,
+                            b
                         ),
                     }
                 }
                 Op::Neg => match self.stack.pop() {
                     Value::Int(v) => self.stack.push(Value::Int(-v)),
-                    value => panic!("invalid value {}", value.to_string()),
+                    value => panic!("invalid value {}", value),
                 },
                 Op::Not => {
                     let result = match self.stack.pop() {
@@ -441,7 +441,7 @@ impl<'vm> VM<'vm> {
                         Value::U64(v) => Value::U64(!v),
                         Value::Uint(v) => Value::Uint(!v),
                         Value::Bool(v) => Value::Bool(!v),
-                        v => panic!("invalid value {}", v.to_string()),
+                        v => panic!("invalid value {}", v),
                     };
                     self.stack.push(result);
                 }
@@ -450,7 +450,7 @@ impl<'vm> VM<'vm> {
                         let value = unsafe { ptr.deref_value() };
                         self.stack.push(value);
                     }
-                    value => panic!("invalid value {}", value.to_string()),
+                    value => panic!("invalid value {}", value),
                 },
                 Op::Eq => {
                     compare_op!(self, ==);
@@ -541,7 +541,7 @@ impl<'vm> VM<'vm> {
                             }
                         }
                         Value::Intrinsic(intrinsic) => self.dispatch_intrinsic(intrinsic),
-                        value => panic!("tried to call uncallable value `{}`", value.to_string()),
+                        value => panic!("tried to call uncallable value `{}`", value),
                     }
                 }
                 Op::LoadGlobal => {
@@ -698,36 +698,30 @@ impl<'vm> VM<'vm> {
     #[inline]
     fn index(&mut self, value: Value, index: usize) {
         match value {
-            Value::Pointer(ref ptr) => match ptr {
-                Pointer::Buffer(buf) => {
-                    let buf = unsafe { &**buf };
-                    let value = buf.get_value_at_index(index);
-                    self.stack.push(value);
-                }
-                _ => panic!("invalid value {}", value.to_string()),
-            },
+            Value::Pointer(Pointer::Buffer(buf)) => {
+                let buf = unsafe { &*buf };
+                let value = buf.get_value_at_index(index);
+                self.stack.push(value);
+            }
             Value::Buffer(buf) => {
                 let value = buf.get_value_at_index(index);
                 self.stack.push(value);
             }
-            _ => panic!("invalid value {}", value.to_string()),
+            _ => panic!("invalid value {}", value),
         }
     }
 
     #[inline]
     fn index_ptr(&mut self, value: Value, index: usize) {
         match value {
-            Value::Pointer(ref ptr) => match ptr {
-                Pointer::Buffer(buf) => {
-                    let buf = unsafe { &mut **buf };
-                    let ptr = buf.bytes.offset_mut(index).as_mut_ptr();
-                    let value = Value::Pointer(Pointer::from_type_and_ptr(buf.ty.element_type().unwrap(), ptr as _));
-                    self.stack.push(value);
-                }
-                _ => panic!("invalid value {}", value.to_string()),
-            },
+            Value::Pointer(Pointer::Buffer(buf)) => {
+                let buf = unsafe { &mut *buf };
+                let ptr = buf.bytes.offset_mut(index).as_mut_ptr();
+                let value = Value::Pointer(Pointer::from_type_and_ptr(buf.ty.element_type().unwrap(), ptr as _));
+                self.stack.push(value);
+            }
             Value::Buffer(_) => self.offset(value, index),
-            _ => panic!("invalid value {}", value.to_string()),
+            _ => panic!("invalid value {}", value),
         }
     }
 
@@ -763,7 +757,7 @@ impl<'vm> VM<'vm> {
                     ptr as *const u8 as *mut u8 as _,
                 )));
             }
-            _ => panic!("invalid value {}", value.to_string()),
+            _ => panic!("invalid value {}", value),
         }
     }
 
@@ -806,7 +800,7 @@ impl<'vm> VM<'vm> {
                     check_mode: false,
                 };
 
-                let result = crate::driver::start_workspace(workspace_value.name.to_string(), build_options);
+                let result = crate::driver::start_workspace(workspace_value.name, build_options);
 
                 let (output_file, ok) = if let Some(output_file) = &result.output_file {
                     // TODO: Remove null terminator after implementing printing/formatting
@@ -868,7 +862,7 @@ impl<'vm> VM<'vm> {
                         }
                         _ => ptr.as_inner_raw(),
                     },
-                    _ => panic!("invalid value {}", value.to_string()),
+                    _ => panic!("invalid value {}", value),
                 };
 
                 let new_ptr = Pointer::from_type_and_ptr(&inner, raw_ptr);

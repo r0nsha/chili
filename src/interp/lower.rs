@@ -571,7 +571,7 @@ impl Lower for hir::Builtin {
                         code.write_inst(Inst::Swap(1));
                         code.write_inst(Inst::ConstIndex(0));
 
-                        sess.push_const(code, Value::Type(result_type.clone()));
+                        sess.push_const(code, Value::Type(result_type));
                         code.write_inst(Inst::BufferAlloc(result_type_size));
 
                         code.write_inst(Inst::Swap(1));
@@ -592,7 +592,7 @@ impl Lower for hir::Builtin {
                         code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
                     }
                     Type::Array(..) => {
-                        sess.push_const(code, Value::Type(result_type.clone()));
+                        sess.push_const(code, Value::Type(result_type));
                         code.write_inst(Inst::BufferAlloc(result_type_size));
 
                         slice.value.lower(sess, code, LowerContext { take_ptr: false });
@@ -615,7 +615,7 @@ impl Lower for hir::Builtin {
                         code.write_inst(Inst::BufferPut(WORD_SIZE as u32));
                     }
                     _ => {
-                        sess.push_const(code, Value::Type(result_type.clone()));
+                        sess.push_const(code, Value::Type(result_type));
                         code.write_inst(Inst::BufferAlloc(result_type_size));
 
                         slice.value.lower(sess, code, LowerContext { take_ptr: false });

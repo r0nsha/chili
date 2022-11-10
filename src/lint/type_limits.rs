@@ -10,8 +10,8 @@ use std::fmt::Display;
 
 impl<'s> LintSess<'s> {
     pub fn check_type_limits(&mut self, const_: &hir::Const) {
-        match &const_.value {
-            &ConstValue::Int(value) => match &const_.ty.normalize(self.tcx) {
+        if let &ConstValue::Int(value) = &const_.value {
+            match &const_.ty.normalize(self.tcx) {
                 Type::Int(int_type) => {
                     let (min, max) = int_type_range(*int_type);
 
@@ -27,8 +27,7 @@ impl<'s> LintSess<'s> {
                     }
                 }
                 _ => (),
-            },
-            _ => (),
+            }
         }
     }
 

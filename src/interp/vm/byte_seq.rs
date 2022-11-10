@@ -109,7 +109,7 @@ impl PutValue for [u8] {
                 .write_uint::<NativeEndian>(v.as_inner_raw() as u64, WORD_SIZE)
                 .unwrap(),
             Value::Function(_) => todo!(),
-            _ => panic!("can't convert `{}` to raw self.as_mut().inner", value.to_string()),
+            _ => panic!("can't convert `{}` to raw self.as_mut().inner", value),
         }
     }
 }
@@ -126,7 +126,7 @@ impl GetValue for ByteSeq {
 
 impl GetValue for [u8] {
     fn get_value(&self, ty: &Type) -> Value {
-        let mut _ref = self.as_ref();
+        let mut _ref = self;
 
         match ty {
             Type::Never | Type::Unit => Value::unit(), // these types' sizes are zero _ref.inner

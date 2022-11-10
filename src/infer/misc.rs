@@ -19,10 +19,7 @@ fn is_concrete_impl(ty: &Type) -> Result<(), TypeId> {
             is_concrete_impl(inner)
         }
         Type::Function(f) => {
-            f.params
-                .iter()
-                .map(|p| is_concrete_impl(&p.ty))
-                .collect::<Result<_, _>>()?;
+            f.params.iter().try_for_each(|p| is_concrete_impl(&p.ty))?;
 
             is_concrete_impl(&f.return_type)?;
 
@@ -30,20 +27,15 @@ fn is_concrete_impl(ty: &Type) -> Result<(), TypeId> {
                 .varargs
                 .as_ref()
                 .map(|v| &v.ty)
-                .map(|ty| ty.as_ref().map(|ty| is_concrete_impl(ty)))
-                .flatten()
+                .and_then(|ty| ty.as_ref().map(is_concrete_impl))
             {
                 return Err(ty);
             }
 
             Ok(())
         }
-        Type::Tuple(elems) => elems.iter().map(is_concrete_impl).collect::<Result<_, _>>(),
-        Type::Struct(st) => st
-            .fields
-            .iter()
-            .map(|f| is_concrete_impl(&f.ty))
-            .collect::<Result<_, _>>(),
+        Type::Tuple(elems) => elems.iter().try_for_each(is_concrete_impl),
+        Type::Struct(st) => st.fields.iter().try_for_each(|f| is_concrete_impl(&f.ty)),
         Type::Module(_) | Type::Type(_) | Type::AnyType => Ok(()),
         Type::Var(ty) | Type::Infer(ty, _) => Err(*ty),
     }

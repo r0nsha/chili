@@ -107,15 +107,12 @@ impl<'s> LintSess<'s> {
                 }
             }
             hir::Node::Id(id) => {
-                match ty {
-                    Type::Pointer(_, is_mutable) => {
-                        if is_mutable && is_direct_ref {
-                            return Ok(());
-                        } else {
-                            return Err(ImmutableReference { ty, span: node.span() });
-                        }
+                if let Type::Pointer(_, is_mutable) = ty {
+                    if is_mutable && is_direct_ref {
+                        return Ok(());
+                    } else {
+                        return Err(ImmutableReference { ty, span: node.span() });
                     }
-                    _ => (),
                 }
 
                 let binding_info = self.workspace.binding_infos.get(id.id).unwrap();

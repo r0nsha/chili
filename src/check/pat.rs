@@ -67,7 +67,7 @@ impl<'s> CheckSess<'s> {
             const_value: if is_mutable || flags.contains(BindingInfoFlags::NO_CONST_FOLD) {
                 None
             } else {
-                value.as_ref().map(|v| v.as_const_value().cloned()).flatten()
+                value.as_ref().and_then(|v| v.as_const_value().cloned())
             },
             is_mutable,
             kind,
@@ -80,7 +80,7 @@ impl<'s> CheckSess<'s> {
         let id = self
             .workspace
             .binding_infos
-            .insert_with_id(partial_binding_info.clone().into_binding_info());
+            .insert_with_id(partial_binding_info.into_binding_info());
 
         match scope_level {
             // check if there's already a binding with this symbol
@@ -210,7 +210,7 @@ impl<'s> CheckSess<'s> {
             Pat::Hybrid(pat) => {
                 let mut statements = vec![];
 
-                let (id, bound_node) = self.bind_name_pat(env, &pat.name_pat, vis, ty, value.clone(), kind, flags)?;
+                let (id, bound_node) = self.bind_name_pat(env, &pat.name_pat, vis, ty, value, kind, flags)?;
 
                 let id_node = self.get_id_node_for_unpack_pat(bound_node, &mut statements);
 

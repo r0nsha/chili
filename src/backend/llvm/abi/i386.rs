@@ -58,13 +58,11 @@ pub(super) fn non_struct<'ctx>(info: AbiInfo<'ctx>, ty: BasicTypeEnum<'ctx>, is_
     } else {
         let mut abi_ty = AbiTy::direct(ty);
 
-        if ty.is_int_type() {
-            if ty.into_int_type().get_bit_width() == 1 {
-                abi_ty.attr = Some(
-                    info.context
-                        .create_enum_attribute(Attribute::get_named_enum_kind_id("zeroext"), 0),
-                );
-            }
+        if ty.is_int_type() && ty.into_int_type().get_bit_width() == 1 {
+            abi_ty.attr = Some(
+                info.context
+                    .create_enum_attribute(Attribute::get_named_enum_kind_id("zeroext"), 0),
+            );
         }
 
         abi_ty

@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     ast::{self, Ast, Call, Cast, UnaryOp},
-    error::*,
+    error::{diagnostic::Label, *},
     span::{EndPosition, Position},
     token::TokenKind::*,
     types::FunctionTypeKind,
@@ -57,6 +57,7 @@ impl Parser {
                                     value: fn_arg,
                                     spread: false,
                                 }],
+                                named_args: vec![],
                                 span,
                             })
                         }
@@ -153,22 +154,64 @@ impl Parser {
     fn parse_call(&mut self, callee: Ast) -> DiagnosticResult<Ast> {
         let start_span = callee.span();
 
-        let args = parse_delimited_list!(
-            self,
-            CloseParen,
-            Comma,
-            {
-                let value = self.parse_expression(false, true)?;
-                let spread = eat!(self, DotDot);
+        let mut args: Vec<ast::CallArg> = vec![];
+        let mut named_args: Vec<ast::CallNamedArg> = vec![];
 
-                ast::CallArg { value, spread }
-            },
-            ", or )"
-        );
+        fn parse_arg_value(parser: &mut Parser) -> DiagnosticResult<(ast::Ast, bool)> {
+            let value = parser.parse_expression(false, true)?;
+            let spread = eat!(parser, DotDot);
+            Ok((value, spread))
+        }
+
+        while !eat!(self, CloseParen) && !self.eof() {
+            self.skip_newlines();
+
+            if eat!(self, Ident(_)) {
+                let id_token = *self.previous();
+
+                let name = ast::NameAndSpan {
+                    name: id_token.name(),
+                    span: id_token.span,
+                };
+
+                if eat!(self, Colon) {
+                    let (value, spread) = parse_arg_value(self)?;
+                    named_args.push(ast::CallNamedArg { name, value, spread });
+                } else if !named_args.is_empty() {
+                    return Err(Diagnostic::error()
+                        .with_message("positional arguments must come before named arguments")
+                        .with_label(Label::primary(
+                            name.span,
+                            "positional argument comes after named arguments",
+                        )));
+                } else {
+                    self.revert(1);
+                    let (value, spread) = parse_arg_value(self)?;
+                    args.push(ast::CallArg { value, spread });
+                }
+            } else {
+                let (value, spread) = parse_arg_value(self)?;
+                args.push(ast::CallArg { value, spread });
+            }
+
+            if eat!(self, Comma) {
+                self.skip_newlines();
+                continue;
+            } else if eat!(self, CloseParen) {
+                break;
+            } else {
+                let span = self.previous_span().after();
+                return Err(SyntaxError::expected(
+                    span,
+                    &format!("{}, got {}", ", or )", self.peek().kind.lexeme()),
+                ));
+            }
+        }
 
         Ok(Ast::Call(Call {
             callee: Box::new(callee),
             args,
+            named_args,
             span: start_span.to(self.previous_span()),
         }))
     }

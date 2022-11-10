@@ -74,7 +74,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         const NAME: &str = "__runtime_check_index_out_of_bounds";
 
         let message = self
-            .const_str_slice(&NAME, "index out of bounds: the len is (len) but the index is (index)")
+            .const_str_slice(NAME, "index out of bounds: the len is (len) but the index is (index)")
             .into();
 
         let is_lower_than_zero =
@@ -100,7 +100,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         const NAME: &str = "__runtime_check_slice_end_before_start";
 
         let message = self
-            .const_str_slice(&NAME, "slice index starts at (start) but ends at (end)")
+            .const_str_slice(NAME, "slice index starts at (start) but ends at (end)")
             .into();
 
         let condition = self.builder.build_int_compare(IntPredicate::ULT, high, low, "");
@@ -122,7 +122,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         let message = self
             .const_str_slice(
-                &NAME,
+                NAME,
                 "slice range (start)..(end) is out of range for slice of length (len)",
             )
             .into();

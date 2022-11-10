@@ -46,11 +46,17 @@ enum RegClass {
 
 impl RegClass {
     fn is_sse(&self) -> bool {
-        match self {
-            RegClass::SSEFs | RegClass::SSEFv | RegClass::SSEDs | RegClass::SSEDv => true,
-            RegClass::SSEInt8 | RegClass::SSEInt16 | RegClass::SSEInt32 | RegClass::SSEInt64 => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            RegClass::SSEFs
+                | RegClass::SSEFv
+                | RegClass::SSEDs
+                | RegClass::SSEDv
+                | RegClass::SSEInt8
+                | RegClass::SSEInt16
+                | RegClass::SSEInt32
+                | RegClass::SSEInt64
+        )
     }
 
     fn all_mem(classes: &mut [RegClass]) {
@@ -80,7 +86,7 @@ fn is_mem_class(classes: &[RegClass], attr_kind: Amd64TypeAttributeKind) -> bool
     }
 }
 
-fn is_register<'ctx>(ty: &BasicTypeEnum<'ctx>) -> bool {
+fn is_register(ty: &BasicTypeEnum<'_>) -> bool {
     matches!(
         ty,
         BasicTypeEnum::IntType(_) | BasicTypeEnum::FloatType(_) | BasicTypeEnum::PointerType(_)
@@ -99,7 +105,7 @@ fn amd64_sysv_type<'ctx>(
 
         if is_mem_class(&classes, attr_kind) {
             if attr_kind == Amd64TypeAttributeKind::ByVal {
-                AbiTy::indirect_byval(&info.context, ty, info.word_size)
+                AbiTy::indirect_byval(info.context, ty, info.word_size)
             } else if attr_kind == Amd64TypeAttributeKind::StructRect {
                 *AbiTy::indirect(ty).with_attr(
                     info.context
@@ -232,8 +238,6 @@ fn unify_classes(classes: &mut [RegClass], index: usize, new_class: RegClass) {
         RegClass::Memory
     } else if old_class == RegClass::Int || new_class == RegClass::Int {
         RegClass::Int
-    } else if old_class == RegClass::X87 || old_class == RegClass::X87Up || old_class == RegClass::ComplexX87 {
-        RegClass::Memory
     } else if new_class == RegClass::X87 || new_class == RegClass::X87Up || new_class == RegClass::ComplexX87 {
         RegClass::Memory
     } else if new_class == RegClass::SSEUp {
@@ -255,7 +259,7 @@ fn unify_classes(classes: &mut [RegClass], index: usize, new_class: RegClass) {
     classes[index] = class_to_write;
 }
 
-fn fixup_classes<'ctx>(classes: &mut [RegClass], ty: BasicTypeEnum<'ctx>) {
+fn fixup_classes(classes: &mut [RegClass], ty: BasicTypeEnum<'_>) {
     let end = classes.len();
 
     if end > 2

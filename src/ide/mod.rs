@@ -24,7 +24,7 @@ pub fn diagnostics(workspace: &Workspace, tcx: Option<&TypeCtx>, cache: Option<&
             .items()
             .iter()
             .filter(|diag| !diag.labels.is_empty())
-            .map(|diag| {
+            .filter_map(|diag| {
                 diag.labels.first().map(|label| {
                     let file = workspace.diagnostics.get_file(label.span.file_id).unwrap();
 
@@ -40,31 +40,27 @@ pub fn diagnostics(workspace: &Workspace, tcx: Option<&TypeCtx>, cache: Option<&
                         },
                     })
                 })
-            })
-            .flatten(),
+            }),
     );
 
-    match (tcx, cache) {
-        (Some(tcx), Some(cache)) => {
-            let mut sess = HintSess {
-                workspace,
-                tcx,
-                hints: indexmap!(),
-            };
+    if let (Some(tcx), Some(cache)) = (tcx, cache) {
+        let mut sess = HintSess {
+            workspace,
+            tcx,
+            hints: indexmap!(),
+        };
 
-            cache
-                .bindings
-                .iter()
-                .for_each(|(_, binding)| binding.collect_hints(&mut sess));
+        cache
+            .bindings
+            .iter()
+            .for_each(|(_, binding)| binding.collect_hints(&mut sess));
 
-            cache
-                .functions
-                .iter()
-                .for_each(|(_, function)| function.collect_hints(&mut sess));
+        cache
+            .functions
+            .iter()
+            .for_each(|(_, function)| function.collect_hints(&mut sess));
 
-            objects.extend(sess.hints.into_values().map(IdeObject::Hint));
-        }
-        _ => (),
+        objects.extend(sess.hints.into_values().map(IdeObject::Hint));
     }
 
     write(&objects);
@@ -92,21 +88,18 @@ pub fn goto_definition(workspace: &Workspace, tcx: Option<&TypeCtx>, offset: usi
     for (_, binding_info) in workspace.binding_infos.iter() {
         if is_offset_in_span_and_root_module(workspace, offset, binding_info.span) {
             if let Some(tcx) = tcx {
-                match binding_info.ty.normalize(tcx) {
-                    Type::Module(module_id) => {
-                        let module_info = workspace.module_infos.get(module_id).unwrap();
+                if let Type::Module(module_id) = binding_info.ty.normalize(tcx) {
+                    let module_info = workspace.module_infos.get(module_id).unwrap();
 
-                        let span = Span {
-                            file_id: module_info.file_id,
-                            start: Position::initial(),
-                            end: EndPosition::initial(),
-                        };
+                    let span = Span {
+                        file_id: module_info.file_id,
+                        start: Position::initial(),
+                        end: EndPosition::initial(),
+                    };
 
-                        write(&IdeSpan::from_span_and_file(span, module_info.file_path.to_string()));
+                    write(&IdeSpan::from_span_and_file(span, module_info.file_path.to_string()));
 
-                        return;
-                    }
-                    _ => (),
+                    return;
                 }
             }
 

@@ -77,7 +77,7 @@ pub struct TuplePat {
     pub span: Span,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct GlobPat {
     pub span: Span,
 }
@@ -95,7 +95,7 @@ pub struct HybridPat {
     pub span: Span,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct NamePat {
     pub id: BindingId,
     pub name: Ustr,

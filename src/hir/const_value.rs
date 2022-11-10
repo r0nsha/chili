@@ -39,14 +39,14 @@ pub struct ConstArray {
     pub element_type: TypeId,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq,Eq, Clone)]
 pub struct ConstFunction {
     pub id: FunctionId,
     // Name is only used for display purposes
     pub name: Ustr,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq,Eq, Clone)]
 pub struct ConstExternVariable {
     pub name: Ustr,
     pub lib: Option<ExternLibrary>,
@@ -70,7 +70,7 @@ impl From<ast::LiteralKind> for ConstValue {
 impl ConstValue {
     pub fn eq(&self, other: &Self) -> Self {
         Self::Bool(match (self, other) {
-            (Self::Unit(left), Self::Unit(right)) => *left == *right,
+            (Self::Unit(_), Self::Unit(_)) => true,
             (Self::Type(left), Self::Type(right)) => *left == *right,
             (Self::Bool(left), Self::Bool(right)) => *left == *right,
             (Self::Int(left), Self::Int(right)) => *left == *right,

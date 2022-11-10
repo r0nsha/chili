@@ -12,7 +12,7 @@ use ustr::Ustr;
 impl<'g, 'ctx> Generator<'g, 'ctx> {
     pub(super) fn const_str_slice(&mut self, name: &str, value: impl Into<Ustr>) -> PointerValue<'ctx> {
         let value = value.into();
-        let cached_str = self.static_strs.get(&value).map(|v| *v);
+        let cached_str = self.static_strs.get(&value).copied();
 
         let ptr = cached_str.unwrap_or_else(|| self.builder.build_global_string_ptr(&value, name).as_pointer_value());
         let len = self.ptr_sized_int_type.const_int(value.len() as u64, false);
@@ -37,7 +37,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
     #[inline]
     pub(super) fn const_struct(&self, values: &[BasicValueEnum<'ctx>]) -> StructValue<'ctx> {
-        self.context.const_struct(&values, false)
+        self.context.const_struct(values, false)
     }
 
     #[inline]

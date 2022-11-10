@@ -112,8 +112,8 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Binding {
 impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Id {
     fn codegen(&self, generator: &mut Generator<'g, 'ctx>, state: &mut FunctionState<'ctx>) -> BasicValueEnum<'ctx> {
         let decl_ptr = match state.scopes.get(self.id) {
-            Some((_, decl)) => decl.into_pointer_value(),
-            None => generator.gen_top_level_binding(self.id).into_pointer_value(),
+            Some((_, decl)) => decl.as_pointer_value(),
+            None => generator.gen_top_level_binding(self.id).as_pointer_value(),
         };
 
         generator.build_load(

@@ -166,7 +166,7 @@ impl FfiFunction {
                         if buf.is_null() {
                             raw_ptr!(buf)
                         } else {
-                            raw_ptr!(bump.alloc((&mut **buf).bytes.as_mut_ptr()))
+                            raw_ptr!(bump.alloc((**buf).bytes.as_mut_ptr()))
                         }
                     }
                     _ => raw_ptr!(ptr.as_raw()),
@@ -191,7 +191,7 @@ impl FfiFunction {
                         raw_ptr!(symbol)
                     }
                 },
-                _ => panic!("can't pass `{}` through ffi", arg.to_string()),
+                _ => panic!("can't pass `{}` through ffi", arg),
             };
 
             args.push(arg_ptr);
@@ -267,7 +267,7 @@ unsafe extern "C" fn closure_callback(
         Value::F64(v) => *(result as *mut _ as *mut _) = v,
         Value::Bool(v) => *(result as *mut _ as *mut _) = v,
         Value::Pointer(v) => *(result as *mut _ as *mut _) = v.as_inner_raw(),
-        _ => panic!("unexpected value `{}`", value.to_string()),
+        _ => panic!("unexpected value `{}`", value),
     }
 }
 

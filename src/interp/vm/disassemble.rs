@@ -83,7 +83,7 @@ impl<W: Write> Disassemble<W> for Value {
 
 impl<'a, W: Write> Disassemble<W> for BytecodeReader<'a> {
     fn disassemble(&self, w: &mut W, _: &Interp) {
-        let mut reader = self.clone();
+        let mut reader = *self;
 
         while reader.has_remaining() {
             bytecode_reader_write_single_inst(&mut reader, w);

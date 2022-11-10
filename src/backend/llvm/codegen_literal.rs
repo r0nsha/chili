@@ -151,7 +151,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::ArrayFillLiteral {
         generator.builder.build_unconditional_branch(loop_head);
         generator.start_block(state, loop_head);
 
-        let it_value = generator.build_load(it.into(), "").into_int_value();
+        let it_value = generator.build_load(it, "").into_int_value();
 
         let condition = generator
             .builder

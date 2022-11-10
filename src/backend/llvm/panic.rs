@@ -12,7 +12,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     }
 
     pub(super) fn gen_panic(&mut self, state: &mut FunctionState<'ctx>, message: BasicValueEnum<'ctx>, span: Span) {
-        let panic_fn = self.find_decl_by_name("std.process", "panic").into_function_value();
+        let panic_fn = self.find_decl_by_name("std.process", "panic").as_function_value();
         let panic_binding_info = self.find_binding_info_by_name("std.process", "panic");
         let panic_fn_type = panic_binding_info.ty.clone().normalize(self.tcx).into_function();
 
@@ -25,13 +25,9 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         let line = self.context.i32_type().const_int(span.start.line as _, false);
         let column = self.context.i32_type().const_int(span.start.column as _, false);
 
-        let location = self.build_struct(
-            state,
-            location_llvm_type.into(),
-            &[file_path, line.into(), column.into()],
-        );
+        let location = self.build_struct(state, location_llvm_type, &[file_path, line.into(), column.into()]);
 
-        let location = self.build_load(location.into(), "");
+        let location = self.build_load(location, "");
 
         self.gen_function_call(
             state,

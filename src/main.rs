@@ -187,8 +187,7 @@ fn get_workspace_name(source_file: &Path) -> String {
     source_file
         .parent()
         .or(Some(source_file))
-        .map(|path| path.file_stem())
-        .flatten()
+        .and_then(|path| path.file_stem())
         .map_or("root", |file| file.to_str().unwrap())
         .to_string()
 }
@@ -222,7 +221,7 @@ fn print_err(msg: &str) {
 fn get_include_paths(include_paths: &Option<String>) -> Vec<PathBuf> {
     include_paths
         .as_ref()
-        .map_or_else(|| vec![], |i| i.split(';').map(|s| PathBuf::from(s)).collect())
+        .map_or_else(std::vec::Vec::new, |i| i.split(';').map(PathBuf::from).collect())
 }
 
 fn main() {

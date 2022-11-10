@@ -150,7 +150,7 @@ impl<'g, 'ctx> Codegen<'g, 'ctx> for hir::Builtin {
                     let value = unary.value.codegen(generator, state).into_float_value();
                     generator.builder.build_float_neg(value, "fneg").into()
                 }
-                _ => unreachable!("{}", &unary.value.ty().display(&generator.tcx)),
+                _ => unreachable!("{}", &unary.value.ty().display(generator.tcx)),
             },
             hir::Builtin::Deref(unary) => {
                 let value = unary.value.codegen(generator, state);

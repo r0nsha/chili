@@ -271,7 +271,7 @@ impl Parser {
             // TODO: `Self` should be a keyword
             const SYM_SELF: &str = "Self";
 
-            let token = self.previous().clone();
+            let token = *self.previous();
             let name = token.name();
 
             if name == SYM_SELF {

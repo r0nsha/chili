@@ -487,7 +487,7 @@ impl Display for Op {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum Inst {
     Pop,
     LoadConst(u32),

@@ -35,8 +35,8 @@ use crate::{
     span::Span,
     sym,
     types::{
-        align_of::AlignOf, is_sized::IsSized, size_of::SizeOf, FunctionType, FunctionTypeKind, FunctionTypeParam,
-        FunctionTypeVarargs, StructType, StructTypeField, StructTypeKind, Type, TypeId,
+        align_of::AlignOf, is_sized::IsSized, size_of::SizeOf, FunctionType, FunctionTypeParam, FunctionTypeVarargs,
+        StructType, StructTypeField, StructTypeKind, Type, TypeId,
     },
     workspace::{
         BindingId, BindingInfo, BindingInfoFlags, BindingInfoKind, LibraryId, ModuleId, ScopeLevel, Workspace,
@@ -203,7 +203,7 @@ impl<'s> CheckSess<'s> {
     }
 
     pub fn function_frame(&self) -> Option<FunctionFrame> {
-        self.function_frames.last().map(|&f| f)
+        self.function_frames.last().copied()
     }
 
     pub fn require_const_type(&self, node: &hir::Node) -> DiagnosticResult<TypeId> {
@@ -225,13 +225,13 @@ impl<'s> CheckSess<'s> {
     }
 
     pub(super) fn is_lvalue(&self, node: &hir::Node) -> bool {
-        match node {
+        matches!(
+            node,
             hir::Node::MemberAccess(_)
-            | hir::Node::Id(_)
-            | hir::Node::Builtin(hir::Builtin::Deref(_))
-            | hir::Node::Builtin(hir::Builtin::Offset(_)) => true,
-            _ => false,
-        }
+                | hir::Node::Id(_)
+                | hir::Node::Builtin(hir::Builtin::Deref(_))
+                | hir::Node::Builtin(hir::Builtin::Offset(_))
+        )
     }
 
     pub(super) fn id_or_const_by_id(&self, id: BindingId, span: Span) -> hir::Node {
@@ -539,7 +539,7 @@ impl Check for ast::Binding {
                 let value_span = value_node.span();
                 let (_, bound_node) = sess.bind_pat(
                     env,
-                    &pat,
+                    pat,
                     self.vis,
                     ty,
                     Some(value_node),
@@ -589,20 +589,16 @@ impl Check for ast::Binding {
                 if sess.workspace.build_options.need_entry_point_function()
                     && env.module_id() == sess.workspace.root_module_id
                     && env.scope_level().is_global()
+                    && name == "main"
                 {
-                    if name == "main" {
-                        if let Some(ConstValue::Function(f)) = node.as_const_value() {
-                            let function = sess.cache.functions.get(f.id).unwrap();
+                    if let Some(ConstValue::Function(f)) = node.as_const_value() {
+                        let function = sess.cache.functions.get(f.id).unwrap();
 
-                            match &function.kind {
-                                hir::FunctionKind::Orphan { .. } => {
-                                    sess.cache.entry_point_function_id = Some(function.id);
-                                }
-                                _ => (),
-                            }
-                        } else {
-                            unreachable!()
+                        if let hir::FunctionKind::Orphan { .. } = &function.kind {
+                            sess.cache.entry_point_function_id = Some(function.id);
                         }
+                    } else {
+                        unreachable!()
                     }
                 }
 
@@ -908,7 +904,7 @@ impl Check for ast::Ast {
             }
             ast::Ast::Builtin(builtin) => match &builtin.kind {
                 ast::BuiltinKind::SizeOf(expr) => {
-                    let ty = check_type_expr(&expr, sess, env)?;
+                    let ty = check_type_expr(expr, sess, env)?;
                     let ty = ty.normalize(&sess.tcx);
 
                     if ty.is_unsized() {
@@ -924,7 +920,7 @@ impl Check for ast::Ast {
                     }
                 }
                 ast::BuiltinKind::AlignOf(expr) => {
-                    let ty = check_type_expr(&expr, sess, env)?;
+                    let ty = check_type_expr(expr, sess, env)?;
                     let ty = ty.normalize(&sess.tcx);
 
                     if ty.is_unsized() {
@@ -1031,7 +1027,7 @@ impl Check for ast::Ast {
                     }
                 };
 
-                let ty = sess.tcx.bound(inner.clone(), sub.span);
+                let ty = sess.tcx.bound(inner, sub.span);
 
                 if let Some(const_value) = const_value {
                     Ok(hir::Node::Const(hir::Const {
@@ -1194,7 +1190,7 @@ impl Check for ast::Ast {
                 // Note (Ron): If the accessed value is a pointer, we auto dereference it.
                 let node = if node_type.is_pointer() {
                     hir::Node::Builtin(hir::Builtin::Deref(hir::Unary {
-                        ty: sess.tcx.bound(node_type.maybe_deref_once().clone(), node.span()),
+                        ty: sess.tcx.bound(node_type.maybe_deref_once(), node.span()),
                         span: node.span(),
                         value: Box::new(node),
                     }))
@@ -1433,14 +1429,12 @@ impl Check for ast::Ast {
                         Type::Struct(struct_ty) => {
                             check_named_struct_literal(sess, env, struct_ty, &lit.fields, lit.span)
                         }
-                        _ => {
-                            return Err(Diagnostic::error()
-                                .with_message(format!(
-                                    "type `{}` does not support struct initialization syntax",
-                                    ty.display(&sess.tcx)
-                                ))
-                                .with_label(Label::primary(type_expr.span(), "not a struct type")))
-                        }
+                        _ => Err(Diagnostic::error()
+                            .with_message(format!(
+                                "type `{}` does not support struct initialization syntax",
+                                ty.display(&sess.tcx)
+                            ))
+                            .with_label(Label::primary(type_expr.span(), "not a struct type"))),
                     }
                 }
                 None => match expected_type {
@@ -2026,9 +2020,7 @@ impl Check for ast::Comptime {
         //       1. All types are concrete
         //       2. All types in all memory locations are sized
         let node = sess.with_env(env.module_id(), |sess, mut env| {
-            env.with_scope(ScopeKind::Block, |mut env| {
-                self.expr.check(sess, &mut env, expected_type)
-            })
+            env.with_scope(ScopeKind::Block, |env| self.expr.check(sess, env, expected_type))
         })?;
 
         if sess.workspace.build_options.check_mode {
@@ -2065,7 +2057,7 @@ impl Check for ast::Return {
     fn check(&self, sess: &mut CheckSess, env: &mut Env, _expected_type: Option<TypeId>) -> CheckResult {
         let function_frame = sess
             .function_frame()
-            .ok_or(SyntaxError::outside_of_function(self.span, "return"))?;
+            .ok_or_else(|| SyntaxError::outside_of_function(self.span, "return"))?;
 
         let value = if let Some(expr) = &self.expr {
             let return_type = function_frame.return_type;
@@ -2269,10 +2261,7 @@ impl Check for ast::Binary {
                 | ast::BinaryOp::Ge => lhs_node.ty(),
                 op => {
                     return Err(Diagnostic::error()
-                        .with_message(format!(
-                            "invalid operator `{}` used in pointer arithmetic",
-                            op.to_string()
-                        ))
+                        .with_message(format!("invalid operator `{}` used in pointer arithmetic", op))
                         .with_label(Label::primary(self.span, "invalid in pointer arithmetic"))
                         .with_label(Label::secondary(
                             lhs_node.span(),
@@ -2883,14 +2872,12 @@ impl Check for ast::Call {
                                     }
                                 }
                             }
+                        } else if arg.spread {
+                            return Err(Diagnostic::error()
+                                .with_message("cannot spread untyped variadic arguments")
+                                .with_label(Label::primary(arg.value.span(), "cannot spread this argument")));
                         } else {
-                            if arg.spread {
-                                return Err(Diagnostic::error()
-                                    .with_message("cannot spread untyped variadic arguments")
-                                    .with_label(Label::primary(arg.value.span(), "cannot spread this argument")));
-                            } else {
-                                args.push(node);
-                            }
+                            args.push(node);
                         }
                     } else {
                         return Err(arg_mismatch(sess, &function_type, self.args.len(), self.span));
@@ -2968,44 +2955,51 @@ impl Check for ast::Call {
                 }
             }
             ty => {
-                let args = self
-                    .args
-                    .iter()
-                    .map(|arg| arg.value.check(sess, env, None))
-                    .collect::<DiagnosticResult<Vec<_>>>()?;
+                Err(Diagnostic::error()
+                    .with_message(format!(
+                        "expected a function or a struct, found `{}`",
+                        ty.display(&sess.tcx)
+                    ))
+                    .with_label(Label::primary(callee.span(), "expression is not callable")))
+                // // Try to infer this expression as a function
+                // let args = self
+                //     .args
+                //     .iter()
+                //     .map(|arg| arg.value.check(sess, env, None))
+                //     .collect::<DiagnosticResult<Vec<_>>>()?;
 
-                let return_type = sess.tcx.var(self.span);
+                // let return_type = sess.tcx.var(self.span);
 
-                let inferred_function_type = Type::Function(FunctionType {
-                    params: args
-                        .iter()
-                        .map(|arg| FunctionTypeParam {
-                            name: ustr(""),
-                            ty: arg.ty().into(),
-                            default_value: None,
-                        })
-                        .collect(),
-                    return_type: Box::new(return_type.into()),
-                    varargs: None,
-                    kind: FunctionTypeKind::Orphan,
-                });
+                // let inferred_function_type = Type::Function(FunctionType {
+                //     params: args
+                //         .iter()
+                //         .map(|arg| FunctionTypeParam {
+                //             name: ustr(""),
+                //             ty: arg.ty().into(),
+                //             default_value: None,
+                //         })
+                //         .collect(),
+                //     return_type: Box::new(return_type.into()),
+                //     varargs: None,
+                //     kind: FunctionTypeKind::Orphan,
+                // });
 
-                ty.unify(&inferred_function_type, &mut sess.tcx).or_report_err(
-                    &sess.tcx,
-                    &inferred_function_type,
-                    None,
-                    &ty,
-                    self.callee.span(),
-                )?;
+                // ty.unify(&inferred_function_type, &mut sess.tcx).or_report_err(
+                //     &sess.tcx,
+                //     &inferred_function_type,
+                //     None,
+                //     &ty,
+                //     self.callee.span(),
+                // )?;
+                //
+                // validate_call_args(sess, &args)?;
 
-                validate_call_args(sess, &args)?;
-
-                Ok(hir::Node::Call(hir::Call {
-                    callee: Box::new(callee),
-                    args,
-                    ty: return_type,
-                    span: self.span,
-                }))
+                // Ok(hir::Node::Call(hir::Call {
+                //     callee: Box::new(callee),
+                //     args,
+                //     ty: return_type,
+                //     span: self.span,
+                // }))
             }
         }
     }
@@ -3152,14 +3146,7 @@ impl Check for ast::TupleLiteral {
             if is_tuple_type {
                 let element_types: Vec<Type> = elements
                     .iter()
-                    .map(|node| {
-                        node.as_const_value()
-                            .unwrap()
-                            .as_type()
-                            .unwrap()
-                            .normalize(&sess.tcx)
-                            .clone()
-                    })
+                    .map(|node| node.as_const_value().unwrap().as_type().unwrap().normalize(&sess.tcx))
                     .collect();
 
                 for (i, elem_type) in element_types.iter().enumerate() {
@@ -3213,7 +3200,7 @@ impl Check for ast::TupleLiteral {
 
             let kind = Type::Tuple(element_tys);
 
-            let ty = sess.tcx.bound(kind.clone(), self.span);
+            let ty = sess.tcx.bound(kind, self.span);
 
             Ok(hir::Node::Literal(hir::Literal::Tuple(hir::TupleLiteral {
                 elements,
@@ -3420,7 +3407,7 @@ fn check_named_struct_literal(
 fn check_anonymous_struct_literal(
     sess: &mut CheckSess,
     env: &mut Env,
-    fields: &Vec<ast::StructLiteralField>,
+    fields: &[ast::StructLiteralField],
     span: Span,
 ) -> CheckResult {
     let mut field_set = UstrSet::default();
@@ -3619,9 +3606,8 @@ fn check_function<'s>(
 
         // If this is a single statement, we ignore it,
         // As it doesn't include any destructuring statements.
-        match bound_node.into_sequence() {
-            Ok(sequence) => param_bind_statements.extend(sequence.statements),
-            Err(_) => (),
+        if let Ok(sequence) = bound_node.into_sequence() {
+            param_bind_statements.extend(sequence.statements)
         }
     }
 
@@ -3895,15 +3881,13 @@ fn check_function_sig<'s>(
     if let Some(Type::Function(expected_function_type)) = &expected_type_norm {
         // if the function signature has no parameters, and the
         // parent type is a function with 1 parameter, add an implicit `it` parameter
-        if sig.params.is_empty() && varargs.is_none() {
-            if expected_function_type.params.len() == 1 {
-                let param = &expected_function_type.params[0];
-                param_types.push(FunctionTypeParam {
-                    name: ustr("it"),
-                    ty: param.ty.clone(),
-                    default_value: param.default_value.clone(),
-                });
-            }
+        if sig.params.is_empty() && varargs.is_none() && expected_function_type.params.len() == 1 {
+            let param = &expected_function_type.params[0];
+            param_types.push(FunctionTypeParam {
+                name: ustr("it"),
+                ty: param.ty.clone(),
+                default_value: param.default_value.clone(),
+            });
         }
     }
 
@@ -3945,14 +3929,13 @@ fn check_function_sig_has_type_annotations<'s>(sess: &mut CheckSess<'s>, sig: &a
     let mut diagnostics = sig
         .params
         .iter()
-        .map(|param| {
+        .filter_map(|param| {
             param.type_expr.is_none().then(|| {
                 Diagnostic::error()
                     .with_message(format!("missing type for function parameter `{}`", param.pat))
                     .with_label(Label::primary(param.pat.span(), "missing type annotation"))
             })
         })
-        .flatten()
         .collect::<Vec<_>>();
 
     if diagnostics.is_empty() {

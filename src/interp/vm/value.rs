@@ -26,7 +26,7 @@ use ustr::{ustr, Ustr};
 
 macro_rules! impl_value {
     ($($variant:ident($ty:ty)) , + $(,)?) => {
-        #[derive(PartialEq, Debug, Clone, Copy)]
+        #[derive(PartialEq,Eq, Debug, Clone, Copy)]
         pub enum ValueKind {
             $(
                 $variant
@@ -452,7 +452,7 @@ pub struct ExternVariable {
     pub ty: Type,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq,Eq, Debug, Clone, Copy)]
 pub enum IntrinsicFunction {
     StartWorkspace,
 }
@@ -888,7 +888,7 @@ impl Pointer {
             (Self::Pointer(p), Value::Pointer(v)) => **p = v,
             (Self::Function(p), Value::Function(v)) => **p = v,
             (Self::Type(p), Value::Type(v)) => **p = v,
-            (p, v) => panic!("invalid pair {:?} , {}", p, v.to_string()),
+            (p, v) => panic!("invalid pair {:?} , {}", p, v),
         }
     }
 }

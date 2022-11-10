@@ -1,1 +1,15 @@
-fn main() = println("Hello, World!")
+fn main() = {
+  let me = Person { name: "Ron", age: 26 }
+  print_person(me.name, age: me.age)
+}
+
+fn print_person(name: *str, age: uint) = {
+  std.c.printf("%s %d\n".ptr, name.ptr, age)
+  ()
+}
+
+type Person = struct {
+  name: *str,
+  age: uint
+}
+

@@ -86,7 +86,7 @@ impl<'a> CollectHints<'a> for hir::Binding {
         if should_show_hint {
             match binding_info.ty.normalize(sess.tcx) {
                 Type::Function(_) | Type::Module(_) | Type::Type(_) | Type::AnyType => (),
-                ty => sess.push_hint(self.span, ty.display(&sess.tcx), HintKind::Binding),
+                ty => sess.push_hint(self.span, ty.display(sess.tcx), HintKind::Binding),
             }
         }
 
@@ -114,7 +114,7 @@ impl<'a> CollectHints<'a> for hir::Function {
                         .flags
                         .contains(BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED)
                     {
-                        sess.push_hint(binding_info.span, ty.display(&sess.tcx), HintKind::Binding)
+                        sess.push_hint(binding_info.span, ty.display(sess.tcx), HintKind::Binding)
                     } else if binding_info
                         .flags
                         .contains(BindingInfoFlags::IMPLICIT_IT_FUNCTION_PARAM)
@@ -133,7 +133,7 @@ impl<'a> CollectHints<'a> for hir::Function {
 
                         sess.push_hint(
                             span_after_fn_kw,
-                            format!("{}: {}", binding_info.name, ty.display(&sess.tcx)),
+                            format!("{}: {}", binding_info.name, ty.display(sess.tcx)),
                             HintKind::ImplicitParam,
                         )
                     }
@@ -142,7 +142,7 @@ impl<'a> CollectHints<'a> for hir::Function {
                 if let Some(span) = inferred_return_type_span {
                     match self.ty.normalize(sess.tcx).into_function().return_type.as_ref() {
                         Type::Unit => (),
-                        return_type => sess.push_hint(*span, return_type.display(&sess.tcx), HintKind::ReturnType),
+                        return_type => sess.push_hint(*span, return_type.display(sess.tcx), HintKind::ReturnType),
                     }
                 }
 

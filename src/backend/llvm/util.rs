@@ -115,7 +115,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
     ) -> PointerValue<'ctx> {
         if let Some((depth, decl)) = state.scopes.get(id) {
             let is_same_depth = depth == state.scopes.depth();
-            let ptr = decl.into_pointer_value();
+            let ptr = decl.as_pointer_value();
             let is_same_type = ptr.get_type().get_element_type() == llvm_type.as_any_type_enum();
             if is_same_depth && is_same_type {
                 return ptr;
@@ -142,7 +142,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             _ => llvm_type,
         };
 
-        let ptr = self.builder.build_alloca(llvm_type, &name);
+        let ptr = self.builder.build_alloca(llvm_type, name);
 
         let align = align_of(llvm_type, self.target_metrics.word_size);
         ptr.as_instruction_value().unwrap().set_alignment(align as _).unwrap();
@@ -377,7 +377,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                         .builder
                         .build_pointer_cast(value_ptr, dst_type.ptr_type(AddressSpace::Generic), "");
 
-                    self.build_load(ptr.into(), "")
+                    self.build_load(ptr, "")
                 } else {
                     let ptr = self.build_alloca(state, dst_type);
 
@@ -398,7 +398,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                         .builder
                         .build_pointer_cast(ptr, dst_type.ptr_type(AddressSpace::Generic), "");
 
-                    self.build_load(ptr.into(), "")
+                    self.build_load(ptr, "")
                 }
             }
         }
@@ -459,7 +459,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         llvm_type: BasicTypeEnum<'ctx>,
         values: &[BasicValueEnum<'ctx>],
     ) -> PointerValue<'ctx> {
-        let ptr = self.build_alloca(state, llvm_type.into());
+        let ptr = self.build_alloca(state, llvm_type);
 
         for (i, value) in values.iter().enumerate() {
             let field_ptr = self

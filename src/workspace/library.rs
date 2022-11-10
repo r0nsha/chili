@@ -46,7 +46,7 @@ impl Library {
     }
 
     pub fn root_dir(&self) -> &Path {
-        &self.root_file.parent().unwrap()
+        self.root_file.parent().unwrap()
     }
 
     pub fn root_file_stem(&self) -> &str {

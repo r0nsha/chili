@@ -31,10 +31,7 @@ pub(super) trait IsAggregateType {
 
 impl<'ctx> IsAggregateType for AnyTypeEnum<'ctx> {
     fn is_aggregate_type(&self) -> bool {
-        match self {
-            AnyTypeEnum::ArrayType(_) | AnyTypeEnum::StructType(_) => true,
-            _ => false,
-        }
+        matches!(self, AnyTypeEnum::ArrayType(_) | AnyTypeEnum::StructType(_))
     }
 }
 

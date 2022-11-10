@@ -34,7 +34,7 @@ pub enum Decl<'ctx> {
 }
 
 impl<'ctx> Decl<'ctx> {
-    pub(super) fn into_function_value(&self) -> FunctionValue<'ctx> {
+    pub(super) fn as_function_value(&self) -> FunctionValue<'ctx> {
         match self {
             Decl::Function(f) => *f,
             _ => panic!("can't get function value of {:?}", self),
@@ -42,14 +42,14 @@ impl<'ctx> Decl<'ctx> {
     }
 
     #[allow(unused)]
-    pub(super) fn into_global_value(&self) -> GlobalValue<'ctx> {
+    pub(super) fn as_global_value(&self) -> GlobalValue<'ctx> {
         match self {
             Decl::Global(g) => *g,
             _ => panic!("can't get global value of {:?}", self),
         }
     }
 
-    pub(super) fn into_pointer_value(&self) -> PointerValue<'ctx> {
+    pub(super) fn as_pointer_value(&self) -> PointerValue<'ctx> {
         match self {
             Decl::Function(f) => f.as_global_value().as_pointer_value(),
             Decl::Global(g) => g.as_pointer_value(),
@@ -155,16 +155,16 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
 
         let pass_manager = PassManager::create(());
         pass_manager_builder.populate_module_pass_manager(&pass_manager);
-        pass_manager.run_on(&self.module);
+        pass_manager.run_on(self.module);
 
         let link_time_optimizations = PassManager::create(());
         pass_manager_builder.populate_lto_pass_manager(&link_time_optimizations, false, true);
-        link_time_optimizations.run_on(&self.module);
+        link_time_optimizations.run_on(self.module);
     }
 
     pub(super) fn gen_top_level_binding(&mut self, id: BindingId) -> Decl<'ctx> {
         if let Some(decl) = self.global_decls.get(&id) {
-            return *decl;
+            *decl
         } else if let Some(binding) = self.cache.bindings.get(&id) {
             binding.codegen_global(self)
         } else {

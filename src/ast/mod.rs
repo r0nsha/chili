@@ -184,7 +184,7 @@ impl Ast {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Empty {
     pub span: Span,
 }
@@ -297,11 +297,19 @@ pub struct StructLiteralField {
 pub struct Call {
     pub callee: Box<Ast>,
     pub args: Vec<CallArg>,
+    pub named_args: Vec<CallNamedArg>,
     pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CallArg {
+    pub value: Ast,
+    pub spread: bool,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct CallNamedArg {
+    pub name: NameAndSpan,
     pub value: Ast,
     pub spread: bool,
 }
@@ -314,7 +322,7 @@ pub struct MemberAccess {
     pub span: Span,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Ident {
     pub name: Ustr,
     pub span: Span,
@@ -349,7 +357,7 @@ pub enum LiteralKind {
     Char(char),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Import {
     pub path: PathBuf,
     pub span: Span,
@@ -611,7 +619,7 @@ impl Display for BindingKind {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct NameAndSpan {
     pub name: Ustr,
     pub span: Span,
@@ -651,7 +659,7 @@ pub struct Attr {
     pub span: Span,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum BinaryOp {
     Add,
     Sub,
@@ -818,7 +826,7 @@ impl BinaryOp {
     }
 }
 
-#[derive(strum_macros::IntoStaticStr, Debug, PartialEq, Clone, Copy)]
+#[derive(strum_macros::IntoStaticStr, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum UnaryOp {
     Ref(bool),
     Deref,

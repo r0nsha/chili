@@ -71,7 +71,7 @@ pub struct BindingInfo {
     pub span: Span,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq,Eq, Clone, Copy)]
 pub enum BindingInfoKind {
     LetConst,
     LetStatic,
@@ -319,7 +319,7 @@ impl ModulePath {
     }
 
     pub fn name(&self) -> Ustr {
-        self.components.last().copied().unwrap_or_else(|| self.library.name)
+        self.components.last().copied().unwrap_or(self.library.name)
     }
 
     pub fn path(&self) -> PathBuf {

@@ -109,7 +109,7 @@ pub fn spawn_parser(
             id: ModuleId::unknown(),
             name: module_path.name(),
             qualified_name: ustr(&module_path.qualified_name()),
-            file_path: ustr(&module_path.path().to_str().unwrap()),
+            file_path: ustr(module_path.path().to_str().unwrap()),
             file_id: FileId::MAX,
             library_id: module_path.library().id,
             parent,

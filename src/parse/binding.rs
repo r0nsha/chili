@@ -56,9 +56,8 @@ impl Parser {
 
         let mut value = self.parse_expression(false, false)?;
 
-        match &pat {
-            Pat::Name(pat) => Self::assign_expr_name_if_needed(&mut value, pat.name),
-            _ => (),
+        if let Pat::Name(pat) = &pat {
+            Self::assign_expr_name_if_needed(&mut value, pat.name)
         }
 
         Ok(ast::Binding {
@@ -199,7 +198,7 @@ impl Parser {
 
         if eat!(self, Dot) {
             if eat!(self, Ident(_)) {
-                let sym = self.previous().clone();
+                let sym = *self.previous();
                 let name = sym.name();
 
                 let subpat = self.parse_import_binding_subpat(name, sym)?;

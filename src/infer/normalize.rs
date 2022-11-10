@@ -94,7 +94,7 @@ impl NormalizeCtx {
             Type::Struct(struct_type) => match struct_type.id {
                 Some(binding_id) if binding_id == self.parent_binding_id => kind.clone(),
                 _ => {
-                    let binding_id = struct_type.id.unwrap_or(BindingId::unknown());
+                    let binding_id = struct_type.id.unwrap_or_else(BindingId::unknown);
 
                     let old_id = self.parent_binding_id;
                     self.parent_binding_id = binding_id;

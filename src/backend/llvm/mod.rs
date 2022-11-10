@@ -38,7 +38,7 @@ use inkwell::{
 use path_absolutize::Absolutize;
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Command,
 };
 use ustr::UstrMap;
@@ -46,7 +46,7 @@ use ustr::UstrMap;
 #[cfg(windows)]
 use super::microsoft_craziness;
 
-pub fn codegen<'w>(workspace: &Workspace, tcx: &TypeCtx, cache: &hir::Cache) -> PathBuf {
+pub fn codegen(workspace: &Workspace, tcx: &TypeCtx, cache: &hir::Cache) -> PathBuf {
     let context = Context::create();
     let module = context.create_module(
         workspace
@@ -90,7 +90,7 @@ pub fn codegen<'w>(workspace: &Workspace, tcx: &TypeCtx, cache: &hir::Cache) -> 
         workspace,
         tcx,
         cache,
-        target_metrics: target_metrics.clone(),
+        target_metrics,
         context: &context,
         module: &module,
         builder: &builder,
@@ -144,10 +144,7 @@ fn build_executable(
     module: &Module,
     extern_libraries: &HashSet<ast::ExternLibrary>,
 ) -> PathBuf {
-    let output_path = build_options
-        .output_file
-        .as_ref()
-        .unwrap_or_else(|| &build_options.source_file);
+    let output_path = build_options.output_file.as_ref().unwrap_or(&build_options.source_file);
 
     if let Some(parent_dir) = output_path.parent() {
         let _ = std::fs::create_dir_all(parent_dir);
@@ -171,12 +168,12 @@ fn build_executable(
 
     time! { build_options.emit_times, "write obj",
         target_machine
-            .write_to_file(&module, FileType::Object, &object_file)
+            .write_to_file(module, FileType::Object, &object_file)
             .unwrap()
     };
 
     time! { build_options.emit_times, "link",
-        link(target_metrics, &output_file, &object_file, &extern_libraries)
+        link(target_metrics, &output_file, &object_file, extern_libraries)
     }
 
     let _ = std::fs::remove_file(object_file);
@@ -186,8 +183,8 @@ fn build_executable(
 
 fn link(
     target_metrics: &TargetMetrics,
-    executable_file: &PathBuf,
-    object_file: &PathBuf,
+    executable_file: &Path,
+    object_file: &Path,
     extern_libraries: &HashSet<ast::ExternLibrary>,
 ) {
     let link_flags = match target_metrics.arch {
@@ -297,7 +294,7 @@ pub enum CallingConv {
     C = 0,
     Fast = 8,
     Cold = 9,
-    GHC = 10,
+    Ghc = 10,
     HiPE = 11,
     WebKitJs = 12,
     AnyReg = 13,
@@ -323,7 +320,7 @@ pub enum CallingConv {
     X86_64SysV = 78,
     Win64 = 79,
     X86VectorCall = 80,
-    HHVM = 81,
+    Hhvm = 81,
     HhvmC = 82,
     X86Intr = 83,
     AvrIntr = 84,

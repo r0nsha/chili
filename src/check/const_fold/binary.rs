@@ -10,27 +10,27 @@ use crate::{
 };
 
 pub fn is_valid_binary_op(op: ast::BinaryOp) -> bool {
-    match op {
+    matches!(
+        op,
         ast::BinaryOp::Add
-        | ast::BinaryOp::Sub
-        | ast::BinaryOp::Mul
-        | ast::BinaryOp::Div
-        | ast::BinaryOp::Rem
-        | ast::BinaryOp::Eq
-        | ast::BinaryOp::Ne
-        | ast::BinaryOp::Lt
-        | ast::BinaryOp::Le
-        | ast::BinaryOp::Gt
-        | ast::BinaryOp::Ge
-        | ast::BinaryOp::And
-        | ast::BinaryOp::Or
-        | ast::BinaryOp::Shl
-        | ast::BinaryOp::Shr
-        | ast::BinaryOp::BitAnd
-        | ast::BinaryOp::BitOr
-        | ast::BinaryOp::BitXor => true,
-        _ => false,
-    }
+            | ast::BinaryOp::Sub
+            | ast::BinaryOp::Mul
+            | ast::BinaryOp::Div
+            | ast::BinaryOp::Rem
+            | ast::BinaryOp::Eq
+            | ast::BinaryOp::Ne
+            | ast::BinaryOp::Lt
+            | ast::BinaryOp::Le
+            | ast::BinaryOp::Gt
+            | ast::BinaryOp::Ge
+            | ast::BinaryOp::And
+            | ast::BinaryOp::Or
+            | ast::BinaryOp::Shl
+            | ast::BinaryOp::Shr
+            | ast::BinaryOp::BitAnd
+            | ast::BinaryOp::BitOr
+            | ast::BinaryOp::BitXor
+    )
 }
 
 pub fn binary(

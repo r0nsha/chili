@@ -17,7 +17,7 @@ pub enum CoercionResult {
     NoCoercion,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq,Eq, Clone, Copy)]
 pub enum CoercionKind {
     Cast,
     Slice,

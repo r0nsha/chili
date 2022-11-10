@@ -32,11 +32,11 @@ pub(super) fn get_abi_compliant_fn<'ctx>(
     }
 }
 
-pub(super) fn size_of<'ctx>(llvm_type: BasicTypeEnum<'ctx>, word_size: usize) -> usize {
+pub(super) fn size_of(llvm_type: BasicTypeEnum<'_>, word_size: usize) -> usize {
     size_of_any(llvm_type.as_any_type_enum(), word_size)
 }
 
-pub(super) fn size_of_any<'ctx>(llvm_type: AnyTypeEnum<'ctx>, word_size: usize) -> usize {
+pub(super) fn size_of_any(llvm_type: AnyTypeEnum<'_>, word_size: usize) -> usize {
     match llvm_type {
         AnyTypeEnum::VoidType(_) => 0,
         AnyTypeEnum::IntType(t) => bit_width_to_size(t.get_bit_width()),
@@ -68,11 +68,11 @@ pub(super) fn size_of_any<'ctx>(llvm_type: AnyTypeEnum<'ctx>, word_size: usize) 
     }
 }
 
-pub(super) fn align_of<'ctx>(llvm_type: BasicTypeEnum<'ctx>, word_size: usize) -> usize {
+pub(super) fn align_of(llvm_type: BasicTypeEnum<'_>, word_size: usize) -> usize {
     align_of_any(llvm_type.as_any_type_enum(), word_size)
 }
 
-pub(super) fn align_of_any<'ctx>(llvm_type: AnyTypeEnum<'ctx>, word_size: usize) -> usize {
+pub(super) fn align_of_any(llvm_type: AnyTypeEnum<'_>, word_size: usize) -> usize {
     match llvm_type {
         AnyTypeEnum::VoidType(_) => 1,
         AnyTypeEnum::IntType(t) => {
@@ -173,13 +173,13 @@ impl<'ctx> AbiTy<'ctx> {
         self
     }
 
-    pub(super) fn with_attr<'a>(&'a mut self, attr: Attribute) -> &'a mut Self {
+    pub(super) fn with_attr(&mut self, attr: Attribute) -> &mut Self {
         self.attr = Some(attr);
         self
     }
 
     #[allow(unused)]
-    pub(super) fn with_align_attr<'a>(&'a mut self, attr: Attribute) -> &'a mut Self {
+    pub(super) fn with_align_attr(&mut self, attr: Attribute) -> &mut Self {
         self.align_attr = Some(attr);
         self
     }
@@ -195,23 +195,14 @@ pub enum AbiType {
 impl AbiType {
     #[allow(unused)]
     pub(super) fn is_direct(&self) -> bool {
-        match self {
-            AbiType::Direct => true,
-            _ => false,
-        }
+        matches!(self, AbiType::Direct)
     }
 
     pub(super) fn is_indirect(&self) -> bool {
-        match self {
-            AbiType::Indirect => true,
-            _ => false,
-        }
+        matches!(self, AbiType::Indirect)
     }
 
     pub(super) fn is_ignore(&self) -> bool {
-        match self {
-            AbiType::Ignore => true,
-            _ => false,
-        }
+        matches!(self, AbiType::Ignore)
     }
 }

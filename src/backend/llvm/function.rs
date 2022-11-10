@@ -142,8 +142,8 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
         name: impl AsRef<str>,
         linkage: Option<Linkage>,
     ) -> FunctionValue<'ctx> {
-        let fn_type = self.abi_compliant_fn_type(&ty);
-        let abi_fn = self.get_abi_compliant_fn(&ty);
+        let fn_type = self.abi_compliant_fn_type(ty);
+        let abi_fn = self.get_abi_compliant_fn(ty);
 
         // Add the function to the current module
         let function = match ty.kind {
@@ -236,7 +236,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 AbiType::Ignore => unimplemented!("ignore '{:?}'", param.ty),
             };
 
-            processed_args.push(arg.into());
+            processed_args.push(arg);
             param_index += 1;
         }
 
@@ -252,18 +252,18 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
             let return_ptr = self.build_alloca(state, abi_fn.ret.ty);
             return_ptr.set_name("__call_result");
             self.gen_function_call_inner(callee, processed_args, Some(return_ptr));
-            self.build_load(return_ptr.into(), "load__call_result")
+            self.build_load(return_ptr, "load__call_result")
         } else {
             let value = self.gen_function_call_inner(callee, processed_args, None);
-            let value = self.build_transmute(
+
+            self.build_transmute(
                 state,
                 value,
                 match abi_fn.ret.cast_to {
                     Some(cast_to) => cast_to,
                     None => abi_fn.ret.ty,
                 },
-            );
-            value
+            )
         };
 
         let result_ty = result_ty.llvm_type(self);

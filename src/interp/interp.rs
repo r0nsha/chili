@@ -139,7 +139,7 @@ impl<'i> InterpSess<'i> {
             self.env_stack.pop();
 
             if self.workspace.build_options.emit_bytecode {
-                dump_bytecode_to_file(&self.interp, &start_code);
+                dump_bytecode_to_file(self.interp, &start_code);
             }
 
             let mut vm = self.create_vm();

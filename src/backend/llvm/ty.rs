@@ -10,7 +10,6 @@ use inkwell::{
     types::{AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, PointerType},
     AddressSpace,
 };
-use std::cmp::Ordering;
 
 pub(super) trait IntoLlvmType<'g, 'ctx> {
     fn llvm_type(&self, generator: &mut Generator<'g, 'ctx>) -> BasicTypeEnum<'ctx>;
@@ -212,13 +211,7 @@ impl<'g, 'ctx> Generator<'g, 'ctx> {
                 .max_by(|f1, f2| {
                     let s1 = f1.ty.size_of(self.target_metrics.word_size);
                     let s2 = f2.ty.size_of(self.target_metrics.word_size);
-                    if s1 > s2 {
-                        Ordering::Greater
-                    } else if s1 == s2 {
-                        Ordering::Equal
-                    } else {
-                        Ordering::Less
-                    }
+                    s1.cmp(&s2)
                 })
                 .unwrap();
 

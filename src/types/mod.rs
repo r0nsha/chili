@@ -47,13 +47,13 @@ pub enum Type {
     Infer(TypeId, InferType),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum InferType {
     AnyInt,
     AnyFloat,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum IntType {
     I8,
     I16,
@@ -68,7 +68,7 @@ impl Default for IntType {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum UintType {
     U8,
     U16,
@@ -83,7 +83,7 @@ impl Default for UintType {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum FloatType {
     F16,
     F32,
@@ -124,7 +124,7 @@ pub struct FunctionTypeVarargs {
     pub ty: Option<Type>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum FunctionTypeKind {
     Orphan,
     Extern,
@@ -210,7 +210,7 @@ impl StructType {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum StructTypeKind {
     Struct,
     PackedStruct,
@@ -538,10 +538,7 @@ impl Type {
     #[inline]
     pub fn is_fat_pointer(&self) -> bool {
         match self {
-            Type::Pointer(inner, _) => match inner.as_ref() {
-                Type::Slice(_) | Type::Str(_) => true,
-                _ => false,
-            },
+            Type::Pointer(inner, _) => matches!(inner.as_ref(), Type::Slice(_) | Type::Str(_)),
             _ => false,
         }
     }
