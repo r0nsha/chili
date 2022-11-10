@@ -182,10 +182,18 @@ impl Parser {
             self.skip_newlines();
 
             if let Some(id_token) = get_named_arg_id(self) {
-                let name = ast::NameAndSpan {
-                    name: id_token.name(),
-                    span: id_token.span,
-                };
+                let name = id_token.name();
+                let span = id_token.span;
+
+                if let Some(named_arg) = named_args.iter().find(|arg| arg.name.name == id_token.name()) {
+                    return Err(Diagnostic::error()
+                        .with_message(format!("named argument `{}` is passed twice", name))
+                        .with_label(Label::primary(span, "second argument here"))
+                        .with_label(Label::secondary(named_arg.name.span, "already passed here")));
+                        
+                }
+
+                let name = ast::NameAndSpan { name, span };
 
                 let (value, spread) = parse_arg_value(self)?;
                 named_args.push(ast::CallNamedArg { name, value, spread });
