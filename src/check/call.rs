@@ -324,6 +324,13 @@ fn build_function_call_args(
 
     // Check the arguments passed against the function's parameter types
     for arg in call.named_args.iter() {
+        if let Some(used_span) = used_args.get(&arg.name.name) {
+            return Err(Diagnostic::error()
+                .with_message(format!("parameter `{}` is passed twice", arg.name.name,))
+                .with_label(Label::primary(arg.name.span, "parameter passed twice"))
+                .with_label(Label::secondary(*used_span, "already passed here")));
+        }
+
         if let Some((param_index, param)) = function_type
             .params
             .iter()
@@ -342,10 +349,16 @@ fn build_function_call_args(
                 .or_coerce_into_ty(&mut node, &param_type, &mut sess.tcx, sess.target_metrics.word_size)
                 .or_report_err(&sess.tcx, &param_type, None, &node.ty(), arg.value.span())?;
 
+            used_args.insert(param.name, arg.name.span);
             named_args.push((param_index, node));
         } else {
-            // TODO: name doesnt exit
-            panic!("name `{}` doesnt exist", arg.name.name);
+            return Err(Diagnostic::error()
+                .with_message(format!(
+                    "parameter `{}` doesn't exist in function of type `{}`",
+                    arg.name.name,
+                    function_type.display(&sess.tcx)
+                ))
+                .with_label(Label::primary(arg.name.span, "no parameter with this name")));
         }
     }
 
