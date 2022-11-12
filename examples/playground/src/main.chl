@@ -1,5 +1,8 @@
 fn main() = {
   let me = Person { name: "Ron", age: 26 }
+  let me = Person("Ron", 26)
+  // let me = Person("Ron", age: 26)
+  // let me = Person(name: "Ron", age: 26)
   print_person(me.name, foo: 5, age: me.age, foo: 1)
 }
 

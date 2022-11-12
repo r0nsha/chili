@@ -26,6 +26,7 @@ impl Check for ast::Call {
 
         match callee.ty().normalize(&sess.tcx) {
             Type::Function(function_type) => check_function_call(sess, env, self, callee, &function_type),
+            Type::Type(inner) if inner.is_struct() => check_struct_call(sess, env, self, &inner.into_struct()),
             ty => {
                 Err(Diagnostic::error()
                     .with_message(format!(
@@ -105,6 +106,30 @@ fn build_function_call_args(
     call: &ast::Call,
     function_type: &FunctionType,
 ) -> DiagnosticResult<Vec<hir::Node>> {
+    fn arg_mismatch(sess: &CheckSess, function_type: &FunctionType, arg_count: usize, span: Span) -> Diagnostic {
+        let expected = function_type.params.len();
+        let actual = arg_count;
+
+        Diagnostic::error()
+            .with_message(format!(
+                "function expects {} argument{}, but {} {} supplied",
+                expected,
+                if expected == 0 || expected > 1 { "s" } else { "" },
+                actual,
+                if actual == 0 || actual > 1 { "were" } else { "was" },
+            ))
+            .with_label(Label::primary(
+                span,
+                format!(
+                    "expected {} argument{}, got {}",
+                    expected,
+                    if expected == 0 || expected > 1 { "s" } else { "" },
+                    actual
+                ),
+            ))
+            .with_note(format!("function is of type `{}`", function_type.display(&sess.tcx)))
+    }
+
     enum Varargs {
         Empty,
         Individual(Vec<hir::Node>),
@@ -420,26 +445,6 @@ fn validate_call_args(sess: &mut CheckSess, args: &[hir::Node]) -> DiagnosticRes
     Ok(())
 }
 
-fn arg_mismatch(sess: &CheckSess, function_type: &FunctionType, arg_count: usize, span: Span) -> Diagnostic {
-    let expected = function_type.params.len();
-    let actual = arg_count;
-
-    Diagnostic::error()
-        .with_message(format!(
-            "function expects {} argument{}, but {} {} supplied",
-            expected,
-            if expected == 0 || expected > 1 { "s" } else { "" },
-            actual,
-            if actual == 0 || actual > 1 { "were" } else { "was" },
-        ))
-        .with_label(Label::primary(
-            span,
-            format!(
-                "expected {} argument{}, got {}",
-                expected,
-                if expected == 0 || expected > 1 { "s" } else { "" },
-                actual
-            ),
-        ))
-        .with_note(format!("function is of type `{}`", function_type.display(&sess.tcx)))
+fn check_struct_call(sess: &mut CheckSess, env: &mut Env, call: &ast::Call, struct_type: &StructType) -> CheckResult {
+    panic!("...")
 }
