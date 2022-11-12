@@ -16,6 +16,7 @@ use crate::{
     sym,
     types::*,
 };
+use ustr::UstrMap;
 
 use super::{env::Env, Check, CheckResult, CheckSess};
 
@@ -110,7 +111,9 @@ fn build_function_call_args(
         Spread(hir::Node),
     }
 
-    let mut args: Vec<hir::Node> = vec![];
+    let mut used_args = UstrMap::<Span>::default();
+
+    let mut args = Vec::<hir::Node>::new();
     let mut vararg_args = Varargs::Empty;
 
     // If the function was annotated by track_caller, its first argument
@@ -146,6 +149,10 @@ fn build_function_call_args(
     // Check the arguments passed against the function's parameter types
     for (index, arg) in call.args.iter().enumerate() {
         if let Some(param) = function_type.params.get(index + param_offset) {
+            if !param.name.is_empty() {
+                used_args.insert(param.name, arg.value.span());
+            }
+
             let param_type = sess.tcx.bound(param.ty.clone(), arg.value.span());
             let mut node = arg.value.check(sess, env, Some(param_type))?;
 
@@ -273,9 +280,11 @@ fn build_function_call_args(
                     .with_message("cannot spread untyped variadic arguments")
                     .with_label(Label::primary(arg.value.span(), "cannot spread this argument")));
             } else {
+                // This is C varargs, meaning it's untyped
                 args.push(node);
             }
         } else {
+            // Passed too many arguments
             return Err(arg_mismatch(sess, function_type, call.args.len(), call.span));
         }
     }
@@ -310,6 +319,42 @@ fn build_function_call_args(
             }
         }
     }
+
+    let mut named_args = Vec::<(usize, hir::Node)>::with_capacity(call.named_args.len());
+
+    // Check the arguments passed against the function's parameter types
+    for arg in call.named_args.iter() {
+        if let Some((param_index, param)) = function_type
+            .params
+            .iter()
+            .enumerate()
+            .find(|(_, p)| p.name == arg.name.name)
+        {
+            if !param.name.is_empty() {
+                used_args.insert(param.name, arg.value.span());
+            }
+
+            let param_type = sess.tcx.bound(param.ty.clone(), arg.value.span());
+            let mut node = arg.value.check(sess, env, Some(param_type))?;
+
+            node.ty()
+                .unify(&param_type, &mut sess.tcx)
+                .or_coerce_into_ty(&mut node, &param_type, &mut sess.tcx, sess.target_metrics.word_size)
+                .or_report_err(&sess.tcx, &param_type, None, &node.ty(), arg.value.span())?;
+
+            named_args.push((param_index, node));
+        } else {
+            // TODO: name doesnt exit
+            panic!("name `{}` doesnt exist", arg.name.name);
+        }
+    }
+
+    // Sort named arguments by their parameters' index
+    // PERF: We could try to inserted the named argument in their appropriates indices without
+    // sorting them every time...
+    named_args.sort_by_key(|(index, _)| *index);
+    args.reserve(named_args.len());
+    named_args.into_iter().for_each(|(_, named_arg)| args.push(named_arg));
 
     // Check for arity & apply default arguments if needed
     if args.len() < function_type.params.len() {
