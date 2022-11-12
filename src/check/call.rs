@@ -260,6 +260,7 @@ fn check_function_call(
         }
     }
 
+    // Build varargs if needed
     if let Some(varargs) = &function_type.varargs {
         if let Some(vararg_type) = &varargs.ty {
             match vararg_args {
@@ -290,6 +291,7 @@ fn check_function_call(
         }
     }
 
+    // Check for arity & apply default arguments if needed
     if args.len() < function_type.params.len() {
         for param in function_type.params.iter().skip(args.len()) {
             if let Some(default_value) = &param.default_value {
@@ -329,6 +331,8 @@ fn check_function_call(
         }))
     }
 }
+
+// This function validates that call arguments are of valid types
 fn validate_call_args(sess: &mut CheckSess, args: &[hir::Node]) -> DiagnosticResult<()> {
     for arg in args.iter() {
         match arg.ty().normalize(&sess.tcx) {
