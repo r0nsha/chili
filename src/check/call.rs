@@ -83,14 +83,34 @@ fn check_function_call(
     callee: hir::Node,
     function_type: &FunctionType,
 ) -> CheckResult {
-    let mut args: Vec<hir::Node> = vec![];
+    let args = build_function_call_args(sess, env, call, function_type)?;
+    let ty = sess.tcx.bound(function_type.return_type.as_ref().clone(), call.span);
 
+    if let Some(intrinsic) = can_dispatch_intrinsic_at_comptime(sess, &callee) {
+        dispatch_intrinsic(sess, env, &intrinsic, &args, ty, call.span)
+    } else {
+        Ok(hir::Node::Call(hir::Call {
+            callee: Box::new(callee),
+            args,
+            ty,
+            span: call.span,
+        }))
+    }
+}
+
+fn build_function_call_args(
+    sess: &mut CheckSess,
+    env: &mut Env,
+    call: &ast::Call,
+    function_type: &FunctionType,
+) -> DiagnosticResult<Vec<hir::Node>> {
     enum Varargs {
         Empty,
         Individual(Vec<hir::Node>),
         Spread(hir::Node),
     }
 
+    let mut args: Vec<hir::Node> = vec![];
     let mut vararg_args = Varargs::Empty;
 
     // If the function was annotated by track_caller, its first argument
@@ -318,18 +338,7 @@ fn check_function_call(
 
     validate_call_args(sess, &args)?;
 
-    let ty = sess.tcx.bound(function_type.return_type.as_ref().clone(), call.span);
-
-    if let Some(intrinsic) = can_dispatch_intrinsic_at_comptime(sess, &callee) {
-        dispatch_intrinsic(sess, env, &intrinsic, &args, ty, call.span)
-    } else {
-        Ok(hir::Node::Call(hir::Call {
-            callee: Box::new(callee),
-            args,
-            ty,
-            span: call.span,
-        }))
-    }
+    Ok(args)
 }
 
 // This function validates that call arguments are of valid types
