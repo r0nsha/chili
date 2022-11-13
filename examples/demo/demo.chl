@@ -372,17 +372,13 @@ fn structs() = {
     // Access a struct's fields by using `.field`
     fn print_point(p: Point) = std.c.printf("x=%d y=%d\n".ptr, p.x, p.y)
 
-    // Named initialization
-    let my_point = Point { x: 1, y: 2 }
+    // Initialize the struct 
+    let my_point = Point(1, 2)
     print_point(my_point)
 
-    // Anonymous initialization
-    print_point({ x: 1, y: 2 })
-
-    // If a value is the same name as an identifer, you can omit the value as a shorthand
-    let x = 3
-    let y = 4
-    print_point({ x, y })
+    // Struct fields can be named during initialization
+    let my_point = Point(x: 3, y: 4)
+    print_point(my_point)
 }
 
 fn tuples() = {
@@ -441,13 +437,15 @@ fn binding_patterns() = {
     let (x) = (5, 6)
     std.c.printf("%d\n".ptr, x)
 
+    type Point = struct { x: int, y: int }
+
     // Struct unpack:
-    let { x, y } = { x: 40, y: 33 }
+    let { x, y } = Point(40, 30)
     std.c.printf("%d %d\n".ptr, x, y)
 
     // This pattern's sub-patterns are named, so it is order-free.
     // Here we unpack the `y` field, even though it is the second one in the struct. 
-    let { y } = { x: 40, y: 33 }
+    let { y } = Point(40, 30)
     std.c.printf("%d\n".ptr, x)
 
     // Module unpack:
@@ -470,16 +468,16 @@ fn binding_patterns() = {
 
     hello()
 
-    let { * } = { a: 3, b: 4 }
-    //     ^---- `a` and `b` come from here
+    let { * } = Point(3, 4)
+    //     ^---- `x` and `y` come from here
 
-    std.c.printf("a=%d b=%d\n".ptr, a, b)
+    std.c.printf("x=%d y=%d\n".ptr, x, y)
 
     // Glob patterns can be partially applied
-    let { a, * } = { a: 8, b: 99 }
-    //        ^---- only `b` is unpacked here
+    let { x, * } = Point(8, 99)
+    //        ^---- only `y` is unpacked here
 
-    std.c.printf("a=%d b=%d\n".ptr, a, b)
+    std.c.printf("a=%d b=%d\n".ptr, x, y)
 
     // You can both alias and unpack a value using `@`
     let foo @ { hello: second_hello } = use(foo)
@@ -492,10 +490,13 @@ fn binding_patterns() = {
         c: { printf }
     } = use(std)
 
-    let ({first, last}, age) = ({ first: "John", last: "Doe"}, 42)
+    type Name = struct { first: *str, last: *str }
+    type Person = struct { name: Name, age: uint }
+
+    let ({first, last}, age) = (Name("John", "Doe"), 42)
     std.c.printf("My name is %s %s and I'm %d years old\n".ptr, first.ptr, last.ptr, age)
 
-    let { name: { first, last }, age } = { name: { first: "Rick", last: "Sanchez" }, age: 9000 }
+    let { name: { first, last }, age } = Person(name: Name("Rick", "Sanchez"), age: 9000)
     printf("My name is %s %s and I'm %d years old\n".ptr, first.ptr, last.ptr, age)
 }
 
@@ -535,17 +536,17 @@ fn starting_a_workspace() = {
     comptime {
         use std.build.*
 
-        let build_options = BuildOptions {
+        let build_options = BuildOptions(
             input_file: "comptime.chl",
             output_file: "comptime",
             target: BuildTarget_auto,
             optimization_level: OptimizationLevel_debug,
-        }
+        )
 
-        let workspace = Workspace {
+        let workspace = Workspace(
             name: "hello",
-            build_options
-        }
+            build_options: build_options
+        )
 
         let (output_file, ok) = start_workspace(workspace)
 

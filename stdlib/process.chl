@@ -44,7 +44,7 @@ pub fn start(output_file: *str) -> () = {
     } else if os == Os_windows {
         use sys.{windows as w}
 
-		let si = w.types.STARTUPINFO {
+		let si = w.types.STARTUPINFO(
 			cb: size_of!(w.types.STARTUPINFO) as _,
 			lpReserved: 0 as uint as _,
 			lpDesktop: 0 as uint as _,
@@ -63,14 +63,14 @@ pub fn start(output_file: *str) -> () = {
 			hStdInput: 0,
 			hStdOutput: 0,
 			hStdError: 0,
-		}
+		)
 
-		let mut pi = w.types.PROCESS_INFORMATION {
+		let mut pi = w.types.PROCESS_INFORMATION(
 			hProcess: 0,
 			hThread: 0,
 			dwProcessId: 0,
 			dwThreadId: 0,
-		}
+		)
 
 		if w.kernel32.CreateProcessA(
 			output_file.ptr,

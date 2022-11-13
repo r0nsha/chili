@@ -1,17 +1,17 @@
 use std.build.*
 
 fn build() = {
-	let build_options = BuildOptions {
+	let build_options = BuildOptions(
         input_file: "src/main.chl",
         output_file: "out/main",
         target: BuildTarget_auto,
         optimization_level: OptimizationLevel_debug,
-	}
+	)
 
-	let workspace = Workspace {
+	let workspace = Workspace(
 		name: "hello",
-		build_options
-	}
+		build_options: build_options
+	)
 	
 	let (executable, ok) = start_workspace(workspace)
 
