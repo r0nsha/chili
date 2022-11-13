@@ -68,11 +68,6 @@ impl Parser {
             }
         }
 
-        // named struct literal
-        if !self.restrictions.contains(Restrictions::NO_STRUCT_LITERAL) && is!(self, OpenCurly) {
-            return self.parse_struct_literal(Some(Box::new(expr)));
-        }
-
         Ok(expr)
     }
 

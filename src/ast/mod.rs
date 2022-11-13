@@ -90,7 +90,6 @@ pub enum Ast {
     Ident(Ident),
     ArrayLiteral(ArrayLiteral),
     TupleLiteral(TupleLiteral),
-    StructLiteral(StructLiteral),
     Literal(Literal),
     PointerType(PointerType),
     ArrayType(ArrayType),
@@ -131,7 +130,6 @@ impl Ast {
             Self::Ident(x) => x.span,
             Self::ArrayLiteral(x) => x.span,
             Self::TupleLiteral(x) => x.span,
-            Self::StructLiteral(x) => x.span,
             Self::Literal(x) => x.span,
             Self::PointerType(x) => x.span,
             Self::ArrayType(x) => x.span,
@@ -170,7 +168,6 @@ impl Ast {
             Self::Ident(x) => &mut x.span,
             Self::ArrayLiteral(x) => &mut x.span,
             Self::TupleLiteral(x) => &mut x.span,
-            Self::StructLiteral(x) => &mut x.span,
             Self::Literal(x) => &mut x.span,
             Self::PointerType(x) => &mut x.span,
             Self::ArrayType(x) => &mut x.span,
@@ -287,13 +284,6 @@ pub struct StructTypeField {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct StructLiteralField {
-    pub name: Ustr,
-    pub expr: Ast,
-    pub span: Span,
-}
-
-#[derive(Debug, PartialEq, Clone)]
 pub struct Call {
     pub callee: Box<Ast>,
     pub args: Vec<CallArg>,
@@ -325,13 +315,6 @@ pub struct MemberAccess {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Ident {
     pub name: Ustr,
-    pub span: Span,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct StructLiteral {
-    pub type_expr: Option<Box<Ast>>,
-    pub fields: Vec<StructLiteralField>,
     pub span: Span,
 }
 

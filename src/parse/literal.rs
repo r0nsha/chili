@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    ast::{self, LiteralKind, StructLiteralField},
+    ast::{self, LiteralKind},
     error::*,
     span::Span,
     token::TokenKind::*,
@@ -76,72 +76,5 @@ impl Parser {
             elements,
             span: start_span.to(self.previous_span()),
         }))
-    }
-
-    pub fn parse_struct_literal(&mut self, type_expr: Option<Box<Ast>>) -> DiagnosticResult<Ast> {
-        let open_curly_span = require!(self, OpenCurly, "{")?.span;
-        let start_span = type_expr.as_ref().map(|e| e.span()).unwrap_or(open_curly_span);
-
-        self.skip_newlines();
-
-        let fields = parse_delimited_list!(
-            self,
-            CloseCurly,
-            Comma,
-            {
-                let id_token = self.require_ident()?;
-
-                self.skip_newlines();
-
-                let expr = if eat!(self, Colon) {
-                    self.parse_expression(false, true)?
-                } else {
-                    Ast::Ident(ast::Ident {
-                        name: id_token.name(),
-                        span: id_token.span,
-                    })
-                };
-
-                StructLiteralField {
-                    name: id_token.name(),
-                    expr,
-                    span: id_token.span,
-                }
-            },
-            ", or }"
-        );
-
-        Ok(Ast::StructLiteral(ast::StructLiteral {
-            type_expr,
-            fields,
-            span: start_span.to(self.previous_span()),
-        }))
-    }
-
-    pub fn parse_struct_literal_or_parse_block_expr(&mut self) -> DiagnosticResult<Ast> {
-        let last_index = self.current;
-        let start_span = require!(self, OpenCurly, "{")?.span;
-
-        self.skip_newlines();
-
-        if eat!(self, CloseCurly) {
-            Ok(Ast::Block(ast::Block {
-                statements: vec![],
-                span: start_span.to(self.previous_span()),
-            }))
-        } else if eat!(self, Ident(_)) {
-            self.skip_newlines();
-
-            if is!(self, Colon | Comma) {
-                self.current = last_index;
-                self.parse_struct_literal(None)
-            } else {
-                self.current = last_index;
-                Ok(Ast::Block(self.parse_block()?))
-            }
-        } else {
-            self.current = last_index;
-            Ok(Ast::Block(self.parse_block()?))
-        }
     }
 }

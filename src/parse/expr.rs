@@ -351,7 +351,7 @@ impl Parser {
         } else if eat!(self, For) {
             self.parse_for()
         } else if is!(self, OpenCurly) {
-            self.parse_struct_literal_or_parse_block_expr()
+            self.parse_block_expr()
         } else if eat!(self, OpenBracket) {
             self.parse_array_type_or_literal()
         } else if eat!(self, Break | Continue | Return) {

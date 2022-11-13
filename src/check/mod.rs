@@ -1,4 +1,5 @@
 mod attrs;
+mod call;
 mod const_fold;
 mod entry;
 mod env;
@@ -6,7 +7,6 @@ mod intrinsics;
 mod lvalue_access;
 mod pat;
 mod top_level;
-mod call;
 
 use self::pat::get_qualified_name;
 use crate::{
@@ -36,20 +36,20 @@ use crate::{
     sym,
     types::{
         align_of::AlignOf, is_sized::IsSized, size_of::SizeOf, FunctionType, FunctionTypeParam, FunctionTypeVarargs,
-        StructType, StructTypeField, StructTypeKind, Type, TypeId,
+        StructType, StructTypeField, Type, TypeId,
     },
     workspace::{
         BindingId, BindingInfo, BindingInfoFlags, BindingInfoKind, LibraryId, ModuleId, ScopeLevel, Workspace,
     },
 };
 use env::{Env, Scope, ScopeKind};
-use indexmap::{indexmap, IndexMap};
+use indexmap::indexmap;
 use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
 };
 use top_level::CallerInfo;
-use ustr::{ustr, Ustr, UstrMap, UstrSet};
+use ustr::{ustr, Ustr, UstrMap};
 
 pub type CheckData = (hir::Cache, TypeCtx);
 
@@ -1418,38 +1418,6 @@ impl Check for ast::Ast {
                 }
             },
             ast::Ast::TupleLiteral(lit) => lit.check(sess, env, expected_type),
-            ast::Ast::StructLiteral(lit) => match &lit.type_expr {
-                Some(type_expr) => {
-                    let node = type_expr.check(sess, env, Some(sess.tcx.common_types.anytype))?;
-                    let ty = sess.require_const_type(&node)?;
-
-                    let kind = ty.normalize(&sess.tcx);
-
-                    match kind {
-                        Type::Struct(struct_ty) => {
-                            check_named_struct_literal(sess, env, struct_ty, &lit.fields, lit.span)
-                        }
-                        _ => Err(Diagnostic::error()
-                            .with_message(format!(
-                                "type `{}` does not support struct initialization syntax",
-                                ty.display(&sess.tcx)
-                            ))
-                            .with_label(Label::primary(type_expr.span(), "not a struct type"))),
-                    }
-                }
-                None => match expected_type {
-                    Some(ty) => {
-                        let kind = ty.normalize(&sess.tcx);
-                        match kind {
-                            Type::Struct(struct_ty) => {
-                                check_named_struct_literal(sess, env, struct_ty, &lit.fields, lit.span)
-                            }
-                            _ => check_anonymous_struct_literal(sess, env, &lit.fields, lit.span),
-                        }
-                    }
-                    None => check_anonymous_struct_literal(sess, env, &lit.fields, lit.span),
-                },
-            },
             ast::Ast::Literal(lit) => {
                 let const_value: ConstValue = lit.kind.into();
 
@@ -2948,165 +2916,6 @@ impl Check for ast::StructType {
             ty: sess.tcx.bound(struct_type.clone().create_type(), self.span),
             span: self.span,
             value: ConstValue::Type(sess.tcx.bound(struct_type, self.span)),
-        }))
-    }
-}
-
-#[inline]
-fn check_named_struct_literal(
-    sess: &mut CheckSess,
-    env: &mut Env,
-    struct_ty: StructType,
-    fields: &Vec<ast::StructLiteralField>,
-    span: Span,
-) -> CheckResult {
-    let mut field_set = UstrSet::default();
-    let mut uninit_fields = UstrSet::from_iter(struct_ty.fields.iter().map(|f| f.name));
-
-    let mut field_nodes: Vec<hir::StructLiteralField> = vec![];
-
-    for field in fields.iter() {
-        if !field_set.insert(field.name) {
-            return Err(SyntaxError::struct_field_specified_more_than_once(
-                field.span,
-                field.name.to_string(),
-            ));
-        }
-
-        match struct_ty.field(field.name) {
-            Some(ty_field) => {
-                uninit_fields.remove(&field.name);
-
-                let expected_type = sess.tcx.bound(ty_field.ty.clone(), ty_field.span);
-                let mut node = field.expr.check(sess, env, Some(expected_type))?;
-
-                node.ty()
-                    .unify(&expected_type, &mut sess.tcx)
-                    .or_coerce_into_ty(&mut node, &expected_type, &mut sess.tcx, sess.target_metrics.word_size)
-                    .or_report_err(
-                        &sess.tcx,
-                        &expected_type,
-                        Some(ty_field.span),
-                        &node.ty(),
-                        field.expr.span(),
-                    )?;
-
-                field_nodes.push(hir::StructLiteralField {
-                    ty: node.ty(),
-                    span,
-                    name: field.name,
-                    value: Box::new(node),
-                });
-            }
-            None => {
-                return Err(TypeError::invalid_struct_field(
-                    field.span,
-                    field.name,
-                    Type::Struct(struct_ty).display(&sess.tcx),
-                ));
-            }
-        }
-    }
-
-    if struct_ty.is_union() && fields.len() != 1 {
-        return Err(Diagnostic::error()
-            .with_message("union literal should have exactly one field")
-            .with_label(Label::primary(
-                span,
-                format!("type is `{}`", struct_ty.display(&sess.tcx)),
-            )));
-    }
-
-    if !struct_ty.is_union() && !uninit_fields.is_empty() {
-        let mut uninit_fields_str = uninit_fields.iter().map(|f| f.as_str()).collect::<Vec<&str>>();
-
-        uninit_fields_str.reverse();
-        return Err(Diagnostic::error()
-            .with_message(format!("missing struct fields: {}", uninit_fields_str.join(", ")))
-            .with_label(Label::primary(span, "missing fields")));
-    }
-
-    Ok(make_struct_literal_node(sess, field_nodes, struct_ty, span))
-}
-
-#[inline]
-fn check_anonymous_struct_literal(
-    sess: &mut CheckSess,
-    env: &mut Env,
-    fields: &[ast::StructLiteralField],
-    span: Span,
-) -> CheckResult {
-    let mut field_set = UstrSet::default();
-
-    let name = get_anonymous_struct_name(span);
-
-    let mut field_nodes: Vec<hir::StructLiteralField> = vec![];
-
-    let mut struct_ty = StructType {
-        name,
-        id: None,
-        kind: StructTypeKind::Struct,
-        fields: vec![],
-    };
-
-    for field in fields.iter() {
-        if !field_set.insert(field.name) {
-            return Err(SyntaxError::struct_field_specified_more_than_once(
-                field.span,
-                field.name.to_string(),
-            ));
-        }
-
-        let node = field.expr.check(sess, env, None)?;
-
-        struct_ty.fields.push(StructTypeField {
-            name: field.name,
-            ty: node.ty().into(),
-            span: field.span,
-        });
-
-        field_nodes.push(hir::StructLiteralField {
-            ty: node.ty(),
-            span,
-            name: field.name,
-            value: Box::new(node),
-        });
-    }
-
-    Ok(make_struct_literal_node(sess, field_nodes, struct_ty, span))
-}
-
-fn make_struct_literal_node(
-    sess: &mut CheckSess,
-    field_nodes: Vec<hir::StructLiteralField>,
-    struct_ty: StructType,
-    span: Span,
-) -> hir::Node {
-    let is_const_struct = field_nodes.iter().all(|f| f.value.is_const());
-
-    if is_const_struct {
-        let mut const_value_fields = IndexMap::<Ustr, ConstElement>::new();
-
-        for field in field_nodes.iter() {
-            const_value_fields.insert(
-                field.name,
-                ConstElement {
-                    value: field.value.as_const_value().unwrap().clone(),
-                    ty: field.ty,
-                },
-            );
-        }
-
-        hir::Node::Const(hir::Const {
-            value: ConstValue::Struct(const_value_fields),
-            ty: sess.tcx.bound(Type::Struct(struct_ty), span),
-            span,
-        })
-    } else {
-        hir::Node::Literal(hir::Literal::Struct(hir::StructLiteral {
-            ty: sess.tcx.bound(Type::Struct(struct_ty), span),
-            span,
-            fields: field_nodes,
         }))
     }
 }

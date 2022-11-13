@@ -81,12 +81,6 @@ impl SyntaxError {
             .with_label(Label::primary(span, ""))
     }
 
-    pub fn struct_field_specified_more_than_once(span: Span, name: String) -> Diagnostic {
-        Diagnostic::error()
-            .with_message(format!("field `{}` specified more than once", name))
-            .with_label(Label::primary(span, ""))
-    }
-
     pub fn duplicate_binding(name: Ustr, duplicate_span: Span, already_defined_span: Span) -> Diagnostic {
         Diagnostic::error()
             .with_message(format!("duplicate definitions with name `{}`", name))
