@@ -3,9 +3,12 @@ use crate::{
     check::intrinsics::{can_dispatch_intrinsic_at_comptime, dispatch_intrinsic},
     error::{
         diagnostic::{Diagnostic, Label},
-        DiagnosticResult,
+        DiagnosticResult, TypeError,
     },
-    hir,
+    hir::{
+        self,
+        const_value::{ConstElement, ConstValue},
+    },
     infer::{
         coerce::{coerce_array_to_slice, OrCoerceIntoTy},
         display::{DisplayType, OrReportErr},
@@ -16,7 +19,8 @@ use crate::{
     sym,
     types::*,
 };
-use ustr::UstrMap;
+use indexmap::IndexMap;
+use ustr::{Ustr, UstrMap, UstrSet};
 
 use super::{env::Env, Check, CheckResult, CheckSess};
 
@@ -419,13 +423,7 @@ fn build_function_call_args(
         _ => (),
     }
 
-    validate_call_args(sess, &args)?;
-
-    Ok(args)
-}
-
-// This function validates that call arguments are of valid types
-fn validate_call_args(sess: &mut CheckSess, args: &[hir::Node]) -> DiagnosticResult<()> {
+    // Validate that call arguments are of valid types
     for arg in args.iter() {
         match arg.ty().normalize(&sess.tcx) {
             Type::Type(_) | Type::AnyType => {
@@ -442,9 +440,172 @@ fn validate_call_args(sess: &mut CheckSess, args: &[hir::Node]) -> DiagnosticRes
         }
     }
 
-    Ok(())
+    Ok(args)
 }
 
 fn check_struct_call(sess: &mut CheckSess, env: &mut Env, call: &ast::Call, struct_type: &StructType) -> CheckResult {
-    panic!("...")
+    let mut used_fields = UstrMap::<Span>::default();
+    let mut uninit_fields = UstrSet::from_iter(struct_type.fields.iter().map(|f| f.name));
+
+    let mut field_nodes: Vec<hir::StructLiteralField> = vec![];
+
+    if struct_type.is_union() && !call.args.is_empty() {
+        return Err(Diagnostic::error()
+            .with_message("positional argument are not allowed in union literals, only 1 named argument is allowed")
+            .with_label(Label::primary(
+                call.span,
+                format!("type is `{}`", struct_type.display(&sess.tcx)),
+            )));
+    }
+
+    for (index, arg) in call.args.iter().enumerate() {
+        if arg.spread {
+            return Err(Diagnostic::error()
+                .with_message("cannot spread arguments into struct fields")
+                .with_label(Label::primary(call.span, "spreading isn't allowed")));
+        }
+
+        match struct_type.fields.get(index) {
+            Some(field) => {
+                used_fields.insert(field.name, arg.value.span());
+                uninit_fields.remove(&field.name);
+
+                let expected_type = sess.tcx.bound(field.ty.clone(), field.span);
+                let mut node = arg.value.check(sess, env, Some(expected_type))?;
+
+                node.ty()
+                    .unify(&expected_type, &mut sess.tcx)
+                    .or_coerce_into_ty(&mut node, &expected_type, &mut sess.tcx, sess.target_metrics.word_size)
+                    .or_report_err(
+                        &sess.tcx,
+                        &expected_type,
+                        Some(field.span),
+                        &node.ty(),
+                        arg.value.span(),
+                    )?;
+
+                field_nodes.push(hir::StructLiteralField {
+                    ty: node.ty(),
+                    span: arg.value.span(),
+                    name: field.name,
+                    value: Box::new(node),
+                });
+            }
+            None => {
+                return Err(Diagnostic::error()
+                    .with_message(format!(
+                        "struct `{}` expects {} fields, but {} were passed",
+                        struct_type.name,
+                        struct_type.fields.len(),
+                        call.args.len()
+                    ))
+                    .with_label(Label::primary(call.span, "passed too many fields")))
+            }
+        }
+    }
+
+    for arg in call.named_args.iter() {
+        if arg.spread {
+            return Err(Diagnostic::error()
+                .with_message("cannot spread arguments into struct fields")
+                .with_label(Label::primary(call.span, "spreading isn't allowed")));
+        }
+
+        match struct_type.field(arg.name.name) {
+            Some(field) => {
+                if let Some(used_span) = used_fields.get(&arg.name.name) {
+                    return Err(Diagnostic::error()
+                        .with_message(format!("field `{}` is passed twice", arg.name.name,))
+                        .with_label(Label::primary(arg.name.span, "field passed twice"))
+                        .with_label(Label::secondary(*used_span, "already passed here")));
+                }
+
+                used_fields.insert(field.name, arg.value.span());
+                uninit_fields.remove(&field.name);
+
+                let expected_type = sess.tcx.bound(field.ty.clone(), field.span);
+                let mut node = arg.value.check(sess, env, Some(expected_type))?;
+
+                node.ty()
+                    .unify(&expected_type, &mut sess.tcx)
+                    .or_coerce_into_ty(&mut node, &expected_type, &mut sess.tcx, sess.target_metrics.word_size)
+                    .or_report_err(
+                        &sess.tcx,
+                        &expected_type,
+                        Some(field.span),
+                        &node.ty(),
+                        arg.value.span(),
+                    )?;
+
+                field_nodes.push(hir::StructLiteralField {
+                    ty: node.ty(),
+                    span: arg.value.span(),
+                    name: field.name,
+                    value: Box::new(node),
+                });
+            }
+            None => {
+                return Err(TypeError::invalid_struct_field(
+                    arg.name.span,
+                    arg.name.name,
+                    struct_type.display(&sess.tcx),
+                ));
+            }
+        }
+    }
+
+    if struct_type.is_union() && field_nodes.len() != 1 {
+        return Err(Diagnostic::error()
+            .with_message("union literal should have exactly one field")
+            .with_label(Label::primary(
+                call.span,
+                format!("type is `{}`", struct_type.display(&sess.tcx)),
+            )));
+    }
+
+    if !struct_type.is_union() && !uninit_fields.is_empty() {
+        let mut uninit_fields_str = uninit_fields.iter().map(|f| f.as_str()).collect::<Vec<&str>>();
+
+        uninit_fields_str.reverse();
+        return Err(Diagnostic::error()
+            .with_message(format!("missing struct fields: {}", uninit_fields_str.join(", ")))
+            .with_label(Label::primary(call.span, "missing fields")));
+    }
+
+    Ok(make_struct_literal_node(sess, field_nodes, struct_type, call.span))
+}
+
+fn make_struct_literal_node(
+    sess: &mut CheckSess,
+    field_nodes: Vec<hir::StructLiteralField>,
+    struct_ty: &StructType,
+    span: Span,
+) -> hir::Node {
+    let is_const_struct = field_nodes.iter().all(|f| f.value.is_const());
+
+    if is_const_struct {
+        let mut const_value_fields = IndexMap::<Ustr, ConstElement>::new();
+
+        for field in field_nodes.iter() {
+            const_value_fields.insert(
+                field.name,
+                ConstElement {
+                    value: field.value.as_const_value().unwrap().clone(),
+                    ty: field.ty,
+                },
+            );
+        }
+
+        hir::Node::Const(hir::Const {
+            value: ConstValue::Struct(const_value_fields),
+            ty: sess.tcx.bound(Type::Struct(struct_ty.clone()), span),
+            span,
+        })
+    } else {
+        hir::Node::Literal(hir::Literal::Struct(hir::StructLiteral {
+            ty: sess.tcx.bound(Type::Struct(struct_ty.clone()), span),
+            span,
+            fields: field_nodes,
+        }))
+    }
 }

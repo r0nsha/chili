@@ -1,13 +1,13 @@
 fn main() = {
   let me = Person { name: "Ron", age: 26 }
   let me = Person("Ron", 26)
-  // let me = Person("Ron", age: 26)
-  // let me = Person(name: "Ron", age: 26)
-  print_person(me.name, foo: 5, age: me.age, foo: 1)
+  let me = Person("Ron", age: 26)
+  let me = Person(name: "Ron", age: 26)
+  print_person(me.name, me.age)
 }
 
-fn print_person(name: *str, age: uint, foo: int) = {
-  std.c.printf("%s %d %d\n".ptr, name.ptr, foo, age)
+fn print_person(name: *str, age: uint) = {
+  std.c.printf("%s %d\n".ptr, name.ptr, age)
   ()
 }
 
