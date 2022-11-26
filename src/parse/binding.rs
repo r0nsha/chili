@@ -346,12 +346,11 @@ impl Parser {
                 span: sym.span,
                 is_mutable: false,
             });
-            let span = pat.span;
 
             Ok(UnpackSubPat {
                 pat,
                 alias_pat: None,
-                span,
+                span: sym.span,
             })
         }
     }
