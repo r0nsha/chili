@@ -1,6 +1,6 @@
-pub use intrinsics.{self, location}
+pub use intrinsics.(self, location)
 pub use build
 pub use c
-pub use fmt.{self, print, println}
+pub use fmt.(self, print, println)
 pub use sys
-pub use process.{self, panic}
+pub use process.(self, panic)

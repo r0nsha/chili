@@ -87,6 +87,7 @@ impl<'a> PatIter<'a> {
         self.positions.push(0);
     }
 
+    #[allow(dead_code)]
     fn pop(&mut self) {
         self.pats.pop();
         self.positions.pop();

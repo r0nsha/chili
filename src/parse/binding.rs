@@ -217,12 +217,12 @@ impl Parser {
                         span: self.previous_span(),
                     }),
                 }))
-            } else if eat!(self, OpenCurly) {
+            } else if eat!(self, OpenParen) {
                 self.skip_newlines();
 
                 let start_span = self.previous_span();
 
-                if eat!(self, CloseCurly) {
+                if eat!(self, CloseParen) {
                     Ok(Pat::Unpack(UnpackPat {
                         subpats: vec![],
                         span: ident.span.to(self.previous_span()),
@@ -232,14 +232,14 @@ impl Parser {
                     let mut subpats = vec![];
                     let mut glob: Option<GlobPat> = None;
 
-                    while !eat!(self, CloseCurly) && !self.eof() {
+                    while !eat!(self, CloseParen) && !self.eof() {
                         self.skip_newlines();
 
                         if eat!(self, Star) {
                             glob = Some(GlobPat {
                                 span: self.previous_span(),
                             });
-                            require!(self, CloseCurly, "}")?;
+                            require!(self, CloseParen, "}")?;
                             break;
                         } else {
                             self.skip_newlines();
@@ -256,7 +256,7 @@ impl Parser {
                             if eat!(self, Comma) {
                                 self.skip_newlines();
                                 continue;
-                            } else if eat!(self, CloseCurly) {
+                            } else if eat!(self, CloseParen) {
                                 break;
                             } else {
                                 let span = self.previous_span().after();
