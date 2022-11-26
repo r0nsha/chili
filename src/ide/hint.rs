@@ -78,10 +78,9 @@ impl<'a> CollectHints<'a> for hir::Binding {
     fn collect_hints(&self, sess: &mut HintSess<'a>) {
         let binding_info = sess.workspace.binding_infos.get(self.id).unwrap();
 
-        let should_show_hint = !binding_info.flags.contains(BindingInfoFlags::IGNORE)
-            && binding_info
-                .flags
-                .contains(BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED);
+        let should_show_hint = binding_info
+            .flags
+            .contains(BindingInfoFlags::IS_USER_DEFINED | BindingInfoFlags::TYPE_WAS_INFERRED);
 
         if should_show_hint {
             match binding_info.ty.normalize(sess.tcx) {
@@ -105,10 +104,6 @@ impl<'a> CollectHints<'a> for hir::Function {
                 for param in params.iter() {
                     let binding_info = sess.workspace.binding_infos.get(param.id).unwrap();
                     let ty = binding_info.ty.normalize(sess.tcx);
-
-                    if binding_info.flags.contains(BindingInfoFlags::IGNORE) {
-                        continue;
-                    }
 
                     if binding_info
                         .flags

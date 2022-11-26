@@ -7,6 +7,7 @@ use super::NameAndSpan;
 
 #[derive(Debug, PartialEq, Clone, EnumAsInner)]
 pub enum Pat {
+    Ignore(Span),
     Name(NamePat),
     Struct(StructPat),
     Tuple(TuplePat),
@@ -16,6 +17,7 @@ pub enum Pat {
 impl Pat {
     pub fn span(&self) -> Span {
         match self {
+            Pat::Ignore(span) => *span,
             Pat::Name(p) => p.span,
             Pat::Struct(p) => p.span,
             Pat::Tuple(p) => p.span,
@@ -101,7 +103,6 @@ pub struct NamePat {
     pub name: Ustr,
     pub span: Span,
     pub is_mutable: bool,
-    pub ignore: bool,
 }
 
 pub struct PatIter<'a> {
@@ -157,6 +158,7 @@ impl<'a> Iterator for PatIter<'a> {
         let pos = self.positions[index];
 
         let item = match pat {
+            Pat::Ignore(_) => None,
             Pat::Name(pat) => match pos {
                 0 => Some(pat),
                 _ => None,
@@ -184,6 +186,7 @@ impl Display for Pat {
             f,
             "{}",
             match self {
+                Pat::Ignore(_) => "_".to_string(),
                 Pat::Name(pat) => pat.to_string(),
                 Pat::Struct(pat) => pat.to_string(),
                 Pat::Tuple(pat) => pat.to_string(),
@@ -239,10 +242,9 @@ impl Display for TuplePat {
 
 impl Display for NamePat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.ignore {
-            write!(f, "_")
-        } else {
-            write!(f, "{}{}", if self.is_mutable { "mut " } else { "" }, self.name)
+        if self.is_mutable {
+            f.write_str("mut ")?;
         }
+        f.write_str(&self.name)
     }
 }

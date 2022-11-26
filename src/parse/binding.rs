@@ -285,7 +285,6 @@ impl Parser {
                 name,
                 span: alias.span,
                 is_mutable: false,
-                ignore: false,
             }))
         } else {
             Ok(Pat::Name(NamePat {
@@ -293,7 +292,6 @@ impl Parser {
                 name: ident.name(),
                 span: ident.span,
                 is_mutable: false,
-                ignore: false,
             }))
         }
     }
@@ -318,7 +316,6 @@ impl Parser {
                     name: alias,
                     span: alias_tok.span,
                     is_mutable: false,
-                    ignore: false,
                 }),
             ))
         } else {
@@ -328,7 +325,6 @@ impl Parser {
                 name,
                 span: sym.span,
                 is_mutable: false,
-                ignore: false,
             }))
         }
     }

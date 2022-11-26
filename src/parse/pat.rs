@@ -9,7 +9,9 @@ impl Parser {
     pub fn parse_pat(&mut self) -> DiagnosticResult<Pat> {
         self.skip_newlines();
 
-        if is!(self, Mut | Ident(_) | Placeholder) {
+        if eat!(self, Placeholder) {
+            Ok(Pat::Ignore(self.previous_span()))
+        } else if is!(self, Mut | Ident(_)) {
             let pat = self.parse_name_pat().map(Pat::Name)?;
 
             self.skip_newlines();
@@ -67,14 +69,7 @@ impl Parser {
             } else {
                 fn parse_name(parser: &mut Parser, subpats: &mut Vec<StructSubPat>) -> DiagnosticResult<()> {
                     let pat = parser.parse_name_pat()?;
-
-                    // This means the user used `_`, instead of `x: _` - which is illegal
-                    if pat.ignore {
-                        return Err(SyntaxError::expected(pat.span, "an identifier, ? or }"));
-                    }
-
                     subpats.push(StructSubPat::Name(pat));
-
                     Ok(())
                 }
 
@@ -132,21 +127,13 @@ impl Parser {
 
     pub fn parse_name_pat(&mut self) -> DiagnosticResult<NamePat> {
         let is_mutable = eat!(self, Mut);
-
-        let (name, ignore) = if eat!(self, Ident(_)) {
-            (self.previous().name(), false)
-        } else if eat!(self, Placeholder) {
-            (ustr(Placeholder.lexeme()), true)
-        } else {
-            return Err(SyntaxError::expected(self.span(), "an identifier or _"));
-        };
+        let id_token = require!(self, Ident(_), "an identifier")?;
 
         Ok(NamePat {
             id: BindingId::unknown(),
-            name,
+            name: id_token.name(),
             is_mutable,
-            span: self.previous_span(),
-            ignore,
+            span: id_token.span,
         })
     }
 }

@@ -141,21 +141,7 @@ impl<'s> CheckSess<'s> {
         kind: BindingInfoKind,
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<(BindingId, hir::Node)> {
-        self.bind_name(
-            env,
-            pat.name,
-            vis,
-            ty,
-            value,
-            pat.is_mutable,
-            kind,
-            pat.span,
-            if pat.ignore {
-                flags | BindingInfoFlags::IGNORE
-            } else {
-                flags
-            },
-        )
+        self.bind_name(env, pat.name, vis, ty, value, pat.is_mutable, kind, pat.span, flags)
     }
 
     pub fn bind_pat(
@@ -170,6 +156,7 @@ impl<'s> CheckSess<'s> {
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<(BindingId, hir::Node)> {
         match pat {
+            Pat::Ignore(_) => todo!("return None"),
             Pat::Name(pat) => self.bind_name_pat(env, pat, vis, ty, value, kind, flags),
             Pat::Struct(pat) => {
                 let mut statements = vec![];

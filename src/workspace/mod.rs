@@ -71,7 +71,7 @@ pub struct BindingInfo {
     pub span: Span,
 }
 
-#[derive(Debug, PartialEq,Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum BindingInfoKind {
     LetConst,
     LetStatic,
@@ -175,8 +175,6 @@ bitflags! {
         const IMPLICIT_IT_FUNCTION_PARAM = 1 << 3;
         // Whether this binding should store a constant value
         const NO_CONST_FOLD = 1 << 4;
-        // Whether this binding was ignored using `_`
-        const IGNORE = 1 << 5;
     }
 }
 

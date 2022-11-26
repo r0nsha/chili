@@ -1514,7 +1514,7 @@ impl Check for ast::Ast {
 
                 for param in sig.params.iter() {
                     match &param.pat {
-                        Pat::Name(_) => (),
+                        Pat::Ignore(_) | Pat::Name(_) => (),
                         Pat::Struct(_) | Pat::Tuple(_) | Pat::Hybrid(_) => {
                             return Err(Diagnostic::error()
                                 .with_message("expected an indentifier or _")
@@ -3228,7 +3228,7 @@ fn check_function_sig<'s>(
 
         let name = match &param.pat {
             Pat::Name(p) => p.name,
-            Pat::Struct(_) | Pat::Tuple(_) => ustr("_"),
+            Pat::Ignore(_) | Pat::Struct(_) | Pat::Tuple(_) => ustr("_"),
             Pat::Hybrid(p) => p.name_pat.name,
         };
 
