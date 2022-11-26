@@ -47,6 +47,15 @@ pub struct UnpackSubPat {
     pub span: Span,
 }
 
+impl UnpackSubPat {
+    pub fn is_mutable(&self) -> bool {
+        match &self.alias_pat {
+            Some(alias_pat) => alias_pat.is_mutable(),
+            None => self.pat.is_mutable(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct GlobPat {
     pub span: Span,

@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    ast::pat::{GlobPat, HybridPat, NamePat, Pat, UnpackPat},
+    ast::pat::{GlobPat, HybridPat, NamePat, Pat, UnpackPat, UnpackSubPat},
     error::SyntaxError,
     workspace::BindingId,
 };
@@ -60,11 +60,16 @@ impl Parser {
 
                 let pat = self.parse_pat()?;
 
-                let alias_pat = if eat!(self, Colon) {
-                    Some(self.parse_pat()?)
+                let (alias_pat, span) = if eat!(self, Colon) {
+                    self.skip_newlines();
+                    let alias_pat = self.parse_pat()?;
+                    let span = pat.span().to(alias_pat.span());
+                    (Some(alias_pat), span)
                 } else {
-                    None
+                    (None, pat.span())
                 };
+
+                subpats.push(UnpackSubPat { pat, alias_pat, span });
 
                 self.skip_newlines();
 
