@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    ast::pat::{GlobPat, HybridPat, NamePat, Pat, StructPat, StructSubPat, TuplePat, UnpackPatKind},
+    ast::pat::{GlobPat, HybridPat, NamePat, Pat, UnpackPat, UnpackSubPat},
     error::SyntaxError,
     workspace::BindingId,
 };
@@ -20,11 +20,9 @@ impl Parser {
                 let pat = pat.into_name().unwrap();
                 let start_span = pat.span;
 
-                let unpack_pat = match self.parse_unpack_pat("an unpack pattern")? {
-                    Pat::Struct(pat) => UnpackPatKind::Struct(pat),
-                    Pat::Tuple(pat) => UnpackPatKind::Tuple(pat),
-                    _ => panic!(),
-                };
+                self.skip_newlines();
+
+                let unpack_pat = self.parse_unpack_pat()?;
 
                 Ok(Pat::Hybrid(HybridPat {
                     name_pat: pat,
@@ -34,95 +32,59 @@ impl Parser {
             } else {
                 Ok(pat)
             }
-        } else {
-            self.parse_unpack_pat("a pattern")
-        }
-    }
-
-    fn parse_unpack_pat(&mut self, expectation: &str) -> DiagnosticResult<Pat> {
-        self.skip_newlines();
-
-        if eat!(self, OpenCurly) {
-            self.parse_struct_unpack()
         } else if eat!(self, OpenParen) {
-            self.parse_tuple_unpack()
+            let unpack_pat = self.parse_unpack_pat()?;
+            Ok(Pat::Unpack(unpack_pat))
         } else {
-            Err(SyntaxError::expected(self.span(), expectation))
+            Err(SyntaxError::expected(self.span(), "a pattern"))
         }
     }
 
-    fn parse_struct_unpack(&mut self) -> DiagnosticResult<Pat> {
+    fn parse_unpack_pat(&mut self) -> DiagnosticResult<UnpackPat> {
         let start_span = self.previous_span();
 
         let mut subpats = vec![];
         let mut glob: Option<GlobPat> = None;
 
-        while !eat!(self, CloseCurly) && !self.eof() {
+        while !eat!(self, CloseParen) && !self.eof() {
             self.skip_newlines();
 
             if eat!(self, Star) {
                 glob = Some(GlobPat {
                     span: self.previous_span(),
                 });
-                require!(self, CloseCurly, "}")?;
+                require!(self, CloseParen, ")")?;
                 break;
             } else {
-                fn parse_name(parser: &mut Parser, subpats: &mut Vec<StructSubPat>) -> DiagnosticResult<()> {
-                    let pat = parser.parse_name_pat()?;
-                    subpats.push(StructSubPat::Name(pat));
-                    Ok(())
-                }
-
                 self.skip_newlines();
 
-                if eat!(self, Ident(_)) {
-                    if is!(self, Colon) {
-                        let ident = self.previous();
-                        let name = ast::NameAndSpan::new(ident.name(), ident.span);
+                let pat = self.parse_pat()?;
 
-                        self.bump();
-
-                        let pat = self.parse_pat()?;
-
-                        subpats.push(StructSubPat::NameAndPat(name, pat));
-                    } else {
-                        self.revert(1);
-                        parse_name(self, &mut subpats)?;
-                    }
+                let alias_pat = if eat!(self, Colon) {
+                    Some(self.parse_pat()?)
                 } else {
-                    parse_name(self, &mut subpats)?;
-                }
+                    None
+                };
 
                 self.skip_newlines();
 
                 if eat!(self, Comma) {
                     self.skip_newlines();
                     continue;
-                } else if eat!(self, CloseCurly) {
+                } else if eat!(self, CloseParen) {
                     break;
                 } else {
                     let span = self.previous_span().after();
-                    return Err(SyntaxError::expected(span, ", or }"));
+                    return Err(SyntaxError::expected(span, ", or )"));
                 }
             }
         }
 
-        Ok(Pat::Struct(StructPat {
+        Ok(UnpackPat {
             subpats,
             span: start_span.to(self.previous_span()),
             glob,
-        }))
-    }
-
-    fn parse_tuple_unpack(&mut self) -> DiagnosticResult<Pat> {
-        let start_span = self.previous_span();
-
-        let subpats = parse_delimited_list!(self, CloseParen, Comma, self.parse_pat()?, ", or )");
-
-        Ok(Pat::Tuple(TuplePat {
-            subpats,
-            span: start_span.to(self.previous_span()),
-        }))
+        })
     }
 
     pub fn parse_name_pat(&mut self) -> DiagnosticResult<NamePat> {

@@ -6,7 +6,7 @@ use super::{
 use crate::{
     ast::{
         self,
-        pat::{NamePat, Pat, StructPat, StructSubPat, TuplePat, UnpackPatKind},
+        pat::{NamePat, Pat, UnpackPat, UnpackSubPat, UnpackPat, UnpackPatKind},
     },
     error::{
         diagnostic::{Diagnostic, Label},
@@ -158,7 +158,7 @@ impl<'s> CheckSess<'s> {
         match pat {
             Pat::Ignore(_) => todo!("return None"),
             Pat::Name(pat) => self.bind_name_pat(env, pat, vis, ty, value, kind, flags),
-            Pat::Struct(pat) => {
+            Pat::Unpack(pat) => {
                 let mut statements = vec![];
 
                 let (id, id_node) =
@@ -176,7 +176,7 @@ impl<'s> CheckSess<'s> {
                     }),
                 ))
             }
-            Pat::Tuple(pat) => {
+            Pat::Unpack(pat) => {
                 let mut statements = vec![];
 
                 let (id, id_node) =
@@ -284,7 +284,7 @@ impl<'s> CheckSess<'s> {
         &mut self,
         statements: &mut Vec<hir::Node>,
         env: &mut Env,
-        unpack_pat: &StructPat,
+        unpack_pat: &UnpackPat,
         vis: ast::Vis,
         ty: TypeId,
         value: hir::Node,
@@ -308,7 +308,7 @@ impl<'s> CheckSess<'s> {
 
                 for pat in unpack_pat.subpats.iter() {
                     match pat {
-                        StructSubPat::Name(pat) => {
+                        UnpackSubPat::Name(pat) => {
                             if let Some(already_bound_span) = bound_names.insert(pat.name, pat.span) {
                                 return Err(already_bound_err(pat.name, pat.span, already_bound_span));
                             }
@@ -340,7 +340,7 @@ impl<'s> CheckSess<'s> {
 
                             statements.push(binding);
                         }
-                        StructSubPat::NameAndPat(ast::NameAndSpan { name, span }, pat) => {
+                        UnpackSubPat::NameAndPat(ast::NameAndSpan { name, span }, pat) => {
                             let (name, span) = (*name, *span);
 
                             let caller_info = CallerInfo {
@@ -423,7 +423,7 @@ impl<'s> CheckSess<'s> {
                         };
 
                         let (_, bound_node) = match pat {
-                            StructSubPat::Name(pat) => {
+                            UnpackSubPat::Name(pat) => {
                                 if let Some(already_bound_span) = bound_names.insert(name, span) {
                                     return Err(already_bound_err(pat.name, pat.span, already_bound_span));
                                 }
@@ -438,7 +438,7 @@ impl<'s> CheckSess<'s> {
                                     flags | BindingInfoFlags::TYPE_WAS_INFERRED,
                                 )?
                             }
-                            StructSubPat::NameAndPat(_, pat) => self.bind_pat(
+                            UnpackSubPat::NameAndPat(_, pat) => self.bind_pat(
                                 env,
                                 pat,
                                 vis,
@@ -540,7 +540,7 @@ impl<'s> CheckSess<'s> {
         &mut self,
         statements: &mut Vec<hir::Node>,
         env: &mut Env,
-        pat: &TuplePat,
+        pat: &UnpackPat,
         vis: ast::Vis,
         value: hir::Node,
         kind: BindingInfoKind,

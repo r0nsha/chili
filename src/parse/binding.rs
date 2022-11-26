@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    ast::pat::{GlobPat, NamePat, Pat, StructPat, StructSubPat},
+    ast::pat::{GlobPat, NamePat, Pat, UnpackPat, UnpackSubPat},
     types::FunctionTypeKind,
     workspace::BindingId,
 };
@@ -204,13 +204,13 @@ impl Parser {
                 let subpat = self.parse_import_binding_subpat(name, sym)?;
                 let span = subpat.span();
 
-                Ok(Pat::Struct(StructPat {
+                Ok(Pat::Unpack(UnpackPat {
                     subpats: vec![subpat],
                     span,
                     glob: None,
                 }))
             } else if eat!(self, Star) {
-                Ok(Pat::Struct(StructPat {
+                Ok(Pat::Unpack(UnpackPat {
                     subpats: vec![],
                     span: ident.span.to(self.previous_span()),
                     glob: Some(GlobPat {
@@ -223,7 +223,7 @@ impl Parser {
                 let start_span = self.previous_span();
 
                 if eat!(self, CloseCurly) {
-                    Ok(Pat::Struct(StructPat {
+                    Ok(Pat::Unpack(UnpackPat {
                         subpats: vec![],
                         span: ident.span.to(self.previous_span()),
                         glob: None,
@@ -267,7 +267,7 @@ impl Parser {
 
                     self.skip_newlines();
 
-                    Ok(Pat::Struct(StructPat {
+                    Ok(Pat::Unpack(UnpackPat {
                         subpats,
                         span: start_span.to(self.previous_span()),
                         glob,
@@ -296,12 +296,12 @@ impl Parser {
         }
     }
 
-    fn parse_import_binding_subpat(&mut self, name: Ustr, sym: Token) -> DiagnosticResult<StructSubPat> {
+    fn parse_import_binding_subpat(&mut self, name: Ustr, sym: Token) -> DiagnosticResult<UnpackSubPat> {
         if is!(self, Dot) {
             // Nested subpath: foo.bar.baz.qux
             let name_and_span = ast::NameAndSpan { name, span: sym.span };
             let pat = self.parse_import_binding_pat(Some(sym))?;
-            Ok(StructSubPat::NameAndPat(name_and_span, pat))
+            Ok(UnpackSubPat::NameAndPat(name_and_span, pat))
         } else if eat!(self, As) {
             // Aliased subpath: foo as qux
             let name_and_span = ast::NameAndSpan { name, span: sym.span };
@@ -309,7 +309,7 @@ impl Parser {
             let alias_tok = self.require_ident()?;
             let alias = alias_tok.name();
 
-            Ok(StructSubPat::NameAndPat(
+            Ok(UnpackSubPat::NameAndPat(
                 name_and_span,
                 Pat::Name(NamePat {
                     id: BindingId::unknown(),
@@ -320,7 +320,7 @@ impl Parser {
             ))
         } else {
             // Subpath: foo
-            Ok(StructSubPat::Name(NamePat {
+            Ok(UnpackSubPat::Name(NamePat {
                 id: BindingId::unknown(),
                 name,
                 span: sym.span,
