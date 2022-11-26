@@ -6,7 +6,7 @@ use super::{
 use crate::{
     ast::{
         self,
-        pat::{NamePat, Pat, UnpackPat, UnpackSubPat},
+        pat::{NamePat, Pat, UnpackPat},
     },
     error::{
         diagnostic::{Diagnostic, Label},
@@ -16,7 +16,7 @@ use crate::{
     infer::{display::DisplayType, normalize::Normalize},
     span::Span,
     sym,
-    types::{Type, TypeId},
+    types::{StructType, Type, TypeId},
     workspace::{BindingId, BindingInfoFlags, BindingInfoKind, ModuleId, PartialBindingInfo, ScopeLevel},
 };
 use ustr::{ustr, Ustr, UstrMap};
@@ -164,25 +164,7 @@ impl<'s> CheckSess<'s> {
                 let (id, id_node) =
                     self.bind_temp_name_for_unpack_pat(env, vis, ty, value, kind, pat.span, &mut statements, flags)?;
 
-                self.bind_struct_unpack_pat(&mut statements, env, pat, vis, ty, id_node, kind, ty_origin_span, flags)?;
-
-                Ok((
-                    id,
-                    hir::Node::Sequence(hir::Sequence {
-                        statements,
-                        ty: self.tcx.common_types.unit,
-                        span: pat.span,
-                        is_scope: false,
-                    }),
-                ))
-            }
-            Pat::Unpack(pat) => {
-                let mut statements = vec![];
-
-                let (id, id_node) =
-                    self.bind_temp_name_for_unpack_pat(env, vis, ty, value, kind, pat.span, &mut statements, flags)?;
-
-                self.bind_tuple_unpack_pat(&mut statements, env, pat, vis, id_node, kind, ty_origin_span, flags)?;
+                self.bind_unpack_pat(&mut statements, env, pat, vis, ty, id_node, kind, ty_origin_span, flags)?;
 
                 Ok((
                     id,
@@ -201,29 +183,17 @@ impl<'s> CheckSess<'s> {
 
                 let id_node = self.get_id_node_for_unpack_pat(bound_node, &mut statements);
 
-                match &pat.unpack_pat {
-                    UnpackPatKind::Struct(pat) => self.bind_struct_unpack_pat(
-                        &mut statements,
-                        env,
-                        pat,
-                        vis,
-                        ty,
-                        id_node,
-                        kind,
-                        ty_origin_span,
-                        flags,
-                    )?,
-                    UnpackPatKind::Tuple(pat) => self.bind_tuple_unpack_pat(
-                        &mut statements,
-                        env,
-                        pat,
-                        vis,
-                        id_node,
-                        kind,
-                        ty_origin_span,
-                        flags,
-                    )?,
-                }
+                self.bind_unpack_pat(
+                    &mut statements,
+                    env,
+                    &pat.unpack_pat,
+                    vis,
+                    ty,
+                    id_node,
+                    kind,
+                    ty_origin_span,
+                    flags,
+                )?;
 
                 Ok((
                     id,
@@ -280,7 +250,7 @@ impl<'s> CheckSess<'s> {
         }
     }
 
-    fn bind_struct_unpack_pat(
+    fn bind_unpack_pat(
         &mut self,
         statements: &mut Vec<hir::Node>,
         env: &mut Env,
@@ -294,321 +264,383 @@ impl<'s> CheckSess<'s> {
     ) -> DiagnosticResult<()> {
         match ty.normalize(&self.tcx).maybe_deref_once() {
             Type::Module(module_id) => {
-                self.check_module_by_id(module_id)?;
-
-                // println!(
-                //     "`{}` -> `{}`",
-                //     env.module_info().name,
-                //     self.workspace.module_infos[module_id].name,
-                // );
-
-                let module_bindings = self.global_scopes.get(&module_id).unwrap().bindings.clone();
-
-                let mut bound_names = UstrMap::default();
-
-                for pat in unpack_pat.subpats.iter() {
-                    match pat {
-                        UnpackSubPat::Name(pat) => {
-                            if let Some(already_bound_span) = bound_names.insert(pat.name, pat.span) {
-                                return Err(already_bound_err(pat.name, pat.span, already_bound_span));
-                            }
-
-                            let caller_info = CallerInfo {
-                                module_id: env.module_id(),
-                                span: pat.span,
-                            };
-
-                            let node = self.check_top_level_name(pat.name, module_id, caller_info, true)?;
-
-                            let pat = match (pat.name.as_str(), node.ty().normalize(&self.tcx)) {
-                                (sym::SELF | sym::SUPER, Type::Module(module_id)) => NamePat {
-                                    name: self.workspace.module_infos.get(module_id).unwrap().name,
-                                    ..pat.clone()
-                                },
-                                _ => pat.clone(),
-                            };
-
-                            let (_, binding) = self.bind_name_pat(
-                                env,
-                                &pat,
-                                vis,
-                                node.ty(),
-                                Some(node),
-                                kind,
-                                flags | BindingInfoFlags::TYPE_WAS_INFERRED,
-                            )?;
-
-                            statements.push(binding);
-                        }
-                        UnpackSubPat::NameAndPat(ast::NameAndSpan { name, span }, pat) => {
-                            let (name, span) = (*name, *span);
-
-                            let caller_info = CallerInfo {
-                                module_id: env.module_id(),
-                                span,
-                            };
-
-                            let node = self.check_top_level_name(name, module_id, caller_info, true)?;
-
-                            let (_, binding) = self.bind_pat(
-                                env,
-                                pat,
-                                vis,
-                                node.ty(),
-                                Some(node),
-                                kind,
-                                ty_origin_span,
-                                flags | BindingInfoFlags::TYPE_WAS_INFERRED,
-                            )?;
-
-                            statements.push(binding);
-                        }
-                    }
-                }
-
-                if let Some(glob) = &unpack_pat.glob {
-                    for (_, &id) in module_bindings.iter() {
-                        let binding_info = self.workspace.binding_infos.get(id).unwrap();
-
-                        if binding_info.vis == ast::Vis::Private {
-                            continue;
-                        }
-
-                        // skip explicitly bound bindings
-                        if bound_names.contains_key(&binding_info.name) {
-                            continue;
-                        }
-
-                        let (_, binding) = self.bind_name(
-                            env,
-                            binding_info.name,
-                            vis,
-                            binding_info.ty,
-                            Some(self.id_or_const(binding_info, glob.span)),
-                            binding_info.is_mutable,
-                            binding_info.kind,
-                            glob.span,
-                            flags - BindingInfoFlags::IS_USER_DEFINED,
-                        )?;
-
-                        statements.push(binding);
-                    }
-                }
-
-                Ok(())
+                self.bind_module_unpack_pat(statements, env, unpack_pat, vis, module_id, kind, ty_origin_span, flags)
             }
-            Type::Struct(struct_type) => {
-                let mut bound_names = UstrMap::default();
-
-                for (index, pat) in unpack_pat.subpats.iter().enumerate() {
-                    let name = pat.name();
-                    let span = pat.span();
-
-                    if let Some(field) = struct_type.field(name) {
-                        let ty = self.tcx.bound(field.ty.clone(), span);
-
-                        let field_value = match value.as_const_value() {
-                            Some(const_value) if !pat.is_mutable() => hir::Node::Const(hir::Const {
-                                value: const_value.as_struct().unwrap().get(&name).unwrap().clone().value,
-                                ty,
-                                span,
-                            }),
-                            _ => hir::Node::MemberAccess(hir::MemberAccess {
-                                value: Box::new(value.clone()),
-                                member_name: name,
-                                member_index: index as _,
-                                ty,
-                                span,
-                            }),
-                        };
-
-                        let (_, bound_node) = match pat {
-                            UnpackSubPat::Name(pat) => {
-                                if let Some(already_bound_span) = bound_names.insert(name, span) {
-                                    return Err(already_bound_err(pat.name, pat.span, already_bound_span));
-                                }
-
-                                self.bind_name_pat(
-                                    env,
-                                    pat,
-                                    vis,
-                                    ty,
-                                    Some(field_value),
-                                    kind,
-                                    flags | BindingInfoFlags::TYPE_WAS_INFERRED,
-                                )?
-                            }
-                            UnpackSubPat::NameAndPat(_, pat) => self.bind_pat(
-                                env,
-                                pat,
-                                vis,
-                                ty,
-                                Some(field_value),
-                                kind,
-                                ty_origin_span,
-                                flags | BindingInfoFlags::TYPE_WAS_INFERRED,
-                            )?,
-                        };
-
-                        statements.push(bound_node);
-                    } else {
-                        return Err(TypeError::invalid_struct_field(
-                            pat.span(),
-                            pat.name(),
-                            struct_type.display(&self.tcx),
-                        ));
-                    }
-                }
-
-                if let Some(glob) = &unpack_pat.glob {
-                    for (index, field) in struct_type.fields.iter().enumerate() {
-                        // skip explicitly bound fields
-                        if bound_names.contains_key(&field.name) {
-                            continue;
-                        }
-
-                        let ty = self.tcx.bound(field.ty.clone(), field.span);
-
-                        let field_value = match value.as_const_value() {
-                            Some(const_value) => hir::Node::Const(hir::Const {
-                                value: const_value.as_struct().unwrap().get(&field.name).unwrap().value.clone(),
-                                ty,
-                                span: field.span,
-                            }),
-                            None => hir::Node::MemberAccess(hir::MemberAccess {
-                                value: Box::new(value.clone()),
-                                member_name: field.name,
-                                member_index: index as _,
-                                ty,
-                                span: field.span,
-                            }),
-                        };
-
-                        let (_, bound_node) = self.bind_name(
-                            env,
-                            field.name,
-                            vis,
-                            ty,
-                            Some(field_value),
-                            false,
-                            kind,
-                            glob.span,
-                            flags - BindingInfoFlags::IS_USER_DEFINED,
-                        )?;
-
-                        statements.push(bound_node);
-                    }
-                }
-
-                Ok(())
-            }
+            Type::Struct(struct_type) => self.bind_struct_unpack_pat(
+                statements,
+                env,
+                unpack_pat,
+                vis,
+                struct_type,
+                value,
+                kind,
+                ty_origin_span,
+                flags,
+            ),
+            Type::Tuple(element_types) => self.bind_tuple_unpack_pat(
+                statements,
+                env,
+                unpack_pat,
+                vis,
+                element_types,
+                value,
+                kind,
+                ty_origin_span,
+                flags,
+            ),
             _ => Err(Diagnostic::error()
-                .with_message(format!("cannot use struct unpack on type `{}`", ty.display(&self.tcx)))
-                .with_label(Label::primary(unpack_pat.span, "illegal struct unpack"))),
+                .with_message(format!("cannot unpack type `{}`", ty.display(&self.tcx)))
+                .with_label(Label::primary(unpack_pat.span, "illegal unpack"))),
         }
     }
 
-    // fn find_name_in_module_bindings(
-    //     &mut self,
-    //     name: Ustr,
-    //     span: Span,
-    //     module_id: ModuleId,
-    //     caller_info: CallerInfo,
-    //     module_bindings: &UstrMap<BindingId>,
-    // ) -> CheckResult {
-    //     match name.as_str() {
-    //         // Top level `self` module
-    //         sym::SELF => Ok(self.module_node(module_id, caller_info.span)),
-    //         // Top level `super` module
-    //         sym::SUPER => {
-    //             let module_info = self.workspace.module_infos.get(module_id).unwrap().clone();
-    //             self.super_node_module(&module_info, caller_info)
-    //         }
-    //         _ => {
-    //             if let Some(id) = module_bindings.get(&name).copied() {
-    //                 self.validate_item_vis(id, caller_info)?;
-    //                 let binding_info = self.workspace.binding_infos.get(id).unwrap();
-    //                 Ok(self.id_or_const(binding_info, span))
-    //             } else {
-    //                 Err(self.name_not_found_error(module_id, name, caller_info))
-    //             }
-    //         }
-    //     }
-    // }
-
-    fn bind_tuple_unpack_pat(
+    fn bind_module_unpack_pat(
         &mut self,
         statements: &mut Vec<hir::Node>,
         env: &mut Env,
-        pat: &UnpackPat,
+        unpack_pat: &UnpackPat,
         vis: ast::Vis,
+        module_id: ModuleId,
+        kind: BindingInfoKind,
+        ty_origin_span: Span,
+        flags: BindingInfoFlags,
+    ) -> DiagnosticResult<()> {
+        validate_named_unpack_pat(unpack_pat)?;
+
+        self.check_module_by_id(module_id)?;
+
+        // println!(
+        //     "`{}` -> `{}`",
+        //     env.module_info().name,
+        //     self.workspace.module_infos[module_id].name,
+        // );
+
+        let module_bindings = self.global_scopes.get(&module_id).unwrap().bindings.clone();
+
+        let mut bound_names = UstrMap::default();
+
+        for subpat in unpack_pat.subpats.iter() {
+            let name_pat = subpat.pat.as_name().unwrap();
+
+            match &subpat.alias_pat {
+                Some(alias_pat) => {
+                    let caller_info = CallerInfo {
+                        module_id: env.module_id(),
+                        span: name_pat.span,
+                    };
+
+                    let node = self.check_top_level_name(name_pat.name, module_id, caller_info, true)?;
+
+                    let (_, binding) = self.bind_pat(
+                        env,
+                        alias_pat,
+                        vis,
+                        node.ty(),
+                        Some(node),
+                        kind,
+                        ty_origin_span,
+                        flags | BindingInfoFlags::TYPE_WAS_INFERRED,
+                    )?;
+
+                    statements.push(binding);
+                }
+                None => {
+                    if let Some(already_bound_span) = bound_names.insert(name_pat.name, name_pat.span) {
+                        return Err(already_bound_err(name_pat.name, name_pat.span, already_bound_span));
+                    }
+
+                    let caller_info = CallerInfo {
+                        module_id: env.module_id(),
+                        span: name_pat.span,
+                    };
+
+                    let node = self.check_top_level_name(name_pat.name, module_id, caller_info, true)?;
+
+                    let pat = match (name_pat.name.as_str(), node.ty().normalize(&self.tcx)) {
+                        (sym::SELF | sym::SUPER, Type::Module(module_id)) => NamePat {
+                            name: self.workspace.module_infos.get(module_id).unwrap().name,
+                            ..name_pat.clone()
+                        },
+                        _ => name_pat.clone(),
+                    };
+
+                    let (_, binding) = self.bind_name_pat(
+                        env,
+                        &pat,
+                        vis,
+                        node.ty(),
+                        Some(node),
+                        kind,
+                        flags | BindingInfoFlags::TYPE_WAS_INFERRED,
+                    )?;
+
+                    statements.push(binding);
+                }
+            }
+        }
+
+        if let Some(glob) = &unpack_pat.glob {
+            for (_, &id) in module_bindings.iter() {
+                let binding_info = self.workspace.binding_infos.get(id).unwrap();
+
+                if binding_info.vis == ast::Vis::Private {
+                    continue;
+                }
+
+                // skip explicitly bound bindings
+                if bound_names.contains_key(&binding_info.name) {
+                    continue;
+                }
+
+                let (_, binding) = self.bind_name(
+                    env,
+                    binding_info.name,
+                    vis,
+                    binding_info.ty,
+                    Some(self.id_or_const(binding_info, glob.span)),
+                    binding_info.is_mutable,
+                    binding_info.kind,
+                    glob.span,
+                    flags - BindingInfoFlags::IS_USER_DEFINED,
+                )?;
+
+                statements.push(binding);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn bind_struct_unpack_pat(
+        &mut self,
+        statements: &mut Vec<hir::Node>,
+        env: &mut Env,
+        unpack_pat: &UnpackPat,
+        vis: ast::Vis,
+        struct_type: StructType,
         value: hir::Node,
         kind: BindingInfoKind,
         ty_origin_span: Span,
         flags: BindingInfoFlags,
     ) -> DiagnosticResult<()> {
-        match value.ty().normalize(&self.tcx) {
-            Type::Tuple(elem_types) => {
-                if pat.subpats.len() <= elem_types.len() {
-                    let mut pat_types: Vec<TypeId> = vec![];
+        validate_named_unpack_pat(unpack_pat)?;
 
-                    pat.subpats.iter().enumerate().for_each(|(index, pat)| {
-                        let ty = match elem_types.get(index) {
-                            Some(elem) => self.tcx.bound(elem.clone(), pat.span()),
-                            None => self.tcx.var(pat.span()),
-                        };
+        let mut bound_names = UstrMap::default();
 
-                        pat_types.push(ty)
-                    });
+        for (index, subpat) in unpack_pat.subpats.iter().enumerate() {
+            let name_pat = subpat.pat.as_name().unwrap();
+            if let Some(field) = struct_type.field(name_pat.name) {
+                let ty = self.tcx.bound(field.ty.clone(), name_pat.span);
 
-                    for ((index, subpat), &ty) in pat.subpats.iter().enumerate().zip(pat_types.iter()) {
-                        let element_value = |pat: &Pat| match value.as_const_value() {
-                            Some(const_value) if !pat.is_mutable() => hir::Node::Const(hir::Const {
-                                value: const_value.as_tuple().unwrap()[index].value.clone(),
-                                ty,
-                                span: value.span(),
-                            }),
-                            _ => hir::Node::MemberAccess(hir::MemberAccess {
-                                value: Box::new(value.clone()),
-                                member_name: ustr(&index.to_string()),
-                                member_index: index as _,
-                                ty,
-                                span: value.span(),
-                            }),
-                        };
+                let field_value = match value.as_const_value() {
+                    Some(const_value) if !subpat.is_mutable() => hir::Node::Const(hir::Const {
+                        value: const_value
+                            .as_struct()
+                            .unwrap()
+                            .get(&name_pat.name)
+                            .unwrap()
+                            .clone()
+                            .value,
+                        ty,
+                        span: name_pat.span,
+                    }),
+                    _ => hir::Node::MemberAccess(hir::MemberAccess {
+                        value: Box::new(value.clone()),
+                        member_name: name_pat.name,
+                        member_index: index as _,
+                        ty,
+                        span: name_pat.span,
+                    }),
+                };
 
-                        let element_value = element_value(subpat);
+                let (_, bound_node) = match &subpat.alias_pat {
+                    Some(alias_pat) => self.bind_pat(
+                        env,
+                        alias_pat,
+                        vis,
+                        ty,
+                        Some(field_value),
+                        kind,
+                        ty_origin_span,
+                        flags | BindingInfoFlags::TYPE_WAS_INFERRED,
+                    )?,
+                    None => {
+                        if let Some(already_bound_span) = bound_names.insert(name_pat.name, name_pat.span) {
+                            return Err(already_bound_err(name_pat.name, name_pat.span, already_bound_span));
+                        }
 
-                        let (_, bound_node) = self.bind_pat(
+                        self.bind_name_pat(
                             env,
-                            subpat,
+                            name_pat,
                             vis,
                             ty,
-                            Some(element_value),
+                            Some(field_value),
                             kind,
-                            ty_origin_span,
                             flags | BindingInfoFlags::TYPE_WAS_INFERRED,
-                        )?;
-
-                        statements.push(bound_node);
+                        )?
                     }
+                };
 
-                    Ok(())
-                } else {
-                    Err(Diagnostic::error()
-                        .with_message(format!(
-                            "too many unpacked elements - expected {} elements, got {}",
-                            elem_types.len(),
-                            pat.subpats.len()
-                        ))
-                        .with_label(Label::primary(pat.span, "too many elements")))
-                }
+                statements.push(bound_node);
+            } else {
+                return Err(TypeError::invalid_struct_field(
+                    name_pat.span,
+                    name_pat.name,
+                    struct_type.display(&self.tcx),
+                ));
             }
-            ty => Err(Diagnostic::error()
-                .with_message(format!("cannot use tuple unpack on type `{}`", ty.display(&self.tcx)))
-                .with_label(Label::primary(pat.span, "illegal tuple unpack"))),
+        }
+
+        if let Some(glob) = &unpack_pat.glob {
+            for (index, field) in struct_type.fields.iter().enumerate() {
+                // skip explicitly bound fields
+                if bound_names.contains_key(&field.name) {
+                    continue;
+                }
+
+                let ty = self.tcx.bound(field.ty.clone(), field.span);
+
+                let field_value = match value.as_const_value() {
+                    Some(const_value) => hir::Node::Const(hir::Const {
+                        value: const_value.as_struct().unwrap().get(&field.name).unwrap().value.clone(),
+                        ty,
+                        span: field.span,
+                    }),
+                    None => hir::Node::MemberAccess(hir::MemberAccess {
+                        value: Box::new(value.clone()),
+                        member_name: field.name,
+                        member_index: index as _,
+                        ty,
+                        span: field.span,
+                    }),
+                };
+
+                let (_, bound_node) = self.bind_name(
+                    env,
+                    field.name,
+                    vis,
+                    ty,
+                    Some(field_value),
+                    false,
+                    kind,
+                    glob.span,
+                    flags - BindingInfoFlags::IS_USER_DEFINED,
+                )?;
+
+                statements.push(bound_node);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn bind_tuple_unpack_pat(
+        &mut self,
+        statements: &mut Vec<hir::Node>,
+        env: &mut Env,
+        unpack_pat: &UnpackPat,
+        vis: ast::Vis,
+        element_types: Vec<Type>,
+        value: hir::Node,
+        kind: BindingInfoKind,
+        ty_origin_span: Span,
+        flags: BindingInfoFlags,
+    ) -> DiagnosticResult<()> {
+        validate_tuple_unpack_pat(unpack_pat)?;
+
+        if unpack_pat.subpats.len() <= element_types.len() {
+            let mut pat_types: Vec<TypeId> = vec![];
+
+            unpack_pat.subpats.iter().enumerate().for_each(|(index, subpat)| {
+                let ty = match element_types.get(index) {
+                    Some(elem) => self.tcx.bound(elem.clone(), subpat.span),
+                    None => self.tcx.var(subpat.span),
+                };
+
+                pat_types.push(ty)
+            });
+
+            for ((index, subpat), &ty) in unpack_pat.subpats.iter().enumerate().zip(pat_types.iter()) {
+                let pat = &subpat.pat;
+
+                let element_value = match value.as_const_value() {
+                    Some(const_value) if !pat.is_mutable() => hir::Node::Const(hir::Const {
+                        value: const_value.as_tuple().unwrap()[index].value.clone(),
+                        ty,
+                        span: value.span(),
+                    }),
+                    _ => hir::Node::MemberAccess(hir::MemberAccess {
+                        value: Box::new(value.clone()),
+                        member_name: ustr(&index.to_string()),
+                        member_index: index as _,
+                        ty,
+                        span: value.span(),
+                    }),
+                };
+
+                let (_, bound_node) = self.bind_pat(
+                    env,
+                    pat,
+                    vis,
+                    ty,
+                    Some(element_value),
+                    kind,
+                    ty_origin_span,
+                    flags | BindingInfoFlags::TYPE_WAS_INFERRED,
+                )?;
+
+                statements.push(bound_node);
+            }
+
+            Ok(())
+        } else {
+            Err(Diagnostic::error()
+                .with_message(format!(
+                    "too many unpacked elements - expected {} elements, got {}",
+                    element_types.len(),
+                    unpack_pat.subpats.len()
+                ))
+                .with_label(Label::primary(unpack_pat.span, "too many elements")))
         }
     }
+}
+
+fn validate_named_unpack_pat(unpack_pat: &UnpackPat) -> DiagnosticResult<()> {
+    for subpat in unpack_pat.subpats.iter() {
+        match &subpat.pat {
+            Pat::Name(name_pat) if !name_pat.is_mutable => (),
+            _ => {
+                return Err(Diagnostic::error()
+                    .with_message("expected a name pattern")
+                    .with_label(Label::primary(subpat.pat.span(), "illegal pattern"))
+                    .with_note("if you meant to alias a name, use an alias pattern instead, e.g `<name>: <pattern>`"))
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_tuple_unpack_pat(unpack_pat: &UnpackPat) -> DiagnosticResult<()> {
+    for subpat in unpack_pat.subpats.iter() {
+        if let Some(alias_pat) = &subpat.alias_pat {
+            return Err(Diagnostic::error()
+                .with_message("unexpected alias pattern in tuple unpack")
+                .with_label(Label::primary(alias_pat.span(), "illegal alias pattern"))
+                .with_label(Label::secondary(
+                    subpat.pat.span(),
+                    "maybe you meant to put it here instead",
+                )));
+        }
+    }
+
+    if let Some(glob_pat) = &unpack_pat.glob {
+        return Err(Diagnostic::error()
+            .with_message("cannot use a glob (*) pattern when unpacking a tuple")
+            .with_label(Label::primary(glob_pat.span, "illegal glob (*) pattern")));
+    }
+
+    Ok(())
 }
 
 fn already_bound_err(name: Ustr, span: Span, already_bound_span: Span) -> Diagnostic {

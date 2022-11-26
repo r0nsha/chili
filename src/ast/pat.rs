@@ -94,16 +94,11 @@ impl<'a> PatIter<'a> {
 
     fn handle_unpack(&mut self, pat: &'a UnpackPat, pos: usize) -> Option<<Self as Iterator>::Item> {
         match pat.subpats.get(pos) {
-            Some(subpat) => match &subpat.alias_pat {
-                Some(alias_pat) => {
-                    self.push(alias_pat);
-                    self.next()
-                }
-                None => {
-                    self.push(&subpat.pat);
-                    self.next()
-                }
-            },
+            Some(subpat) => {
+                let next_pat = subpat.alias_pat.as_ref().unwrap_or(&subpat.pat);
+                self.push(next_pat);
+                self.next()
+            }
             None => None,
         }
     }
@@ -123,10 +118,10 @@ impl<'a> Iterator for PatIter<'a> {
         let pos = self.positions[index];
 
         let item = match pat {
-            Pat::Ignore(_) => self.next(),
+            Pat::Ignore(_) => None,
             Pat::Name(pat) => match pos {
                 0 => Some(pat),
-                _ => self.next(),
+                _ => None,
             },
             Pat::Unpack(pat) => self.handle_unpack(pat, pos),
             Pat::Hybrid(pat) => match pos {

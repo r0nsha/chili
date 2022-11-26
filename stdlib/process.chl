@@ -12,7 +12,7 @@ pub fn panic(
     fmt: *str = "unknown reason",
 ) -> never = {
     // TODO: use our own println function.
-    let { file, line, column } = caller_location()
+    let (file, line, column) = caller_location()
 
     printf(
         "panic: \"%s\" at %s:%u:%u\n".ptr, 
