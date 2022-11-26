@@ -202,7 +202,7 @@ impl Parser {
                 let name = sym.name();
 
                 let subpat = self.parse_import_binding_subpat(name, sym)?;
-                let span = subpat.span();
+                let span = subpat.span;
 
                 Ok(Pat::Unpack(UnpackPat {
                     subpats: vec![subpat],
@@ -299,33 +299,60 @@ impl Parser {
     fn parse_import_binding_subpat(&mut self, name: Ustr, sym: Token) -> DiagnosticResult<UnpackSubPat> {
         if is!(self, Dot) {
             // Nested subpath: foo.bar.baz.qux
-            let name_and_span = ast::NameAndSpan { name, span: sym.span };
-            let pat = self.parse_import_binding_pat(Some(sym))?;
-            Ok(UnpackSubPat::NameAndPat(name_and_span, pat))
-        } else if eat!(self, As) {
-            // Aliased subpath: foo as qux
-            let name_and_span = ast::NameAndSpan { name, span: sym.span };
-
-            let alias_tok = self.require_ident()?;
-            let alias = alias_tok.name();
-
-            Ok(UnpackSubPat::NameAndPat(
-                name_and_span,
-                Pat::Name(NamePat {
-                    id: BindingId::unknown(),
-                    name: alias,
-                    span: alias_tok.span,
-                    is_mutable: false,
-                }),
-            ))
-        } else {
-            // Subpath: foo
-            Ok(UnpackSubPat::Name(NamePat {
+            let pat = Pat::Name(NamePat {
                 id: BindingId::unknown(),
                 name,
                 span: sym.span,
                 is_mutable: false,
-            }))
+            });
+            let alias_pat = self.parse_import_binding_pat(Some(sym))?;
+            let span = pat.span().to(alias_pat.span());
+
+            Ok(UnpackSubPat {
+                pat,
+                alias_pat: Some(alias_pat),
+                span,
+            })
+        } else if eat!(self, As) {
+            // Aliased subpath: foo as qux
+            let pat = Pat::Name(NamePat {
+                id: BindingId::unknown(),
+                name,
+                span: sym.span,
+                is_mutable: false,
+            });
+
+            let alias_tok = self.require_ident()?;
+            let alias = alias_tok.name();
+            let alias_pat = Pat::Name(NamePat {
+                id: BindingId::unknown(),
+                name: alias,
+                span: alias_tok.span,
+                is_mutable: false,
+            });
+
+            let span = pat.span().to(alias_pat.span());
+
+            Ok(UnpackSubPat {
+                pat,
+                alias_pat: Some(alias_pat),
+                span,
+            })
+        } else {
+            // Subpath: foo
+            let pat = Pat::Name(NamePat {
+                id: BindingId::unknown(),
+                name,
+                span: sym.span,
+                is_mutable: false,
+            });
+            let span = pat.span;
+
+            Ok(UnpackSubPat {
+                pat,
+                alias_pat: None,
+                span,
+            })
         }
     }
 }

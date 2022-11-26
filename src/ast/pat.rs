@@ -42,9 +42,9 @@ pub struct UnpackPat {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UnpackSubPat {
-    pat: Pat,
-    alias_pat: Option<Pat>,
-    span: Span,
+    pub pat: Pat,
+    pub alias_pat: Option<Pat>,
+    pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -90,7 +90,10 @@ impl<'a> PatIter<'a> {
                     self.push(alias_pat);
                     self.next()
                 }
-                None => Some(pat),
+                None => {
+                    self.push(&subpat.pat);
+                    self.next()
+                }
             },
             None => None,
         }
@@ -111,13 +114,12 @@ impl<'a> Iterator for PatIter<'a> {
         let pos = self.positions[index];
 
         let item = match pat {
-            Pat::Ignore(_) => None,
+            Pat::Ignore(_) => self.next(),
             Pat::Name(pat) => match pos {
                 0 => Some(pat),
-                _ => None,
+                _ => self.next(),
             },
-            Pat::Unpack(pat) => self.handle_struct_unpack(pat, pos),
-            Pat::Tuple(pat) => self.handle_tuple_unpack(pat, pos),
+            Pat::Unpack(pat) => self.handle_unpack(pat, pos),
             Pat::Hybrid(pat) => match pos {
                 0 => Some(&pat.name_pat),
                 _ => self.handle_unpack(&pat.unpack_pat, pos),
@@ -170,9 +172,10 @@ impl Display for UnpackPat {
 
 impl Display for UnpackSubPat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            UnpackSubPat::Name(pat) => write!(f, "{}", pat),
-            UnpackSubPat::NameAndPat(name, pat) => write!(f, "{}: {}", name.name, pat),
+        write!(f, "{}", &self.pat)?;
+        if let Some(alias_pat) = &self.alias_pat {
+            write!(f, "{}", alias_pat)?;
         }
+        Ok(())
     }
 }

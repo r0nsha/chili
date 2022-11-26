@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    ast::pat::{GlobPat, HybridPat, NamePat, Pat, UnpackPat, UnpackSubPat},
+    ast::pat::{GlobPat, HybridPat, NamePat, Pat, UnpackPat},
     error::SyntaxError,
     workspace::BindingId,
 };

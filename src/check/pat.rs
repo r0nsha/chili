@@ -6,7 +6,7 @@ use super::{
 use crate::{
     ast::{
         self,
-        pat::{NamePat, Pat, UnpackPat, UnpackSubPat, UnpackPat, UnpackPatKind},
+        pat::{NamePat, Pat, UnpackPat, UnpackSubPat},
     },
     error::{
         diagnostic::{Diagnostic, Label},
